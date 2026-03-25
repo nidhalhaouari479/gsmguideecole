@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #0f172a; padding: 30px; border-radius: 16px 16px 0 0; text-align: center; }
+        .content { background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 16px 16px; }
+        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #64748b; }
+        .status-box { padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center; font-weight: bold; }
+        .approved { background: #ecfdf5; color: #059669; border: 1px solid #10b981; }
+        .rejected { background: #fff1f2; color: #e11d48; border: 1px solid #f43f5e; }
+        .btn { display: inline-block; background: #0f172a; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="https://www.gsm-guide-academy.tn/wp-content/uploads/2024/09/Sans-titre-5-copy-1024x966.png" width="80" alt="GSM Guide Academy">
+    </div>
+    <div class="content">
+        <h2 style="margin-top: 0; color: #0f172a;">Mise à jour de votre paiement</h2>
+        <p>Bonjour {{NAME}},</p>
+        <p>Le statut de votre paiement pour la formation <strong>{{COURSE}}</strong> a été mis à jour par l'administration.</p>
+        
+        <div class="status-box {{STATUS_CLASS}}">
+            Statut actuel : {{STATUS_TEXT}}
+        </div>
+        
+        <p>{{MESSAGE}}</p>
+        
+        <a href="https://gsm-guide-academy.tn/dashboard" class="btn">Accéder à mon espace</a>
+    </div>
+    <div class="footer">
+        © GSM Guide Academy - Votre avenir dans la réparation smartphone
+    </div>
+</body>
+</html>
