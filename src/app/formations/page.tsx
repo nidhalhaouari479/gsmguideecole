@@ -98,7 +98,7 @@ export default function FormationsPage() {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.8, ease: "easeOut" }}
                         >
-                            <h1 className="text-5xl md:text-7xl font-black mb-8 leading-tight">
+                            <h1 className="text-4xl xs:text-5xl md:text-7xl font-black mb-8 leading-tight">
                                 Découvrez nos <br />
                                 <span className="text-brand-blue">formations d’experts</span>
                             </h1>
@@ -212,7 +212,7 @@ export default function FormationsPage() {
                                         {f.desc[language]}
                                     </p>
 
-                                    <div className="grid grid-cols-2 gap-6 mb-8 py-6 border-y border-border/50">
+                                    <div className="grid grid-cols-1 xs:grid-cols-2 gap-4 sm:gap-6 mb-8 py-6 border-y border-border/50">
                                         <div className="flex items-center gap-3">
                                             <div className="p-2 bg-brand-blue/10 rounded-lg text-brand-blue">
                                                 <Clock size={16} />

@@ -1,21 +1,15 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { verifyAdmin } from '@/lib/auth-admin';
+import { createAdminClient } from '@/lib/supabase-server';
 
 export async function GET() {
     try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-        if (!supabaseServiceKey) {
-            return NextResponse.json({ error: 'Service Role Key missing' }, { status: 500 });
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
 
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
-            }
-        });
+        const supabaseAdmin = createAdminClient();
 
         const { data: professeurs, error } = await supabaseAdmin
             .from('professeurs')
@@ -33,6 +27,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
     try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
         const body = await req.json();
         const { nom, prenom, specialite } = body;
 
@@ -40,11 +39,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Nom et Prénom sont requis' }, { status: 400 });
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-            auth: { autoRefreshToken: false, persistSession: false }
-        });
+        const supabaseAdmin = createAdminClient();
 
         const { error } = await supabaseAdmin
             .from('professeurs')
@@ -61,6 +56,11 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
     try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
         const body = await req.json();
         const { id, nom, prenom, specialite } = body;
 
@@ -68,11 +68,7 @@ export async function PUT(req: Request) {
             return NextResponse.json({ error: 'ID, Nom et Prénom sont requis' }, { status: 400 });
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-            auth: { autoRefreshToken: false, persistSession: false }
-        });
+        const supabaseAdmin = createAdminClient();
 
         const { error } = await supabaseAdmin
             .from('professeurs')

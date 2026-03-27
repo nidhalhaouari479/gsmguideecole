@@ -6,9 +6,11 @@ import { Lock, Mail, Loader2, AlertCircle, Terminal, ShieldAlert } from 'lucide-
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
+import { supabase } from '@/lib/supabase';
+
 export default function AdminLogin() {
     const router = useRouter();
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -18,16 +20,33 @@ export default function AdminLogin() {
         setLoading(true);
         setError(null);
 
-        // Simple hardcoded check as requested by the user
-        setTimeout(() => {
-            if (username === 'admin' && password === 'admin') {
-                localStorage.setItem('isAdmin', 'true');
-                router.push('/admin');
-            } else {
-                setError('ACCESS DENIED: Invalid Clearance Protocol');
-                setLoading(false);
-            }
-        }, 800);
+        const { data, error: loginError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+
+        if (loginError) {
+            setError(loginError.message);
+            setLoading(false);
+            return;
+        }
+
+        // Verify if the user is actually an admin
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', data.user.id)
+            .single();
+
+        if (profileError || profile?.role !== 'admin') {
+            await supabase.auth.signOut();
+            setError('ACCESS DENIED: Insufficient Clearance');
+            setLoading(false);
+            return;
+        }
+
+        router.push('/admin');
+        router.refresh();
     };
 
     return (
@@ -55,16 +74,16 @@ export default function AdminLogin() {
 
                     <form onSubmit={handleLogin} className="space-y-5">
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Identifiant</label>
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">E-mail Professionnel</label>
                             <div className="relative">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                 <input
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
                                     required
                                     className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all"
-                                    placeholder="Nom d'utilisateur"
+                                    placeholder="admin@gsmguide.com"
                                 />
                             </div>
                         </div>

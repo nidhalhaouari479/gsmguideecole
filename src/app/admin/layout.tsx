@@ -35,14 +35,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 
         const checkAdmin = async () => {
-            const isLocalAdmin = localStorage.getItem('isAdmin') === 'true';
-            if (isLocalAdmin) {
-                setLoading(false);
-                return;
-            }
-
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
+            const { data: { user } } = await supabase.auth.getUser();
+            
+            if (!user) {
                 router.push('/admin/login');
                 return;
             }
@@ -50,7 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('role')
-                .eq('id', session.user.id)
+                .eq('id', user.id)
                 .single();
 
             if (profile?.role !== 'admin') {
@@ -58,7 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 return;
             }
 
-            setUser(session.user);
+            setUser(user);
             setLoading(false);
         };
 
@@ -143,7 +138,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
 
     const handleLogout = async () => {
-        localStorage.removeItem('isAdmin');
         await supabase.auth.signOut();
         router.push('/admin/login');
     };
@@ -334,7 +328,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <Link href="/admin" className="flex items-center gap-3">
                                 <div className="min-w-[40px] w-10 h-10 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center p-1 shadow-lg overflow-hidden group">
                                     <img
-                                        src="https://www.gsm-guide-academy.tn/wp-content/uploads/2024/09/Sans-titre-5-copy-1024x966.png"
+                                        src="/gsmlogo.png"
                                         alt="GSM Guide Academy"
                                         className="w-full h-full object-contain"
                                     />

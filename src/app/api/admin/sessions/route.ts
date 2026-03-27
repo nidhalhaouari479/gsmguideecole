@@ -1,21 +1,15 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { verifyAdmin } from '@/lib/auth-admin';
+import { createAdminClient } from '@/lib/supabase-server';
 
 export async function GET() {
     try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-        if (!supabaseServiceKey) {
-            return NextResponse.json({ error: 'Service Role Key missing' }, { status: 500 });
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
 
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
-            }
-        });
+        const supabaseAdmin = createAdminClient();
 
         // Fetch all tables separately to avoid schema cache join errors
         const [
@@ -75,6 +69,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
     try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
         const body = await req.json();
         const { course_id, instructor_id, seats_available, seances, schedule: globalSchedule } = body;
 
@@ -82,21 +81,17 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Sort seances by date to find start and end
         const sortedSeances = [...seances].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         const start_date = sortedSeances[0].date;
         const end_date = sortedSeances[sortedSeances.length - 1].date;
 
-        // Store seances AND instructor_id as JSON within the schedule column
         const scheduleWithData = JSON.stringify({
             label: globalSchedule || 'Personalized',
             seances: seances,
             instructor_id: instructor_id || null
         });
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        const supabaseAdmin = createAdminClient();
 
         const { data, error } = await supabaseAdmin
             .from('sessions')
@@ -121,6 +116,11 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
     try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
         const body = await req.json();
         const { id, course_id, instructor_id, seats_available, seances, schedule: globalSchedule } = body;
 
@@ -128,21 +128,17 @@ export async function PUT(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Sort seances by date to find start and end
         const sortedSeances = [...seances].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         const start_date = sortedSeances[0].date;
         const end_date = sortedSeances[sortedSeances.length - 1].date;
 
-        // Store seances AND instructor_id as JSON within the schedule column
         const scheduleWithData = JSON.stringify({
             label: globalSchedule || 'Personalized',
             seances: seances,
             instructor_id: instructor_id || null
         });
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        const supabaseAdmin = createAdminClient();
 
         const { data, error } = await supabaseAdmin
             .from('sessions')
@@ -168,6 +164,11 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
     try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
 
@@ -175,9 +176,7 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ error: 'Missing session ID' }, { status: 400 });
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        const supabaseAdmin = createAdminClient();
 
         const { error } = await supabaseAdmin
             .from('sessions')

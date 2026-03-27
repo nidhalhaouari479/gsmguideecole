@@ -1,22 +1,15 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { verifyAdmin } from '@/lib/auth-admin';
+import { createAdminClient } from '@/lib/supabase-server';
 
 export async function GET() {
     try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-        if (!supabaseServiceKey) {
-            return NextResponse.json({ error: 'Service Role Key missing' }, { status: 500 });
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
 
-        // Use service role key to bypass RLS
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
-            }
-        });
+        const supabaseAdmin = createAdminClient();
 
         // 1. Fetch all student profiles
         const { data: profiles, error: profileError } = await supabaseAdmin

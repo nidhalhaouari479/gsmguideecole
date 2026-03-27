@@ -1,11 +1,15 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { verifyAdmin } from '@/lib/auth-admin';
+import { createAdminClient } from '@/lib/supabase-server';
 
 export async function GET() {
     try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
+        const supabaseAdmin = createAdminClient();
 
         const { data: courses, error } = await supabaseAdmin
             .from('courses')
@@ -24,6 +28,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
     try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
         const body = await req.json();
         const {
             title_fr, title_en, description_fr, description_en,
@@ -35,9 +44,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Titre et prix de base sont requis' }, { status: 400 });
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        const supabaseAdmin = createAdminClient();
 
         const { error } = await supabaseAdmin
             .from('courses')
@@ -57,6 +64,11 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
     try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
         const body = await req.json();
         const {
             id, title_fr, title_en, description_fr, description_en,
@@ -68,9 +80,7 @@ export async function PUT(req: Request) {
             return NextResponse.json({ error: 'ID, Titre et prix sont requis' }, { status: 400 });
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        const supabaseAdmin = createAdminClient();
 
         const { error } = await supabaseAdmin
             .from('courses')
@@ -91,6 +101,11 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
     try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
 
@@ -98,9 +113,7 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ error: 'ID requis' }, { status: 400 });
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        const supabaseAdmin = createAdminClient();
 
         const { error } = await supabaseAdmin
             .from('courses')

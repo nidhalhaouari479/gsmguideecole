@@ -1,17 +1,19 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { verifyAdmin } from '@/lib/auth-admin';
+import { createAdminClient } from '@/lib/supabase-server';
 
 export async function GET(req: Request, context: any) {
     try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
         // Handle both Next.js 14 (sync params) and 15 (async params)
         const params = await context.params;
         const id = params.id;
 
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!,
-            { auth: { autoRefreshToken: false, persistSession: false } }
-        );
+        const supabaseAdmin = createAdminClient();
 
         // 1. Fetch student profile
         const { data: profile, error: profileError } = await supabaseAdmin

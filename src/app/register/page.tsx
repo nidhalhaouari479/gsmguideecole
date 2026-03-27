@@ -260,7 +260,7 @@ export default function RegisterPage() {
                             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-blue/10 text-brand-blue font-bold text-xs uppercase tracking-widest mb-4">
                                 <UserPlus size={14} /> {verificationStep ? "Vérification" : "Rejoindre l'Académie"}
                             </div>
-                            <h1 className="text-3xl font-black mb-2">{verificationStep ? "Vérifiez votre Email" : t.nav.register}</h1>
+                            <h1 className="text-2xl xs:text-3xl font-black mb-2">{verificationStep ? "Vérifiez votre Email" : t.nav.register}</h1>
                             <p className="text-slate-500">
                                 {verificationStep
                                     ? `Un code de vérification a été envoyé à ${email}`
@@ -350,7 +350,7 @@ export default function RegisterPage() {
                                 </div>
 
                                 {/* Row 3: Source + CIN */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     <div>
                                         <label className={`${labelClass} ${showErrors && !source ? 'text-red-500' : ''}`}>Comment avez-vous connu ? *</label>
                                         <div className="relative">
@@ -392,7 +392,7 @@ export default function RegisterPage() {
                                 {/* Gender selector */}
                                 <div>
                                     <label className={`${labelClass} ${showErrors && !gender ? 'text-red-500' : ''}`}>Civilité *</label>
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-col sm:flex-row gap-3">
                                         {(['M', 'Mme'] as const).map((g) => (
                                             <button
                                                 key={g}

@@ -91,7 +91,7 @@ const Navbar = () => {
                     <Link href="/" className="flex items-center gap-2">
                         <div className="relative w-12 h-12">
                             <Image
-                                src="https://www.gsm-guide-academy.tn/wp-content/uploads/2024/09/Sans-titre-5-copy-1024x966.png"
+                                src="/gsmlogo.png"
                                 alt="GSM Guide Academy Logo"
                                 fill
                                 sizes="(max-width: 768px) 48px, 48px"
@@ -183,7 +183,7 @@ const Navbar = () => {
                                         <MapPin size={18} className="text-brand-blue" />
                                         <span>Centre Makni, Menzah 9, Tunis, Tunisie</span>
                                     </div>
-                                    <div className="flex flex-col gap-2 pt-2 border-t border-border mt-2">
+                                    <div className="flex flex-col gap-4 pt-4 border-t border-border mt-2">
                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Nos autres plateformes</p>
                                         <a href="https://shop.gsm-guide.tn/" target="_blank" rel="noopener noreferrer" className="text-brand-blue font-bold hover:underline flex items-center gap-2 text-sm">
                                             <Globe size={14} /> Reparation Shop

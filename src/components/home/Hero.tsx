@@ -29,7 +29,7 @@ const Hero = () => {
                             ACADÉMIE N°1 EN TUNISIE
                         </div>
 
-                        <h1 className="text-5xl md:text-7xl font-black mb-8 leading-tight tracking-tight text-slate-900 dark:text-white">
+                        <h1 className="text-4xl xs:text-5xl md:text-7xl font-black mb-8 leading-tight tracking-tight text-slate-900 dark:text-white">
                             {t.hero.title} <br />
                             <span className="text-gradient">Carrière Professionnelle</span>
                         </h1>
@@ -55,7 +55,7 @@ const Hero = () => {
                             </button>
                         </div>
 
-                        <div className="mt-16 flex items-center gap-6 p-6 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-border w-fit">
+                        <div className="mt-16 flex flex-col sm:flex-row items-center sm:items-start gap-6 p-6 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-border w-full sm:w-fit">
                             <div className="flex -space-x-4">
                                 {[1, 2, 3, 4].map((i) => (
                                     <div key={i} className="w-14 h-14 rounded-full border-4 border-white dark:border-slate-800 bg-slate-200 overflow-hidden relative shadow-md">
