@@ -2,14 +2,21 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { usePathname } from 'next/navigation';
 
 const WhatsAppButton = () => {
+    const pathname = usePathname();
     // Replace with the actual WhatsApp number of the academy
     const phoneNumber = "21654151515"; 
     
+    // Do not show the WhatsApp button on the admin dashboard
+    if (pathname?.startsWith('/admin')) {
+        return null;
+    }
+
     return (
         <motion.a
-            href={`https://wa.vme/${phoneNumber}`}
+            href={`https://wa.me/${phoneNumber}`}
             target="_blank"
             rel="noopener noreferrer"
             initial={{ scale: 0, opacity: 0 }}
