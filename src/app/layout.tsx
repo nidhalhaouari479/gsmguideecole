@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   },
 };
 
+import WhatsAppButton from "@/components/layout/WhatsAppButton";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,6 +31,7 @@ export default function RootLayout({
             <MainLayoutWrapper>
               {children}
             </MainLayoutWrapper>
+            <WhatsAppButton />
           </AnalyticsProvider>
         </LanguageProvider>
       </body>
