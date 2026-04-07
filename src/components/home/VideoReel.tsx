@@ -19,7 +19,7 @@ const VideoReel = () => {
             title: 'Réussite des Étudiants'
         },
         {
-            id: 'yfCfRklB8so',
+            id: 'xHqMgmhWW-k',
             title: 'Laboratoire en Direct'
         }
     ];
