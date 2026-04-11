@@ -79,8 +79,9 @@ const VideoReel = () => {
                                 {/* Transparent Overlay to block all interactions (No Pause/Play) */}
                                 <div className="absolute inset-0 z-20 pointer-events-auto cursor-default" />
 
-                                {/* Visual masking to hide top/bottom YT UI elements further */}
-                                <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+                                {/* Visual masking to hide top/bottom YT UI elements further (Blocker pour cacher le titre complètement) */}
+                                <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black via-black/90 to-transparent z-20 pointer-events-none" />
+                                <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-black/80 to-transparent z-10 pointer-events-none" />
 
                                 <div className="absolute bottom-10 left-8 right-8 z-30 pointer-events-none">
                                     <div className="text-brand-green font-black text-[10px] uppercase tracking-[0.2em] mb-2">Leçon n°{index + 1}</div>

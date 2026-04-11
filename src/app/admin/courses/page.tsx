@@ -379,9 +379,6 @@ export default function CoursesAdminPage() {
                                         <span className="text-2xl font-black text-white tracking-tighter">{course.base_price} DT</span>
                                     )}
                                 </div>
-                                <button className="w-12 h-12 bg-white/5 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-brand-green hover:text-black hover:scale-110 active:scale-95 transition-all shadow-lg shadow-black/20">
-                                    <ChevronRight size={22} strokeWidth={3} />
-                                </button>
                             </div>
                         </div>
                     </motion.div>
