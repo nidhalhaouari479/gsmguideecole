@@ -22,6 +22,8 @@ import {
     AlertCircle,
     CheckCircle2,
     Briefcase,
+    Mail,
+    Phone,
     X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,6 +76,19 @@ export default function SessionsAdminPage() {
         seanceCount: 1,
         seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
     });
+
+    // Manifest State
+    const [isManifestOpen, setIsManifestOpen] = useState(false);
+    const [manifestStudents, setManifestStudents] = useState<any[]>([]);
+    const [loadingManifest, setLoadingManifest] = useState(false);
+    const [selectedSessionLabel, setSelectedSessionLabel] = useState('');
+    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+
+    // Manual Enrollment State
+    const [isAddingStudent, setIsAddingStudent] = useState(false);
+    const [allStudents, setAllStudents] = useState<any[]>([]);
+    const [studentSearchQuery, setStudentSearchQuery] = useState('');
+    const [isEnrolling, setIsEnrolling] = useState(false);
 
     useEffect(() => {
         fetchSessions();
@@ -200,6 +215,60 @@ export default function SessionsAdminPage() {
         });
         setCurrentStep(1);
         setIsModalOpen(true);
+    };
+
+    const handleViewManifest = async (session: Session) => {
+        setSelectedSessionLabel(session.courses?.title_fr || 'Session');
+        setSelectedSessionId(session.id);
+        setIsManifestOpen(true);
+        setLoadingManifest(true);
+        setIsAddingStudent(false); // Reset add mode
+        try {
+            const response = await fetch(`/api/admin/sessions/students?sessionId=${session.id}`);
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+            setManifestStudents(data);
+        } catch (error) {
+            console.error('Error fetching manifest:', error);
+            alert('Impossible de charger la liste des étudiants.');
+        } finally {
+            setLoadingManifest(false);
+        }
+    };
+
+    const fetchAllStudents = async () => {
+        try {
+            const response = await fetch('/api/admin/students');
+            const data = await response.json();
+            setAllStudents(data);
+        } catch (error) {
+            console.error('Error fetching students:', error);
+        }
+    };
+
+    const handleAddStudent = async (studentId: string) => {
+        if (!selectedSessionId) return;
+        setIsEnrolling(true);
+        try {
+            const response = await fetch('/api/admin/enrollments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: studentId, sessionId: selectedSessionId })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+            
+            // Refresh manifest after adding
+            const manifestRes = await fetch(`/api/admin/sessions/students?sessionId=${selectedSessionId}`);
+            const manifestData = await manifestRes.json();
+            setManifestStudents(manifestData);
+            setIsAddingStudent(false);
+            setStudentSearchQuery('');
+        } catch (error: any) {
+            alert(error.message);
+        } finally {
+            setIsEnrolling(false);
+        }
     };
 
     const filteredSessions = sessions.filter(s =>
@@ -420,7 +489,10 @@ export default function SessionsAdminPage() {
                                     </div>
                                 </div>
 
-                                <button className="flex items-center gap-2 text-brand-green font-black uppercase tracking-widest text-[10px] hover:gap-3 transition-all">
+                                <button 
+                                    onClick={() => handleViewManifest(session)}
+                                    className="flex items-center gap-2 text-brand-green font-black uppercase tracking-widest text-[10px] hover:gap-3 transition-all"
+                                >
                                     VIEW MANIFEST <ChevronRight size={14} />
                                 </button>
                             </div>
@@ -635,6 +707,191 @@ export default function SessionsAdminPage() {
                                         {isSubmitting ? 'ESTABLISHING...' : (editingSessionId ? 'UPDATE DEPLOYMENT' : 'FINALIZE DEPLOYMENT')}
                                     </button>
                                 )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+            {/* SESSION MANIFEST MODAL */}
+            <AnimatePresence>
+                {isManifestOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col"
+                        >
+                            {/* Header */}
+                            <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/50">
+                                <div>
+                                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-1">
+                                        <Users size={12} /> Deployment Manifest
+                                    </div>
+                                    <h2 className="text-2xl font-black text-white tracking-tight">
+                                        Students Enrolled <span className="text-slate-500">in</span> {selectedSessionLabel}
+                                    </h2>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={() => {
+                                            if (!allStudents.length) fetchAllStudents();
+                                            setIsAddingStudent(!isAddingStudent);
+                                        }}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                            isAddingStudent ? 'bg-rose-500/20 text-rose-500 border-rose-500/20' : 'bg-brand-green/20 text-brand-green border-brand-green/20'
+                                        } border`}
+                                    >
+                                        {isAddingStudent ? <X size={14} /> : <Plus size={14} />}
+                                        {isAddingStudent ? 'CANCEL' : 'ADD STUDENT'}
+                                    </button>
+                                    <button onClick={() => setIsManifestOpen(false)} className="p-2 text-slate-500 hover:text-white bg-white/5 rounded-xl transition-all">
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Add Student UI Overlay */}
+                            <AnimatePresence>
+                                {isAddingStudent && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="bg-slate-950/50 border-b border-white/5 overflow-hidden"
+                                    >
+                                        <div className="p-6 space-y-4">
+                                            <div className="relative">
+                                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                                                <input 
+                                                    type="text"
+                                                    placeholder="Search student by name or email..."
+                                                    value={studentSearchQuery}
+                                                    onChange={(e) => setStudentSearchQuery(e.target.value)}
+                                                    className="w-full bg-slate-900 border border-white/5 rounded-xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-brand-green/50"
+                                                />
+                                            </div>
+                                            
+                                            <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2">
+                                                {allStudents
+                                                    .filter(s => 
+                                                        !manifestStudents.some(ms => ms.id === s.id) && 
+                                                        (s.full_name?.toLowerCase().includes(studentSearchQuery.toLowerCase()) || 
+                                                         s.email?.toLowerCase().includes(studentSearchQuery.toLowerCase()))
+                                                    )
+                                                    .map(student => (
+                                                        <div key={student.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-transparent hover:border-white/5 group">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400">
+                                                                    {student.full_name?.charAt(0)}
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-xs font-bold text-white">{student.full_name}</span>
+                                                                    <span className="text-[9px] text-slate-500">{student.email}</span>
+                                                                </div>
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => handleAddStudent(student.id)}
+                                                                disabled={isEnrolling}
+                                                                className="px-3 py-1.5 rounded-lg bg-brand-green text-black font-black text-[9px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                                                            >
+                                                                {isEnrolling ? <Loader2 size={12} className="animate-spin" /> : 'ENROLL'}
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                {studentSearchQuery && allStudents.filter(s => 
+                                                    !manifestStudents.some(ms => ms.id === s.id) && 
+                                                    (s.full_name?.toLowerCase().includes(studentSearchQuery.toLowerCase()) || 
+                                                     s.email?.toLowerCase().includes(studentSearchQuery.toLowerCase()))
+                                                ).length === 0 && (
+                                                    <p className="text-center py-4 text-[10px] font-black text-slate-600 uppercase tracking-widest">No matching students available</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Content */}
+                            <div className="flex-grow overflow-y-auto custom-scrollbar p-0">
+                                {loadingManifest ? (
+                                    <div className="flex flex-col items-center justify-center py-32 gap-4">
+                                        <Loader2 className="animate-spin text-brand-green" size={32} />
+                                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Retrieving Crew Roster...</p>
+                                    </div>
+                                ) : manifestStudents.length > 0 ? (
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-white/5 border-b border-white/5">
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Student</th>
+                                                <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Contact Info</th>
+                                                <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5">
+                                            {manifestStudents.map((student, idx) => (
+                                                <motion.tr 
+                                                    key={student.id}
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ delay: idx * 0.05 }}
+                                                    className="hover:bg-white/[0.02] transition-colors group"
+                                                >
+                                                    <td className="px-8 py-4">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white text-xs font-black border border-white/5">
+                                                                {student.full_name?.charAt(0)}
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold text-white text-sm">{student.full_name}</span>
+                                                                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">
+                                                                    Joined: {new Date(student.enrolled_at).toLocaleDateString('fr-FR')}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-2 text-xs text-slate-300 font-bold">
+                                                                <Mail size={12} className="text-brand-blue" /> {student.email}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-xs text-slate-300 font-bold">
+                                                                <Phone size={12} className="text-brand-green" /> {student.phone}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+                                                            student.status === 'approved' 
+                                                            ? 'bg-brand-green/10 text-brand-green border-brand-green/20' 
+                                                            : 'bg-amber-400/10 text-amber-400 border-amber-400/20'
+                                                        }`}>
+                                                            {student.status || 'PENDING'}
+                                                        </span>
+                                                    </td>
+                                                </motion.tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <div className="py-32 text-center">
+                                        <Users size={48} className="text-slate-800 mx-auto mb-4" />
+                                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">No students found for this session</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="p-8 border-t border-white/5 bg-slate-950/50 flex justify-between items-center">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    Total Crew: <span className="text-white">{manifestStudents.length}</span>
+                                </p>
+                                <button
+                                    onClick={() => setIsManifestOpen(false)}
+                                    className="px-8 py-3 rounded-xl bg-white/5 text-white hover:bg-white/10 font-black text-[10px] uppercase tracking-widest transition-all border border-white/10"
+                                >
+                                    Close Manifest
+                                </button>
                             </div>
                         </motion.div>
                     </div>
