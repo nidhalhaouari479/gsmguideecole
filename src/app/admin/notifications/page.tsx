@@ -134,7 +134,7 @@ export default function NotificationsPage() {
                         placeholder="Rechercher dans les archives..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-slate-900/50 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-white focus:outline-none focus:border-brand-green/30 transition-all"
+                        className="w-full bg-white border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-slate-900 focus:outline-none focus:border-brand-green/30 transition-all"
                     />
                 </div>
                 <div className="flex gap-2">

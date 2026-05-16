@@ -50,18 +50,18 @@ export default function AdminLogin() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 font-sans">
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 font-sans">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-[400px]"
             >
-                <div className="premium-card bg-white dark:bg-slate-900 p-10 shadow-xl overflow-hidden relative">
+                <div className="premium-card bg-white p-10 shadow-xl overflow-hidden relative">
                     <div className="text-center mb-8">
                         <div className="w-16 h-16 bg-brand-green/10 text-brand-green rounded-2xl flex items-center justify-center mx-auto mb-6">
                             <Lock size={32} />
                         </div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Administration</h1>
+                        <h1 className="text-2xl font-bold text-slate-900">Administration</h1>
                         <p className="text-slate-500 mt-2 text-sm">Veuillez vous connecter pour continuer</p>
                     </div>
 
@@ -74,7 +74,7 @@ export default function AdminLogin() {
 
                     <form onSubmit={handleLogin} className="space-y-5">
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">E-mail Professionnel</label>
+                            <label className="text-sm font-bold text-slate-700 ml-1">E-mail Professionnel</label>
                             <div className="relative">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                 <input
@@ -82,14 +82,14 @@ export default function AdminLogin() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
-                                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all"
+                                    className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all text-slate-900"
                                     placeholder="admin@gsmguide.com"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Mot de passe</label>
+                            <label className="text-sm font-bold text-slate-700 ml-1">Mot de passe</label>
                             <div className="relative">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                 <input
@@ -97,7 +97,7 @@ export default function AdminLogin() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all"
+                                    className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all text-slate-900"
                                     placeholder="••••••••"
                                 />
                             </div>

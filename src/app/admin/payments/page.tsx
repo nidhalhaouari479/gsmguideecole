@@ -335,7 +335,7 @@ export default function PaymentsAdminPage() {
                             placeholder="Search Ledger Entry..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-900/50 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
 
@@ -631,7 +631,7 @@ export default function PaymentsAdminPage() {
                                                             placeholder="Montant Tranche"
                                                             defaultValue={en.declared_amount || ''}
                                                             onChange={(e) => setConfirmAmount(prev => ({ ...prev, [en.id]: e.target.value }))}
-                                                            className="w-24 bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-brand-green/50"
+                                                            className="w-24 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-brand-green/50"
                                                             title="ENTRER LE MONTANT DE CETTE TRANCHE"
                                                         />
                                                         <button

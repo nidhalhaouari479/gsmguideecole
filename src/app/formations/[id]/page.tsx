@@ -423,7 +423,7 @@ export default function FormationDetail() {
                                             placeholder="Partagez votre expérience avec cette formation (optionnel)..."
                                             value={userRating.comment}
                                             onChange={(e) => setUserRating(prev => ({ ...prev, comment: e.target.value }))}
-                                            className="w-full bg-slate-50 dark:bg-slate-900/50 border border-border rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand-blue outline-none min-h-[100px]"
+                                            className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand-blue outline-none min-h-[100px] text-slate-900"
                                         />
                                         <button
                                             onClick={submitRating}

@@ -199,8 +199,8 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="pb-24 bg-slate-50 dark:bg-slate-950 min-h-screen">
-            <div className="bg-white dark:bg-slate-900 border-b border-border pt-24 pb-12">
+        <div className="pb-24 bg-slate-50 min-h-screen">
+            <div className="bg-white border-b border-border pt-24 pb-12">
                 <div className="container mx-auto px-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-6">
@@ -208,14 +208,14 @@ export default function DashboardPage() {
                                 {user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold mb-1 text-slate-900 dark:text-white">
+                                <h1 className="text-3xl font-bold mb-1 text-slate-900">
                                     {user?.user_metadata?.full_name || "Student"}
                                 </h1>
                                 <p className="text-slate-500">{user?.email}</p>
                             </div>
                         </div>
                         <div className="flex gap-4">
-                            <button onClick={handleLogout} className="flex items-center gap-2 px-6 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors font-bold text-sm text-slate-600 dark:text-slate-300 border border-border">
+                            <button onClick={handleLogout} className="flex items-center gap-2 px-6 py-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-500 transition-colors font-bold text-sm text-slate-600 border border-border">
                                 <LogOut size={18} /> {t.nav.logout}
                             </button>
                         </div>
@@ -289,7 +289,7 @@ export default function DashboardPage() {
                                             <div className="flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-border pt-8">
                                                 <div className="flex-1 w-full">
                                                     {activeUploadId === en.id ? (
-                                                        <div className="bg-slate-50 dark:bg-slate-900 border border-brand-blue/20 rounded-2xl p-6 space-y-4">
+                                                        <div className="bg-slate-50 border border-brand-blue/20 rounded-2xl p-6 space-y-4">
                                                             <div className="flex items-center justify-between">
                                                                 <h4 className="font-bold text-sm">Payer une autre tranche</h4>
                                                                 <button
@@ -308,11 +308,11 @@ export default function DashboardPage() {
                                                                             placeholder="Montant payé (DT)"
                                                                             value={trancheAmount}
                                                                             onChange={(e) => setTrancheAmount(e.target.value)}
-                                                                            className="w-full bg-white dark:bg-slate-800 border border-border rounded-xl py-3 pl-12 pr-4 text-sm focus:border-brand-blue transition-all outline-none font-bold"
+                                                                            className="w-full bg-white border border-border rounded-xl py-3 pl-12 pr-4 text-sm focus:border-brand-blue transition-all outline-none font-bold"
                                                                         />
                                                                     </div>
                                                                     <div className="relative">
-                                                                        <div className={`border-2 border-dashed rounded-xl p-3 transition-all ${trancheFile ? 'border-brand-green bg-brand-green/5' : 'border-border bg-white dark:bg-slate-800'}`}>
+                                                                        <div className={`border-2 border-dashed rounded-xl p-3 transition-all ${trancheFile ? 'border-brand-green bg-brand-green/5' : 'border-border bg-white'}`}>
                                                                             <input
                                                                                 type="file"
                                                                                 className="absolute inset-0 opacity-0 cursor-pointer z-10"
@@ -321,7 +321,7 @@ export default function DashboardPage() {
                                                                             />
                                                                             <div className="flex items-center gap-3">
                                                                                 <Upload size={18} className="text-slate-400" />
-                                                                                <span className="text-xs font-bold text-slate-600 dark:text-slate-400 truncate">
+                                                                                <span className="text-xs font-bold text-slate-600 truncate">
                                                                                     {trancheFile ? trancheFile.name : "Cliquez pour uploader le reçu"}
                                                                                 </span>
                                                                             </div>
@@ -369,7 +369,7 @@ export default function DashboardPage() {
                                                             {en.receipt_url && (
                                                                 <button
                                                                     onClick={() => setHistoryModalEnrollment(en)}
-                                                                    className="px-6 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-sm bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-all flex items-center justify-center gap-2 min-w-[180px]"
+                                                                    className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm bg-slate-100 hover:bg-slate-200 transition-all flex items-center justify-center gap-2 min-w-[180px]"
                                                                 >
                                                                     <History size={18} /> Voir historique
                                                                 </button>
@@ -542,16 +542,16 @@ export default function DashboardPage() {
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-white/5"
+                            className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-white/5"
                         >
-                            <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                                 <div>
-                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Calendrier de Session</h3>
+                                    <h3 className="text-xl font-bold text-slate-900">Calendrier de Session</h3>
                                     <p className="text-xs text-slate-500 font-medium">{selectedSchedule.name}</p>
                                 </div>
                                 <button
                                     onClick={() => setSelectedSchedule(null)}
-                                    className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                                    className="p-2 hover:bg-slate-200 rounded-xl transition-colors"
                                 >
                                     <X size={20} className="text-slate-500" />
                                 </button>
@@ -567,8 +567,8 @@ export default function DashboardPage() {
                                                 <div
                                                     key={idx}
                                                     className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${isPast
-                                                        ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-white/5 opacity-60'
-                                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md'
+                                                        ? 'bg-slate-50 border-slate-100 opacity-60'
+                                                        : 'bg-white border-slate-200 shadow-sm hover:shadow-md'
                                                         }`}
                                                 >
                                                     <div className="flex items-center gap-4">
@@ -582,7 +582,7 @@ export default function DashboardPage() {
                                                             </span>
                                                         </div>
                                                         <div>
-                                                            <p className="font-bold text-slate-900 dark:text-white">
+                                                            <p className="font-bold text-slate-900">
                                                                 {seDate.toLocaleDateString('fr-FR', { weekday: 'long' })}
                                                             </p>
                                                             <p className="text-xs text-slate-500 flex items-center gap-1">
@@ -607,7 +607,7 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            <div className="p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-white/5 flex items-center gap-3">
+                            <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
                                 <AlertCircle size={18} className="text-brand-blue shrink-0" />
                                 <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
                                     Veuillez noter que le calendrier peut être sujet à des modifications mineures. Consultez régulièrement votre boîte mail.

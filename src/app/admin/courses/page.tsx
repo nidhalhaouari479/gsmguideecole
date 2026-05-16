@@ -245,7 +245,7 @@ export default function CoursesAdminPage() {
                             placeholder="Search Protocol..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-900/50 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
                     <button
@@ -416,10 +416,10 @@ export default function CoursesAdminPage() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-slate-900 border border-white/10 p-6 rounded-2xl w-full max-w-2xl shadow-2xl my-8 relative"
+                            className="bg-white border border-slate-200 p-6 rounded-2xl w-full max-w-2xl shadow-2xl my-8 relative"
                         >
                             <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-black text-white">
+                                <h2 className="text-xl font-black text-slate-900">
                                     {editingCourse ? 'Modifier la Formation' : 'Ajouter une Formation'}
                                 </h2>
                                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white">
@@ -431,7 +431,7 @@ export default function CoursesAdminPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Titre (FR) *</label>
-                                        <input type="text" required value={formData.title_fr} onChange={(e) => setFormData({ ...formData, title_fr: e.target.value })} className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50" />
+                                        <input type="text" required value={formData.title_fr} onChange={(e) => setFormData({ ...formData, title_fr: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-2">Catégorie *</label>
@@ -451,7 +451,7 @@ export default function CoursesAdminPage() {
                                                         }}
                                                         className="w-4 h-4 rounded border-white/10 bg-slate-800 text-brand-green focus:ring-brand-green focus:ring-offset-slate-900" 
                                                     />
-                                                    <span className="text-white text-sm">{cat}</span>
+                                                    <span className="text-slate-900 text-sm">{cat}</span>
                                                 </label>
                                             ))}
                                         </div>
@@ -474,9 +474,9 @@ export default function CoursesAdminPage() {
                                                             setFormData({ ...formData, level: [...currentLvls, lvl].join(', ') });
                                                         }
                                                     }}
-                                                    className="w-4 h-4 rounded border-white/10 bg-slate-800 text-brand-green focus:ring-brand-green focus:ring-offset-slate-900" 
+                                                    className="w-4 h-4 rounded border-slate-300 text-brand-green focus:ring-brand-green" 
                                                 />
-                                                <span className="text-white text-sm">{lvl}</span>
+                                                <span className="text-slate-900 text-sm">{lvl}</span>
                                             </label>
                                         ))}
                                     </div>
@@ -484,15 +484,15 @@ export default function CoursesAdminPage() {
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Prix de Base (DT) *</label>
-                                        <input type="number" required value={formData.base_price} onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) })} className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50" />
+                                        <input type="number" required value={formData.base_price} onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Prix Soldé (DT)</label>
-                                        <input type="number" value={formData.sold_price} onChange={(e) => setFormData({ ...formData, sold_price: e.target.value })} className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50" placeholder="Optionnel" />
+                                        <input type="number" value={formData.sold_price} onChange={(e) => setFormData({ ...formData, sold_price: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" placeholder="Optionnel" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Durée *</label>
-                                        <input type="text" required value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50" placeholder="ex: 12 Semaines" />
+                                        <input type="text" required value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" placeholder="ex: 12 Semaines" />
                                     </div>
                                 </div>
 
@@ -531,13 +531,14 @@ export default function CoursesAdminPage() {
 
                                 <div>
                                     <label className="block text-xs font-bold text-slate-400 mb-1">Description (FR)</label>
-                                    <textarea rows={3} value={formData.description_fr} onChange={(e) => setFormData({ ...formData, description_fr: e.target.value })} className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50" />
+                                    <textarea rows={3} value={formData.description_fr} onChange={(e) => setFormData({ ...formData, description_fr: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
                                 </div>
 
                                 <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/10">
-                                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl border border-white/10 text-white hover:bg-white/5 font-bold text-sm transition-all">
+                                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-all">
                                         Annuler
                                     </button>
+
                                     <button type="submit" disabled={isSubmitting} className="btn-primary px-5 py-2.5 flex items-center gap-2">
                                         {isSubmitting && <Loader2 size={16} className="animate-spin" />}
                                         {editingCourse ? 'Enregistrer les modifications' : 'Créer la formation'}

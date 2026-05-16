@@ -23,7 +23,9 @@ import {
     Clock,
     CheckCircle2,
     FileDown,
-    Trash2
+    Trash2,
+    Plus,
+    UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { jsPDF } from 'jspdf';
@@ -107,6 +109,17 @@ export default function StudentsAdminPage() {
     const [profileLoading, setProfileLoading] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    
+    // Add Student State
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [addFormData, setAddFormData] = useState({
+        email: '',
+        password: '',
+        full_name: '',
+        phone: '',
+        cin_number: ''
+    });
 
     useEffect(() => {
         fetchStudents();
@@ -278,6 +291,35 @@ export default function StudentsAdminPage() {
             alert('Une erreur est survenue lors de l\'action.');
         } finally {
             setActionLoading(null);
+        }
+    };
+
+    const handleCreateStudent = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsCreating(true);
+        try {
+            const response = await fetch('/api/admin/students', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(addFormData)
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+            
+            await fetchStudents();
+            setIsAddModalOpen(false);
+            setAddFormData({
+                email: '',
+                password: '',
+                full_name: '',
+                phone: '',
+                cin_number: ''
+            });
+        } catch (error: any) {
+            console.error('Create student error:', error);
+            alert(error.message || 'Erreur lors de la création de l\'étudiant.');
+        } finally {
+            setIsCreating(false);
         }
     };
 
@@ -467,7 +509,7 @@ export default function StudentsAdminPage() {
                             placeholder="Search Identification..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-900/50 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
                     <div className="relative">
@@ -591,6 +633,12 @@ export default function StudentsAdminPage() {
                             )}
                         </AnimatePresence>
                     </div>
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="btn-primary py-3 px-6 h-auto shadow-none bg-brand-green text-slate-950 hover:bg-brand-green/90 flex items-center gap-2"
+                    >
+                        <UserPlus size={18} /> Ajouter Étudiant
+                    </button>
                     <button
                         onClick={handleExportList}
                         className="btn-primary py-3 px-6 h-auto shadow-none bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
@@ -787,7 +835,7 @@ export default function StudentsAdminPage() {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+                            className="relative w-full max-w-4xl max-h-[90vh] bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
                         >
                             {/* Modal Header */}
                             <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/5">
@@ -1001,6 +1049,111 @@ export default function StudentsAdminPage() {
                                     </button>
                                 </div>
                             </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* ADD STUDENT MODAL */}
+            <AnimatePresence>
+                {isAddModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white border border-slate-200 p-8 rounded-3xl w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]"
+                        >
+                            <div className="flex justify-between items-center mb-8">
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Recruter un <span className="text-brand-green">Nouvel Étudiant</span></h2>
+                                    <p className="text-slate-500 text-xs mt-1 uppercase font-bold tracking-widest">Enregistrement manuel sans vérification e-mail</p>
+                                </div>
+                                <button onClick={() => setIsAddModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleCreateStudent} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail (Identifiant)</label>
+                                        <input
+                                            type="email"
+                                            value={addFormData.email}
+                                            onChange={(e) => setAddFormData({ ...addFormData, email: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                            placeholder="exemple@email.com"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Mot de passe</label>
+                                        <input
+                                            type="text"
+                                            value={addFormData.password}
+                                            onChange={(e) => setAddFormData({ ...addFormData, password: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                            placeholder="••••••••"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-slate-100 my-2" />
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nom Complet</label>
+                                    <input
+                                        type="text"
+                                        value={addFormData.full_name}
+                                        onChange={(e) => setAddFormData({ ...addFormData, full_name: e.target.value })}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                        placeholder="Nom & Prénom"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Téléphone</label>
+                                        <input
+                                            type="text"
+                                            value={addFormData.phone}
+                                            onChange={(e) => setAddFormData({ ...addFormData, phone: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                            placeholder="55 123 456"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Numéro CIN</label>
+                                        <input
+                                            type="text"
+                                            value={addFormData.cin_number}
+                                            onChange={(e) => setAddFormData({ ...addFormData, cin_number: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                            placeholder="00123456"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 flex gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAddModalOpen(false)}
+                                        className="flex-1 py-4 rounded-2xl border border-slate-200 text-slate-500 font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isCreating}
+                                        className="flex-2 btn-primary flex-grow py-4 px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center justify-center gap-2"
+                                    >
+                                        {isCreating ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
+                                        {isCreating ? 'CRÉATION...' : 'CRÉER LE COMPTE'}
+                                    </button>
+                                </div>
+                            </form>
                         </motion.div>
                     </div>
                 )}

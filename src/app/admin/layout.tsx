@@ -21,18 +21,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isDarkMode, setIsDarkMode] = useState(true);
+    const [isDarkMode, setIsDarkMode] = useState(false);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
     const [notifications, setNotifications] = useState<any[]>([]);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [fetchingNotifs, setFetchingNotifs] = useState(false);
 
     useEffect(() => {
-        // Apply stored or default admin theme
-        const stored = localStorage.getItem('adminTheme');
-        const dark = stored !== 'light';
-        setIsDarkMode(dark);
-        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        // Enforce light theme for admin
+        setIsDarkMode(false);
+        document.documentElement.setAttribute('data-theme', 'light');
 
         const checkAdmin = async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -108,7 +106,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#0a0f19]">
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-4">
                     <Loader2 className="animate-spin text-brand-green" size={48} />
                     <p className="text-slate-500 font-bold uppercase tracking-widest text-xs animate-pulse">GSM Guide Academy Ops...</p>
@@ -198,7 +196,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     return (
-        <div className={`min-h-screen text-slate-100 flex font-sans overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-[#0a0f19]' : 'bg-[#f0f4f8]'}`}>
+        <div className={`min-h-screen text-slate-800 flex font-sans overflow-hidden transition-colors duration-300 bg-[#f0f4f8]`}>
             {/* Command Palette Overlay */}
             <AnimatePresence>
                 {isSearchOpen && (
@@ -214,7 +212,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             initial={{ opacity: 0, scale: 0.95, y: -20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                            className="relative w-full max-w-2xl bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden shadow-brand-green/10"
+                            className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden shadow-brand-green/10"
+
                         >
                             <div className="p-4 border-b border-white/5 flex items-center gap-4 bg-white/[0.02]">
                                 <Search className="text-brand-green" size={20} />
@@ -224,7 +223,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     placeholder="Rechercher dans le registre..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="flex-1 bg-transparent border-none text-lg focus:outline-none placeholder:text-slate-600 text-white"
+                                    className="flex-1 bg-transparent border-none text-lg focus:outline-none placeholder:text-slate-600 text-slate-900"
                                 />
                                 <div className="px-2 py-1 rounded bg-slate-800 text-[10px] font-black uppercase text-slate-500 border border-white/5">
                                     ESC
@@ -313,7 +312,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </AnimatePresence>
 
             {/* Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-50 backdrop-blur-xl border-r transition-all duration-300 transform md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isCollapsed ? 'w-20' : 'w-72'} ${isDarkMode ? 'bg-[#0f172a]/80 border-white/5' : 'bg-white/95 border-slate-200 shadow-lg'}`}>
+            <aside className={`fixed inset-y-0 left-0 z-50 backdrop-blur-xl border-r transition-all duration-300 transform md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isCollapsed ? 'w-20' : 'w-72'} bg-white/95 border-slate-200 shadow-lg`}>
                 <div className="flex flex-col h-full relative">
                     {/* Collapse Button (Desktop Only) */}
                     <button
@@ -326,7 +325,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <div className="p-6 border-b border-white/5">
                         <div className="flex items-center justify-between">
                             <Link href="/admin" className="flex items-center gap-3">
-                                <div className="min-w-[40px] w-10 h-10 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center p-1 shadow-lg overflow-hidden group">
+                                <div className="min-w-[40px] w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1 shadow-lg overflow-hidden group">
                                     <img
                                         src="/gsmlogo.png"
                                         alt="GSM Guide Academy"
@@ -377,9 +376,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Main Content Area */}
             <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isCollapsed ? 'md:ml-20' : 'md:ml-72'}`}>
                 {/* Global Header */}
-                <header className={`h-20 flex items-center justify-between px-6 md:px-10 backdrop-blur-md sticky top-0 z-40 border-b transition-colors duration-300 ${isDarkMode ? 'bg-[#0a0f19]/80 border-white/5' : 'bg-white/90 border-slate-200 shadow-sm'}`}>
+                <header className={`h-20 flex items-center justify-between px-6 md:px-10 backdrop-blur-md sticky top-0 z-40 border-b transition-colors duration-300 bg-white/90 border-slate-200 shadow-sm`}>
                     <div className="flex items-center gap-4 flex-1">
-                        <button onClick={() => setSidebarOpen(true)} className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 text-slate-100">
+                        <button onClick={() => setSidebarOpen(true)} className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600">
                             <Menu size={20} />
                         </button>
 
@@ -389,7 +388,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             className="hidden md:flex relative max-w-md w-full group cursor-text"
                         >
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-hover:text-brand-green transition-colors" size={18} />
-                            <div className="w-full bg-slate-900/50 border border-white/5 rounded-2xl py-2.5 pl-12 pr-4 text-xs font-bold text-slate-500 flex items-center justify-between hover:border-brand-green/30 transition-all">
+                            <div className="w-full bg-white border border-slate-200 rounded-2xl py-2.5 pl-12 pr-4 text-xs font-bold text-slate-500 flex items-center justify-between hover:border-brand-green/30 transition-all">
                                 <span>Rechercher dans le registre...</span>
                                 <div className="flex items-center gap-1.5 opacity-50">
                                     <div className="px-1.5 py-0.5 rounded bg-slate-800 border border-white/5 text-[8px] tracking-tighter">CTRL</div>
@@ -401,25 +400,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                     <div className="flex items-center gap-4">
                         {/* Dark/Light Toggle */}
-                        <button
-                            onClick={() => {
-                                const next = !isDarkMode;
-                                setIsDarkMode(next);
-                                localStorage.setItem('adminTheme', next ? 'dark' : 'light');
-                                document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
-                            }}
-                            className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-white/5 text-slate-400 hover:text-yellow-400 transition-all hover:border-yellow-400/40"
-                            title={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
-                        >
-                            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                        </button>
+                        {/* Dark/Light Toggle Removed */}
+
                         <div className="relative">
                             <button 
                                 onClick={() => {
                                     setIsNotifOpen(!isNotifOpen);
                                     if (!isNotifOpen) fetchNotificationsList();
                                 }}
-                                className={`relative w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${isNotifOpen ? 'bg-brand-green/20 border-brand-green text-brand-green' : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white'}`}
+                                className={`relative w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${isNotifOpen ? 'bg-brand-green/20 border-brand-green text-brand-green' : 'bg-white border-slate-200 text-slate-400 hover:text-slate-900'}`}
                             >
                                 <Bell size={20} />
                                 {unreadNotifications > 0 && (
@@ -506,8 +495,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <div className="h-8 w-px bg-white/5 mx-2 hidden md:block"></div>
                         <div className="flex items-center gap-3">
                             <div className={`hidden md:block text-right`}>
-                                <p className={`text-sm font-bold uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>ADMINISTRATEUR</p>
-                                <p className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Profil Administrateur</p>
+                                <p className={`text-sm font-bold uppercase tracking-tighter text-slate-800`}>ADMINISTRATEUR</p>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest text-slate-400`}>Profil Administrateur</p>
                             </div>
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-950 border border-white/10 flex items-center justify-center text-white font-black shadow-lg">
                                 AD
@@ -517,7 +506,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </header>
 
                 {/* Main Content Scrollable */}
-                <main className={`flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar transition-colors duration-300 ${isDarkMode ? '' : 'bg-[#f0f4f8]'}`}>
+                <main className={`flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar transition-colors duration-300 bg-[#f0f4f8]`}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={pathname}

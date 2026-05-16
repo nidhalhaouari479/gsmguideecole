@@ -83,3 +83,56 @@ export async function GET() {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
+export async function POST(request: Request) {
+    try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
+        const { email, password, full_name, phone, cin_number } = await request.json();
+
+        if (!email || !password) {
+            return NextResponse.json({ error: 'Email et mot de passe sont requis pour l\'authentification.' }, { status: 400 });
+        }
+
+        const supabaseAdmin = createAdminClient();
+
+        // 1. Create User in Auth
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: { full_name, phone }
+        });
+
+        if (authError) throw authError;
+
+        // 2. Create or Update Profile
+        const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .upsert([
+                {
+                    id: authUser.user.id,
+                    full_name,
+                    phone,
+                    cin_number,
+                    role: 'student'
+                }
+            ]);
+
+        if (profileError) {
+            // Cleanup auth user if profile creation fails (only if it was just created)
+            // Note: In case of upsert, this might be tricky, but since createUser 
+            // just succeeded, this is a new user.
+            await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+            throw profileError;
+        }
+
+        return NextResponse.json({ success: true, user: authUser.user });
+    } catch (error: any) {
+        console.error('Create Student Error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

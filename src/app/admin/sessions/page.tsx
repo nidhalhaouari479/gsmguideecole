@@ -306,7 +306,7 @@ export default function SessionsAdminPage() {
                             placeholder="Filter Deployment Cycle..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-900/50 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
                     <div className="flex bg-slate-900 border border-white/5 p-1 rounded-xl">
@@ -493,7 +493,7 @@ export default function SessionsAdminPage() {
                                     onClick={() => handleViewManifest(session)}
                                     className="flex items-center gap-2 text-brand-green font-black uppercase tracking-widest text-[10px] hover:gap-3 transition-all"
                                 >
-                                    VIEW MANIFEST <ChevronRight size={14} />
+                                    VOIR LES INSCRITS <ChevronRight size={14} />
                                 </button>
                             </div>
                         </div>
@@ -518,12 +518,12 @@ export default function SessionsAdminPage() {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+                            className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
                         >
                             {/* Header */}
-                            <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/50">
+                            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
                                 <div>
-                                    <h2 className="text-2xl font-black text-white tracking-tight">
+                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                                         {editingSessionId ? 'Update' : 'New'} Training <span className="text-brand-green">Session</span>
                                     </h2>
                                     <div className="flex items-center gap-4 mt-2">
@@ -557,7 +557,7 @@ export default function SessionsAdminPage() {
                                                         required
                                                         value={formData.course_id}
                                                         onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
-                                                        className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-4 text-white focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-sm"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-sm"
                                                     >
                                                         <option value="">Sélectionner une formation</option>
                                                         {courses.map(c => (
@@ -570,7 +570,7 @@ export default function SessionsAdminPage() {
                                                     <select
                                                         value={formData.instructor_id}
                                                         onChange={(e) => setFormData({ ...formData, instructor_id: e.target.value })}
-                                                        className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-4 text-white focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-sm"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-sm"
                                                     >
                                                         <option value="">Non assigné</option>
                                                         {instructors.map(i => (
@@ -585,7 +585,7 @@ export default function SessionsAdminPage() {
                                                         required
                                                         value={formData.seats_available}
                                                         onChange={(e) => setFormData({ ...formData, seats_available: parseInt(e.target.value) })}
-                                                        className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-4 text-white focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
                                                         placeholder="Ex: 12"
                                                     />
                                                 </div>
@@ -595,7 +595,7 @@ export default function SessionsAdminPage() {
                                                         type="text"
                                                         value={formData.schedule}
                                                         onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
-                                                        className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-4 text-white focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
                                                         placeholder="Ex: Full Time / Weekend"
                                                     />
                                                 </div>
@@ -611,15 +611,15 @@ export default function SessionsAdminPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => handleSeanceCountChange(Math.max(1, formData.seanceCount - 1))}
-                                                        className="w-12 h-12 rounded-2xl bg-slate-800 border border-white/5 text-white flex items-center justify-center hover:bg-brand-green hover:text-black transition-all font-black text-xl shadow-lg"
+                                                        className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-900 flex items-center justify-center hover:bg-brand-green hover:text-black transition-all font-black text-xl shadow-lg"
                                                     >
                                                         -
                                                     </button>
-                                                    <span className="text-5xl font-black text-white tabular-nums tracking-tighter">{formData.seanceCount}</span>
+                                                    <span className="text-5xl font-black text-slate-900 tabular-nums tracking-tighter">{formData.seanceCount}</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleSeanceCountChange(formData.seanceCount + 1)}
-                                                        className="w-12 h-12 rounded-2xl bg-slate-800 border border-white/5 text-white flex items-center justify-center hover:bg-brand-green hover:text-black transition-all font-black text-xl shadow-lg"
+                                                        className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-900 flex items-center justify-center hover:bg-brand-green hover:text-black transition-all font-black text-xl shadow-lg"
                                                     >
                                                         +
                                                     </button>
@@ -633,7 +633,7 @@ export default function SessionsAdminPage() {
                                         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 pb-10">
                                             <div className="grid grid-cols-1 gap-4">
                                                 {formData.seances.map((seance, index) => (
-                                                    <div key={index} className="bg-slate-950/50 p-6 rounded-2xl border border-white/5 space-y-4 group hover:border-brand-green/30 transition-all">
+                                                    <div key={index} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4 group hover:border-brand-green/30 transition-all">
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-[10px] font-black text-brand-green uppercase tracking-[0.2em]">Séance #{index + 1}</span>
                                                             <CalendarIcon size={14} className="text-slate-700 group-hover:text-brand-green transition-colors" />
@@ -646,7 +646,7 @@ export default function SessionsAdminPage() {
                                                                     required
                                                                     value={seance.date}
                                                                     onChange={(e) => handleSeanceChange(index, 'date', e.target.value)}
-                                                                    className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50 text-xs font-bold"
+                                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-xs font-bold"
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
@@ -656,7 +656,7 @@ export default function SessionsAdminPage() {
                                                                     required
                                                                     value={seance.start_time}
                                                                     onChange={(e) => handleSeanceChange(index, 'start_time', e.target.value)}
-                                                                    className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50 text-xs font-bold"
+                                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-xs font-bold"
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
@@ -666,7 +666,7 @@ export default function SessionsAdminPage() {
                                                                     required
                                                                     value={seance.end_time}
                                                                     onChange={(e) => handleSeanceChange(index, 'end_time', e.target.value)}
-                                                                    className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50 text-xs font-bold"
+                                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-xs font-bold"
                                                                 />
                                                             </div>
                                                         </div>
@@ -679,11 +679,11 @@ export default function SessionsAdminPage() {
                             </div>
 
                             {/* Footer */}
-                            <div className="p-8 border-t border-white/5 bg-slate-950/50 flex justify-between items-center">
+                            <div className="p-8 border-t border-slate-100 bg-white flex justify-between items-center">
                                 <button
                                     type="button"
                                     onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : setIsModalOpen(false)}
-                                    className="px-8 py-4 rounded-2xl border border-white/10 text-white hover:bg-white/5 font-black text-xs uppercase tracking-widest transition-all"
+                                    className="px-8 py-4 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-xs uppercase tracking-widest transition-all"
                                 >
                                     {currentStep === 1 ? 'Cancel' : 'Previous'}
                                 </button>
@@ -720,16 +720,16 @@ export default function SessionsAdminPage() {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col"
+                            className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col"
                         >
                             {/* Header */}
-                            <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/50">
+                            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
                                 <div>
                                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-1">
-                                        <Users size={12} /> Deployment Manifest
+                                        <Users size={12} /> Liste des Étudiants
                                     </div>
-                                    <h2 className="text-2xl font-black text-white tracking-tight">
-                                        Students Enrolled <span className="text-slate-500">in</span> {selectedSessionLabel}
+                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                                        Étudiants Inscrits <span className="text-slate-500">dans</span> {selectedSessionLabel}
                                     </h2>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -758,7 +758,7 @@ export default function SessionsAdminPage() {
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
                                         exit={{ opacity: 0, height: 0 }}
-                                        className="bg-slate-950/50 border-b border-white/5 overflow-hidden"
+                                        className="bg-slate-50 border-b border-slate-100 overflow-hidden"
                                     >
                                         <div className="p-6 space-y-4">
                                             <div className="relative">
@@ -768,7 +768,7 @@ export default function SessionsAdminPage() {
                                                     placeholder="Search student by name or email..."
                                                     value={studentSearchQuery}
                                                     onChange={(e) => setStudentSearchQuery(e.target.value)}
-                                                    className="w-full bg-slate-900 border border-white/5 rounded-xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-brand-green/50"
+                                                    className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm text-slate-900 focus:outline-none focus:border-brand-green/50"
                                                 />
                                             </div>
                                             
@@ -780,13 +780,13 @@ export default function SessionsAdminPage() {
                                                          s.email?.toLowerCase().includes(studentSearchQuery.toLowerCase()))
                                                     )
                                                     .map(student => (
-                                                        <div key={student.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-transparent hover:border-white/5 group">
+                                                        <div key={student.id} className="flex items-center justify-between p-3 rounded-xl bg-white hover:bg-slate-50 transition-all border border-slate-100 group">
                                                             <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400">
+                                                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
                                                                     {student.full_name?.charAt(0)}
                                                                 </div>
                                                                 <div className="flex flex-col">
-                                                                    <span className="text-xs font-bold text-white">{student.full_name}</span>
+                                                                    <span className="text-xs font-bold text-slate-900">{student.full_name}</span>
                                                                     <span className="text-[9px] text-slate-500">{student.email}</span>
                                                                 </div>
                                                             </div>
@@ -817,7 +817,7 @@ export default function SessionsAdminPage() {
                                 {loadingManifest ? (
                                     <div className="flex flex-col items-center justify-center py-32 gap-4">
                                         <Loader2 className="animate-spin text-brand-green" size={32} />
-                                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Retrieving Crew Roster...</p>
+                                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Chargement des inscrits...</p>
                                     </div>
                                 ) : manifestStudents.length > 0 ? (
                                     <table className="w-full text-left border-collapse">
@@ -839,11 +839,11 @@ export default function SessionsAdminPage() {
                                                 >
                                                     <td className="px-8 py-4">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white text-xs font-black border border-white/5">
+                                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 text-xs font-black border border-slate-200">
                                                                 {student.full_name?.charAt(0)}
                                                             </div>
                                                             <div className="flex flex-col">
-                                                                <span className="font-bold text-white text-sm">{student.full_name}</span>
+                                                                <span className="font-bold text-slate-900 text-sm">{student.full_name}</span>
                                                                 <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">
                                                                     Joined: {new Date(student.enrolled_at).toLocaleDateString('fr-FR')}
                                                                 </span>
@@ -852,10 +852,10 @@ export default function SessionsAdminPage() {
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col gap-1">
-                                                            <div className="flex items-center gap-2 text-xs text-slate-300 font-bold">
+                                                            <div className="flex items-center gap-2 text-xs text-slate-600 font-bold">
                                                                 <Mail size={12} className="text-brand-blue" /> {student.email}
                                                             </div>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-300 font-bold">
+                                                            <div className="flex items-center gap-2 text-xs text-slate-600 font-bold">
                                                                 <Phone size={12} className="text-brand-green" /> {student.phone}
                                                             </div>
                                                         </div>
@@ -876,21 +876,21 @@ export default function SessionsAdminPage() {
                                 ) : (
                                     <div className="py-32 text-center">
                                         <Users size={48} className="text-slate-800 mx-auto mb-4" />
-                                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">No students found for this session</p>
+                                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun étudiant inscrit à cette session</p>
                                     </div>
                                 )}
                             </div>
 
                             {/* Footer */}
-                            <div className="p-8 border-t border-white/5 bg-slate-950/50 flex justify-between items-center">
+                            <div className="p-8 border-t border-slate-100 bg-white flex justify-between items-center">
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                    Total Crew: <span className="text-white">{manifestStudents.length}</span>
+                                    Total Inscrits : <span className="text-slate-900">{manifestStudents.length}</span>
                                 </p>
                                 <button
                                     onClick={() => setIsManifestOpen(false)}
-                                    className="px-8 py-3 rounded-xl bg-white/5 text-white hover:bg-white/10 font-black text-[10px] uppercase tracking-widest transition-all border border-white/10"
+                                    className="px-8 py-3 rounded-xl bg-white text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all border border-slate-200"
                                 >
-                                    Close Manifest
+                                    Fermer
                                 </button>
                             </div>
                         </motion.div>

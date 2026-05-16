@@ -172,7 +172,7 @@ export default function TeachersAdminPage() {
                             placeholder="Search Personnel ID..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-900/50 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
                     <button
@@ -295,10 +295,10 @@ export default function TeachersAdminPage() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-slate-900 border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl"
+                            className="bg-white border border-slate-200 p-6 rounded-2xl w-full max-w-md shadow-2xl"
                         >
                             <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-black text-white">
+                                <h2 className="text-xl font-black text-slate-900">
                                     {editingTeacher ? 'Modifier le Professeur' : 'Ajouter un Professeur'}
                                 </h2>
                                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white">
@@ -314,7 +314,7 @@ export default function TeachersAdminPage() {
                                         required
                                         value={formData.nom}
                                         onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                                        className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50"
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
                                         placeholder="Nom du professeur"
                                     />
                                 </div>
@@ -325,7 +325,7 @@ export default function TeachersAdminPage() {
                                         required
                                         value={formData.prenom}
                                         onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
-                                        className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50"
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
                                         placeholder="Prénom du professeur"
                                     />
                                 </div>
@@ -335,7 +335,7 @@ export default function TeachersAdminPage() {
                                         type="text"
                                         value={formData.specialite}
                                         onChange={(e) => setFormData({ ...formData, specialite: e.target.value })}
-                                        className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-white focus:outline-none focus:border-brand-green/50"
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
                                         placeholder="Ex: Mathématiques"
                                     />
                                 </div>
@@ -344,7 +344,7 @@ export default function TeachersAdminPage() {
                                     <button
                                         type="button"
                                         onClick={() => setIsModalOpen(false)}
-                                        className="px-5 py-2.5 rounded-xl border border-white/10 text-white hover:bg-white/5 font-bold text-sm transition-all"
+                                        className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-all"
                                     >
                                         Annuler
                                     </button>

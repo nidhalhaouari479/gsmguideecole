@@ -17,7 +17,7 @@ const HOW_DID_YOU_HEAR = [
     { value: 'other', label: 'Autre' },
 ];
 
-const inputClass = "w-full pl-12 pr-4 py-3 rounded-xl border border-border focus:ring-2 focus:ring-brand-blue outline-none transition-all bg-transparent dark:text-white placeholder-slate-400";
+const inputClass = "w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-blue outline-none transition-all bg-white text-slate-900 placeholder-slate-400";
 const labelClass = "block text-sm font-bold mb-2 ml-1 text-slate-700 dark:text-slate-200";
 
 // Password rules
@@ -381,7 +381,7 @@ export default function RegisterPage() {
                                                 placeholder="Ex: 01234567"
                                                 value={cinNumber}
                                                 onChange={(e) => setCinNumber(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                                                className={`w-full bg-slate-50 dark:bg-slate-900 border-2 rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none transition-all font-bold placeholder:font-medium ${(showErrors || cinNumber) && cinNumber.length !== 8 ? 'border-red-500 focus:border-red-600' : 'border-slate-100 dark:border-slate-800 focus:border-brand-blue/30'}`}
+                                                className={`w-full bg-white border-2 rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none transition-all font-bold placeholder:font-medium ${(showErrors || cinNumber) && cinNumber.length !== 8 ? 'border-red-500 focus:border-red-600' : 'border-slate-200 focus:border-brand-blue/30'} text-slate-900`}
                                                 required
                                             />
                                             {(showErrors || cinNumber) && cinNumber.length !== 8 && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">Le CIN doit contenir exactement 8 chiffres</p>}
@@ -503,7 +503,7 @@ export default function RegisterPage() {
                                         maxLength={6}
                                         value={verificationCode}
                                         onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                                        className="w-full text-center text-3xl font-black tracking-[0.5em] py-4 rounded-xl border-2 border-slate-200 focus:border-brand-blue outline-none transition-all dark:bg-slate-900"
+                                        className="w-full text-center text-3xl font-black tracking-[0.5em] py-4 rounded-xl border-2 border-slate-200 focus:border-brand-blue outline-none transition-all bg-white text-slate-900"
                                         placeholder="000000"
                                         required
                                     />
