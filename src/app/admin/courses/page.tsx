@@ -35,6 +35,7 @@ interface Course {
     duration: string;
     base_price: number;
     sold_price: number | null;
+    reservation_amount: number;
     category: string;
     image_url: string;
     level: string;
@@ -42,6 +43,11 @@ interface Course {
     professeurs?: { id: string; nom: string; prenom: string };
     created_at: string;
     student_count?: number;
+    course_programs?: {
+        id: string;
+        content: string;
+        position: number;
+    }[];
 }
 
 interface Professor {
@@ -67,8 +73,9 @@ export default function CoursesAdminPage() {
     // Form state
     const [formData, setFormData] = useState({
         title_fr: '', title_en: '', description_fr: '', description_en: '',
-        duration: '', base_price: 0, sold_price: '', category: '',
-        image_url: '', level: '', instructor_id: ''
+        duration: '', base_price: 0, sold_price: '', reservation_amount: 400, category: '',
+        image_url: '', level: '', instructor_id: '',
+        program_items: ['', '', '', '']
     });
 
     useEffect(() => {
@@ -124,6 +131,10 @@ export default function CoursesAdminPage() {
 
     const handleOpenModal = (course?: Course) => {
         if (course) {
+            const programItems = [...(course.course_programs || [])]
+                .sort((a, b) => a.position - b.position)
+                .map(item => item.content);
+
             setEditingCourse(course);
             setFormData({
                 title_fr: course.title_fr,
@@ -133,10 +144,12 @@ export default function CoursesAdminPage() {
                 duration: course.duration || '',
                 base_price: course.base_price || 0,
                 sold_price: course.sold_price ? course.sold_price.toString() : '',
+                reservation_amount: course.reservation_amount ?? 400,
                 category: course.category || '',
                 image_url: course.image_url || '',
                 level: course.level || '',
-                instructor_id: course.instructor_id || ''
+                instructor_id: course.instructor_id || '',
+                program_items: Array.from({ length: 4 }, (_, index) => programItems[index] || '')
             });
             setImageFile(null);
             setImagePreview(course.image_url || null);
@@ -144,8 +157,9 @@ export default function CoursesAdminPage() {
             setEditingCourse(null);
             setFormData({
                 title_fr: '', title_en: '', description_fr: '', description_en: '',
-                duration: '', base_price: 0, sold_price: '', category: '',
-                image_url: '', level: '', instructor_id: ''
+                duration: '', base_price: 0, sold_price: '', reservation_amount: 400, category: '',
+                image_url: '', level: '', instructor_id: '',
+                program_items: ['', '', '', '']
             });
             setImageFile(null);
             setImagePreview(null);
@@ -175,7 +189,7 @@ export default function CoursesAdminPage() {
                 });
                 
                 const uploadData = await uploadRes.json();
-                if (uploadData.error) throw new Error("Erreur upload image: " + uploadData.error);
+                if (uploadData.error) throw new Error("Erreur de téléversement de l’image : " + uploadData.error);
                 
                 finalImageUrl = uploadData.url;
             }
@@ -185,7 +199,8 @@ export default function CoursesAdminPage() {
                 ...formData,
                 image_url: finalImageUrl,
                 id: editingCourse?.id,
-                sold_price: formData.sold_price ? parseFloat(formData.sold_price) : null
+                sold_price: formData.sold_price ? parseFloat(formData.sold_price) : null,
+                reservation_amount: Number(formData.reservation_amount)
             };
 
             const response = await fetch('/api/admin/courses', {
@@ -215,13 +230,13 @@ export default function CoursesAdminPage() {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                 <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Syncing Academic Modules...</p>
+                <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Synchronisation des formations...</p>
             </div>
         );
     }
 
     const stats = [
-        { label: 'Modules Bio-Tech', value: courses.length, icon: BookOpen, color: 'text-brand-blue', bg: 'bg-brand-blue/10' },
+        { label: 'Formations techniques', value: courses.length, icon: BookOpen, color: 'text-brand-blue', bg: 'bg-brand-blue/10' },
         { label: 'Secteurs d\'Activité', value: [...new Set(courses.map(c => c.category))].length, icon: Layers, color: 'text-brand-green', bg: 'bg-brand-green/10' },
         { label: 'Densité Étudiante', value: (courses.reduce((sum, c) => sum + (c.student_count || 0), 0) / (courses.length || 1)).toFixed(1), icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
         { label: 'Valeur Acquisition', value: `${(courses.reduce((sum, c) => sum + c.base_price, 0) / (courses.length || 1)).toFixed(0)} DT`, icon: Sparkles, color: 'text-amber-400', bg: 'bg-amber-400/10' }
@@ -232,7 +247,7 @@ export default function CoursesAdminPage() {
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <BookOpen size={14} /> Knowledge Core
+                        <BookOpen size={14} /> Gestion du catalogue
                     </div>
                     <h1 className="text-4xl font-black text-white tracking-tighter">Catalogue <span className="text-slate-500">Formations</span></h1>
                 </div>
@@ -242,7 +257,7 @@ export default function CoursesAdminPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
-                            placeholder="Search Protocol..."
+                            placeholder="Rechercher une formation..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
@@ -252,7 +267,7 @@ export default function CoursesAdminPage() {
                         onClick={() => handleOpenModal()}
                         className="btn-primary py-3 px-6 h-auto shadow-none"
                     >
-                        <Plus size={18} strokeWidth={3} /> INITIALIZE MODULE
+                        <Plus size={18} strokeWidth={3} /> AJOUTER UNE FORMATION
                     </button>
                 </div>
             </header>
@@ -297,7 +312,7 @@ export default function CoursesAdminPage() {
                                 />
                                 <div className="absolute top-4 left-4">
                                     <span className="px-3 py-1.5 bg-brand-green shadow-lg shadow-brand-green/20 text-black text-[10px] font-black uppercase tracking-widest rounded-lg">
-                                        {course.category}
+                                        {course.category === 'Software' ? 'Logiciel' : course.category === 'Hardware' ? 'Matériel' : course.category}
                                     </span>
                                 </div>
                                 <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] to-transparent opacity-60" />
@@ -334,14 +349,14 @@ export default function CoursesAdminPage() {
                                                         }}
                                                         className="w-full px-5 py-2.5 text-left text-xs font-black uppercase tracking-widest hover:bg-white/5 text-slate-300 transition-all flex items-center gap-3"
                                                     >
-                                                        <Edit2 size={14} className="text-brand-green" /> Éditer Module
+                                                        <Edit2 size={14} className="text-brand-green" /> Modifier
                                                     </button>
                                                     <div className="h-px bg-white/5 my-2" />
                                                     <button
                                                         onClick={() => handleDelete(course.id)}
                                                         className="w-full px-5 py-2.5 text-left text-xs font-black uppercase tracking-widest hover:bg-rose-500/10 text-rose-500 transition-all flex items-center gap-3"
                                                     >
-                                                        <Trash2 size={14} /> Dématérialiser
+                                                        <Trash2 size={14} /> Supprimer
                                                     </button>
                                                 </motion.div>
                                             </>
@@ -363,7 +378,7 @@ export default function CoursesAdminPage() {
 
                             {course.professeurs && (
                                 <div className="mb-4 text-xs font-bold text-slate-400 flex items-center gap-2">
-                                    <span className="text-white/50">Prof:</span>
+                                    <span className="text-white/50">Professeur :</span>
                                     {course.professeurs.nom} {course.professeurs.prenom}
                                 </div>
                             )}
@@ -378,6 +393,9 @@ export default function CoursesAdminPage() {
                                     ) : (
                                         <span className="text-2xl font-black text-white tracking-tighter">{course.base_price} DT</span>
                                     )}
+                                    <span className="mt-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                        Avance de réservation : {course.reservation_amount ?? 400} DT
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -393,8 +411,8 @@ export default function CoursesAdminPage() {
                         <Plus size={40} />
                     </div>
                     <div className="text-center">
-                        <p className="font-black text-white uppercase tracking-widest text-sm">Deploy New Core</p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Initialize Catalog Entry</p>
+                        <p className="font-black text-white uppercase tracking-widest text-sm">Ajouter une formation</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Créer une entrée dans le catalogue</p>
                     </div>
                 </motion.button>
             </div>
@@ -403,7 +421,7 @@ export default function CoursesAdminPage() {
                 <div className="py-32 text-center">
                     <div className="flex flex-col items-center gap-4">
                         <Target size={48} className="text-slate-800" />
-                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Registry Zero-Match Record</p>
+                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucune formation correspondante</p>
                     </div>
                 </div>
             )}
@@ -451,7 +469,7 @@ export default function CoursesAdminPage() {
                                                         }}
                                                         className="w-4 h-4 rounded border-white/10 bg-slate-800 text-brand-green focus:ring-brand-green focus:ring-offset-slate-900" 
                                                     />
-                                                    <span className="text-slate-900 text-sm">{cat}</span>
+                                                <span className="text-slate-900 text-sm">{cat === 'Software' ? 'Logiciel' : 'Matériel'}</span>
                                                 </label>
                                             ))}
                                         </div>
@@ -481,14 +499,27 @@ export default function CoursesAdminPage() {
                                         ))}
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Prix de Base (DT) *</label>
-                                        <input type="number" required value={formData.base_price} onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
+                                        <input type="number" min="0" step="0.01" required value={formData.base_price} onChange={(e) => setFormData({ ...formData, base_price: Number(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Prix Soldé (DT)</label>
-                                        <input type="number" value={formData.sold_price} onChange={(e) => setFormData({ ...formData, sold_price: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" placeholder="Optionnel" />
+                                        <input type="number" min="0" step="0.01" value={formData.sold_price} onChange={(e) => setFormData({ ...formData, sold_price: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" placeholder="Optionnel" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 mb-1">Avance de réservation (DT) *</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            required
+                                            value={formData.reservation_amount}
+                                            onChange={(e) => setFormData({ ...formData, reservation_amount: Number(e.target.value) })}
+                                            className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
+                                        />
+                                        <p className="mt-1 text-[10px] text-slate-500">Montant minimum si l’étudiant paie lors de la réservation.</p>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Durée *</label>
@@ -516,12 +547,12 @@ export default function CoursesAdminPage() {
                                         />
                                         <div className="flex flex-col items-center justify-center gap-2 pointer-events-none text-center h-full">
                                             {imagePreview ? (
-                                                <img src={imagePreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                                                <img src={imagePreview} alt="Aperçu" className="absolute inset-0 w-full h-full object-cover opacity-60" />
                                             ) : null}
                                             <div className="relative z-0 flex flex-col items-center gap-2 p-2 rounded bg-black/40 backdrop-blur-sm">
                                                 <Upload size={24} className={imagePreview ? "text-white" : "text-slate-400"} />
                                                 <span className={`text-xs font-bold ${imagePreview ? "text-white" : "text-slate-400"}`}>
-                                                    {imagePreview ? "Changer l'image" : "Cliquez pour uploader une image"}
+                                                    {imagePreview ? "Changer l'image" : "Cliquez pour téléverser une image"}
                                                 </span>
                                             </div>
                                         </div>
@@ -530,8 +561,44 @@ export default function CoursesAdminPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-400 mb-1">Description (FR)</label>
-                                    <textarea rows={3} value={formData.description_fr} onChange={(e) => setFormData({ ...formData, description_fr: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
+                                    <label className="block text-xs font-bold text-slate-400 mb-1">Description principale (français / arabe)</label>
+                                    <textarea
+                                        rows={8}
+                                        dir="auto"
+                                        value={formData.description_fr}
+                                        onChange={(e) => setFormData({ ...formData, description_fr: e.target.value })}
+                                        placeholder="Saisissez la description. Les textes arabes et les retours à la ligne seront affichés correctement."
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-start text-slate-900 leading-relaxed whitespace-pre-wrap [unicode-bidi:plaintext] focus:outline-none focus:border-brand-green/50"
+                                    />
+                                </div>
+
+                                <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <div>
+                                        <h3 className="text-sm font-black text-slate-900">Programme du cours</h3>
+                                        <p className="mt-1 text-[11px] text-slate-500">Renseignez les quatre éléments qui seront affichés sur la page de cette formation.</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {formData.program_items.map((item, index) => (
+                                            <div key={index}>
+                                                <label className="block text-xs font-bold text-slate-500 mb-1">
+                                                    Élément {index + 1} *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    dir="auto"
+                                                    value={item}
+                                                    onChange={(e) => {
+                                                        const nextItems = [...formData.program_items];
+                                                        nextItems[index] = e.target.value;
+                                                        setFormData({ ...formData, program_items: nextItems });
+                                                    }}
+                                                    placeholder={`Programme ${index + 1}`}
+                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-start text-slate-900 [unicode-bidi:plaintext] focus:outline-none focus:border-brand-green/50"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/10">

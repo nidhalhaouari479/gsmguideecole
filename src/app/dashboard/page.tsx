@@ -40,6 +40,9 @@ export default function DashboardPage() {
     const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
     const [historyModalEnrollment, setHistoryModalEnrollment] = useState<any | null>(null);
     const [selectedSchedule, setSelectedSchedule] = useState<any | null>(null);
+    const [scheduleAttendance, setScheduleAttendance] = useState<Record<string, any>>({});
+    const [loadingScheduleAttendance, setLoadingScheduleAttendance] = useState(false);
+    const [scheduleAttendanceError, setScheduleAttendanceError] = useState<string | null>(null);
 
     useEffect(() => {
         const checkUser = async () => {
@@ -62,6 +65,7 @@ export default function DashboardPage() {
                     receipt_url,
                     created_at,
                     sessions (
+                        id,
                         start_date,
                         end_date,
                         schedule,
@@ -95,12 +99,17 @@ export default function DashboardPage() {
                         id: en.id,
                         course_name: en.sessions?.courses?.title_fr || 'Formation',
                         category: en.sessions?.courses?.category || '',
-                        status: en.status === 'approved' ? 'Approuvé' : en.status === 'rejected' ? 'Rejeté' : 'En attente',
+                        status: en.status === 'approved'
+                            ? (!en.receipt_url && Number(en.amount_paid) === 0 ? 'Place réservée' : 'Approuvé')
+                            : en.status === 'rejected'
+                                ? 'Rejeté'
+                                : en.receipt_url ? 'Paiement en attente' : 'Réservation en attente',
                         status_raw: en.status,
                         total_price: en.total_price,
                         paid: confirmedPaid,
                         remaining: en.total_price - confirmedPaid,
                         schedule_raw: en.sessions?.schedule ? JSON.parse(en.sessions.schedule) : null,
+                        session_id: en.sessions?.id,
                         schedule_text: en.sessions
                             ? `${new Date(en.sessions.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} - ${new Date(en.sessions.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}`
                             : 'À définir',
@@ -127,6 +136,43 @@ export default function DashboardPage() {
         if (e.target.files && e.target.files[0]) {
             setTrancheFile(e.target.files[0]);
             setUploadError(null);
+        }
+    };
+
+    const handleOpenSchedule = async (enrollment: any) => {
+        setSelectedSchedule({
+            name: enrollment.course_name,
+            sessionId: enrollment.session_id,
+            ...enrollment.schedule_raw,
+        });
+        setScheduleAttendance({});
+        setScheduleAttendanceError(null);
+
+        if (!enrollment.session_id) return;
+
+        setLoadingScheduleAttendance(true);
+        try {
+            const response = await fetch(
+                `/api/enrollments/attendance?sessionId=${encodeURIComponent(enrollment.session_id)}`
+            );
+            const data = await response.json();
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Impossible de charger les présences.');
+            }
+
+            const attendanceBySeance = (data || []).reduce((acc: Record<string, any>, record: any) => {
+                acc[record.seance_key] = record;
+                return acc;
+            }, {});
+            setScheduleAttendance(attendanceBySeance);
+        } catch (attendanceError) {
+            setScheduleAttendanceError(
+                attendanceError instanceof Error
+                    ? attendanceError.message
+                    : 'Impossible de charger les présences.'
+            );
+        } finally {
+            setLoadingScheduleAttendance(false);
         }
     };
 
@@ -209,7 +255,7 @@ export default function DashboardPage() {
                             </div>
                             <div>
                                 <h1 className="text-3xl font-bold mb-1 text-slate-900">
-                                    {user?.user_metadata?.full_name || "Student"}
+                                    {user?.user_metadata?.full_name || "Étudiant"}
                                 </h1>
                                 <p className="text-slate-500">{user?.email}</p>
                             </div>
@@ -345,7 +391,7 @@ export default function DashboardPage() {
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-wrap items-center gap-3 w-full">
-                                                            {en.remaining > 0 && en.status_raw !== 'pending' && (
+                                                            {en.remaining > 0 && !(en.status_raw === 'pending' && en.receipt_url) && (
                                                                 <button
                                                                     onClick={() => setActiveUploadId(en.id)}
                                                                     className="btn-primary py-2.5 px-6 text-sm flex items-center justify-center gap-2 min-w-[180px]"
@@ -355,12 +401,15 @@ export default function DashboardPage() {
                                                             )}
                                                             {en.status_raw === 'pending' && (
                                                                 <div className="flex items-center gap-2 px-5 py-2.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl text-xs font-bold animate-pulse">
-                                                                    <Clock size={16} /> Tranche en cours de vérification
+                                                                    <Clock size={16} />
+                                                                    {en.receipt_url
+                                                                        ? 'Paiement en cours de vérification'
+                                                                        : 'Réservation en attente de validation'}
                                                                 </div>
                                                             )}
                                                             {en.schedule_raw && (
                                                                 <button
-                                                                    onClick={() => setSelectedSchedule({ name: en.course_name, ...en.schedule_raw })}
+                                                                    onClick={() => handleOpenSchedule(en)}
                                                                     className="px-6 py-2.5 rounded-xl border border-brand-green/30 text-brand-green font-bold text-sm bg-brand-green/5 hover:bg-brand-green/10 transition-all flex items-center justify-center gap-2 min-w-[180px]"
                                                                 >
                                                                     <CalendarIcon size={18} /> Voir calendrier
@@ -393,7 +442,7 @@ export default function DashboardPage() {
 
                             </h3>
                             <p className="text-slate-100 text-sm mb-6 leading-relaxed">
-                                Pour confirmer votre réservation, veuillez transférer l'acompte sur notre compte bancaire et télécharger le reçu.
+                                Votre place peut être réservée sans acompte. Lorsque vous êtes prêt à payer, effectuez le transfert puis téléchargez le reçu depuis votre inscription.
                             </p>
                             <div className="space-y-4 p-4 bg-white/10 rounded-xl mb-6">
                                 <div>
@@ -561,13 +610,40 @@ export default function DashboardPage() {
                                 <div className="space-y-4">
                                     {selectedSchedule.seances && selectedSchedule.seances.length > 0 ? (
                                         selectedSchedule.seances.map((se: any, idx: number) => {
-                                            const seDate = new Date(se.date);
-                                            const isPast = seDate < new Date();
+                                            const seDate = new Date(`${se.date}T00:00:00`);
+                                            const endTime = (se.end_time || se.start_time || '23:59').slice(0, 5);
+                                            const startTime = (se.start_time || '00:00').slice(0, 5);
+                                            const startsAt = new Date(`${se.date}T${startTime}:00`);
+                                            const endsAt = new Date(`${se.date}T${endTime}:00`);
+                                            const now = new Date();
+                                            const isPast = endsAt < now;
+                                            const isInProgress = startsAt <= now && !isPast;
+                                            const seanceKey = `${se.date}|${se.start_time}|${se.end_time || ''}`;
+                                            const attendance = scheduleAttendance[seanceKey];
+                                            const attendanceBadge: Record<string, { label: string; className: string }> = {
+                                                present: {
+                                                    label: 'Présent',
+                                                    className: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                                                },
+                                                absent: {
+                                                    label: 'Absent',
+                                                    className: 'bg-rose-100 text-rose-700 border-rose-200',
+                                                },
+                                                late: {
+                                                    label: 'Retard',
+                                                    className: 'bg-amber-100 text-amber-700 border-amber-200',
+                                                },
+                                                excused: {
+                                                    label: 'Excusé',
+                                                    className: 'bg-blue-100 text-blue-700 border-blue-200',
+                                                },
+                                            };
+                                            const recordedStatus = attendanceBadge[attendance?.status];
                                             return (
                                                 <div
                                                     key={idx}
                                                     className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${isPast
-                                                        ? 'bg-slate-50 border-slate-100 opacity-60'
+                                                        ? 'bg-slate-50 border-slate-200'
                                                         : 'bg-white border-slate-200 shadow-sm hover:shadow-md'
                                                         }`}
                                                 >
@@ -590,9 +666,27 @@ export default function DashboardPage() {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    {!isPast && (
+                                                    {isPast ? (
+                                                        loadingScheduleAttendance ? (
+                                                            <div className="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-full">
+                                                                Chargement
+                                                            </div>
+                                                        ) : recordedStatus ? (
+                                                            <div className={`px-3 py-1 border text-[10px] font-black uppercase tracking-widest rounded-full ${recordedStatus.className}`}>
+                                                                {recordedStatus.label}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="px-3 py-1 bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-full">
+                                                                Non renseigné
+                                                            </div>
+                                                        )
+                                                    ) : isInProgress ? (
+                                                        <div className="px-3 py-1 bg-brand-blue/10 text-brand-blue text-[10px] font-black uppercase tracking-widest rounded-full">
+                                                            En cours
+                                                        </div>
+                                                    ) : (
                                                         <div className="px-3 py-1 bg-brand-green/10 text-brand-green text-[10px] font-black uppercase tracking-widest rounded-full">
-                                                            À Venir
+                                                            À venir
                                                         </div>
                                                     )}
                                                 </div>
@@ -605,6 +699,11 @@ export default function DashboardPage() {
                                         </div>
                                     )}
                                 </div>
+                                {scheduleAttendanceError && (
+                                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-700">
+                                        {scheduleAttendanceError}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center gap-3">

@@ -40,7 +40,7 @@ export default function AdminLogin() {
 
         if (profileError || profile?.role !== 'admin') {
             await supabase.auth.signOut();
-            setError('ACCESS DENIED: Insufficient Clearance');
+            setError('ACCÈS REFUSÉ : droits administrateur insuffisants');
             setLoading(false);
             return;
         }

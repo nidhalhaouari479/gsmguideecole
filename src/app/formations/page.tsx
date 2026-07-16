@@ -63,7 +63,9 @@ export default function FormationsPage() {
                     base_price: course.base_price,
                     sold_price: course.sold_price,
                     price: course.sold_price ? `${course.sold_price} DT` : `${course.base_price} DT`,
-                    category: course.category,
+                    category: course.category === 'Software'
+                        ? 'Logiciel'
+                        : course.category === 'Hardware' ? 'Matériel' : course.category,
                     image: course.image_url,
                     level: course.level,
                     instructor: course.professeurs 
@@ -115,7 +117,7 @@ export default function FormationsPage() {
                                 transition={{ duration: 0.8, delay: 0.2 }}
                                 className="absolute top-0 right-10 w-64 h-80 rounded-3xl overflow-hidden border-8 border-white dark:border-slate-800 shadow-2xl z-10"
                             >
-                                <img src="/A3.jpg" className="w-full h-full object-cover" alt="Lab 1" />
+                                <img src="/A3.jpg" className="w-full h-full object-cover" alt="Atelier 1" />
                             </motion.div>
 
                             <motion.div
@@ -124,7 +126,7 @@ export default function FormationsPage() {
                                 transition={{ duration: 0.8, delay: 0.4 }}
                                 className="absolute bottom-0 right-40 w-56 h-72 rounded-3xl overflow-hidden border-8 border-white dark:border-slate-800 shadow-2xl z-20"
                             >
-                                <img src="/A2.jpg" className="w-full h-full object-cover" alt="Lab 2" />
+                                <img src="/A2.jpg" className="w-full h-full object-cover" alt="Atelier 2" />
                             </motion.div>
 
                             <motion.div
@@ -133,7 +135,7 @@ export default function FormationsPage() {
                                 transition={{ duration: 0.8, delay: 0.6 }}
                                 className="absolute top-20 right-64 w-48 h-60 rounded-3xl overflow-hidden border-8 border-white dark:border-slate-800 shadow-2xl z-0 opacity-50"
                             >
-                                <img src="/A1.jpg" className="w-full h-full object-cover" alt="Lab 3" />
+                                <img src="/A1.jpg" className="w-full h-full object-cover" alt="Atelier 3" />
                             </motion.div>
                         </div>
                     </div>
@@ -145,10 +147,10 @@ export default function FormationsPage() {
                 {/* Search & Filters */}
                 <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-16 border border-white/20 dark:border-slate-700/50 flex flex-col lg:flex-row items-center justify-between gap-8">
                     <div className="flex flex-wrap items-center gap-3">
-                        {['All', 'Hardware', 'Software', 'Advanced'].map((cat) => (
+                        {['Toutes', 'Matériel', 'Logiciel', 'Avancé'].map((cat) => (
                             <button
                                 key={cat}
-                                className={`px-8 py-3 rounded-2xl font-bold transition-all border ${cat === 'All'
+                                className={`px-8 py-3 rounded-2xl font-bold transition-all border ${cat === 'Toutes'
                                     ? 'bg-brand-blue text-white border-brand-blue shadow-lg shadow-brand-blue/20'
                                     : 'bg-white dark:bg-slate-900 border-border hover:border-brand-blue hover:text-brand-blue text-slate-600 dark:text-slate-400'
                                     }`}
@@ -161,7 +163,7 @@ export default function FormationsPage() {
                         <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-blue transition-colors" size={20} />
                         <input
                             type="text"
-                            placeholder="Search our courses..."
+                            placeholder="Rechercher une formation..."
                             className="bg-slate-50 dark:bg-slate-900 pl-14 pr-6 py-4 rounded-2xl border border-border w-full outline-none focus:ring-2 focus:ring-brand-blue focus:bg-white dark:focus:bg-slate-800 transition-all text-sm font-medium"
                         />
                     </div>
@@ -172,7 +174,7 @@ export default function FormationsPage() {
                     {loading ? (
                         <div className="col-span-full py-20 text-center">
                             <div className="w-16 h-16 border-4 border-brand-blue border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-                            <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Loading amazing courses...</p>
+                            <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Chargement des formations...</p>
                         </div>
                     ) : formations.length > 0 ? (
                         formations.map((f, index) => (
@@ -218,7 +220,7 @@ export default function FormationsPage() {
                                                 <Clock size={16} />
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Duration</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400">Durée</span>
                                                 <span className="text-sm font-bold">{f.duration}</span>
                                             </div>
                                         </div>
@@ -227,7 +229,7 @@ export default function FormationsPage() {
                                                 <Tag size={16} />
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Fixed Cost</span>
+                                                <span className="text-[10px] uppercase font-bold text-slate-400">Prix fixe</span>
                                                 <div className="flex items-center gap-2">
                                                     {f.sold_price ? (
                                                         <>
@@ -262,7 +264,7 @@ export default function FormationsPage() {
                         ))
                     ) : (
                         <div className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-[40px] border-2 border-dashed border-border">
-                            <p className="text-slate-500 font-bold">No formations found yet.</p>
+                            <p className="text-slate-500 font-bold">Aucune formation disponible pour le moment.</p>
                         </div>
                     )}
                 </div>

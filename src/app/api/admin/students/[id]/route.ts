@@ -120,6 +120,8 @@ export async function GET(req: Request, context: any) {
             role: profile.role,
             is_blocked: !!profile.is_blocked,
             avatar_url: profile.avatar_url,
+            admin_note: profile.admin_note || '',
+            admin_note_updated_at: profile.admin_note_updated_at || null,
             created_at: profile.created_at,
             // Payment summary
             total_paid: totalPaid,
@@ -134,6 +136,59 @@ export async function GET(req: Request, context: any) {
     } catch (error: any) {
         console.error('Student Profile API Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+export async function PATCH(req: Request, context: any) {
+    try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
+        const params = await context.params;
+        const id = params.id;
+        const { note } = await req.json();
+
+        if (typeof note !== 'string') {
+            return NextResponse.json({ error: 'Remarque invalide.' }, { status: 400 });
+        }
+
+        const cleanNote = note.trim();
+        if (cleanNote.length > 3000) {
+            return NextResponse.json(
+                { error: 'La remarque ne peut pas dépasser 3000 caractères.' },
+                { status: 400 }
+            );
+        }
+
+        const supabaseAdmin = createAdminClient();
+        const { data, error } = await supabaseAdmin
+            .from('profiles')
+            .update({
+                admin_note: cleanNote || null,
+                admin_note_updated_at: new Date().toISOString(),
+                admin_note_updated_by: auth.user.id,
+            })
+            .eq('id', id)
+            .select('id, admin_note, admin_note_updated_at')
+            .single();
+
+        if (error) {
+            if (error.message.includes('admin_note')) {
+                return NextResponse.json(
+                    { error: 'Exécutez le fichier supabase-student-comments.sql dans Supabase.' },
+                    { status: 500 }
+                );
+            }
+            throw new Error(error.message);
+        }
+
+        return NextResponse.json({ success: true, data });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Erreur lors de l’enregistrement.';
+        console.error('Student Note API Error:', error);
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 

@@ -25,7 +25,9 @@ import {
     FileDown,
     Trash2,
     Plus,
-    UserPlus
+    UserPlus,
+    MessageSquare,
+    Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { jsPDF } from 'jspdf';
@@ -78,7 +80,16 @@ interface StudentEnrollment {
 interface StudentFullProfile extends StudentData {
     enrollments: StudentEnrollment[];
     total_price: number;
+    admin_note?: string;
+    admin_note_updated_at?: string | null;
 }
+
+const getStatusLabel = (status: string) => {
+    if (status === 'approved' || status === 'confirmed') return 'Validé';
+    if (status === 'rejected') return 'Refusé';
+    if (status === 'pending') return 'En attente';
+    return status;
+};
 
 export default function StudentsAdminPage() {
     const [students, setStudents] = useState<StudentData[]>([]);
@@ -109,6 +120,9 @@ export default function StudentsAdminPage() {
     const [profileLoading, setProfileLoading] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [studentNote, setStudentNote] = useState('');
+    const [studentNoteSaving, setStudentNoteSaving] = useState(false);
+    const [studentNoteSaved, setStudentNoteSaved] = useState(false);
     
     // Add Student State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -147,12 +161,44 @@ export default function StudentsAdminPage() {
             const data = await response.json();
             if (data.error) throw new Error(data.error);
             setSelectedProfile(data);
+            setStudentNote(data.admin_note || '');
+            setStudentNoteSaved(false);
         } catch (error) {
             console.error('Error fetching student profile:', error);
             alert('Impossible de charger le profil complet.');
             setIsProfileModalOpen(false);
         } finally {
             setProfileLoading(false);
+        }
+    };
+
+    const handleSaveStudentNote = async () => {
+        if (!selectedProfile) return;
+
+        setStudentNoteSaving(true);
+        setStudentNoteSaved(false);
+        try {
+            const response = await fetch(`/api/admin/students/${selectedProfile.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ note: studentNote }),
+            });
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Impossible d’enregistrer la remarque.');
+            }
+
+            setSelectedProfile((current) => current ? {
+                ...current,
+                admin_note: data.data.admin_note || '',
+                admin_note_updated_at: data.data.admin_note_updated_at,
+            } : current);
+            setStudentNoteSaved(true);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Erreur lors de l’enregistrement.');
+        } finally {
+            setStudentNoteSaving(false);
         }
     };
 
@@ -229,7 +275,7 @@ export default function StudentsAdminPage() {
                 const tableColumn = ["Formation", "Statut", "Prix Total", "Payé", "Reste", "Dates de Session"];
                 const tableRows = selectedProfile.enrollments.map(e => [
                     e.course?.title || 'Formation inconnue',
-                    e.status,
+                    getStatusLabel(e.status),
                     `${e.total_price} DT`,
                     `${e.amount_paid} DT`,
                     `${e.remaining} DT`,
@@ -477,7 +523,7 @@ export default function StudentsAdminPage() {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                 <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px] animate-pulse">Scanning Bio-Registry...</p>
+                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px] animate-pulse">Chargement du registre des étudiants...</p>
             </div>
         );
     }
@@ -496,7 +542,7 @@ export default function StudentsAdminPage() {
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <Users size={14} /> Student Management
+                        <Users size={14} /> Gestion des étudiants
                     </div>
                     <h1 className="text-4xl font-black text-white tracking-tighter">Registre <span className="text-slate-500">Étudiants</span></h1>
                 </div>
@@ -506,7 +552,7 @@ export default function StudentsAdminPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
-                            placeholder="Search Identification..."
+                            placeholder="Rechercher un étudiant..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
@@ -798,7 +844,7 @@ export default function StudentsAdminPage() {
                                     <td colSpan={5} className="px-6 py-32 text-center">
                                         <div className="flex flex-col items-center gap-4">
                                             <Users size={48} className="text-slate-800" />
-                                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Registry Zero-Match Record</p>
+                                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun étudiant correspondant</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -809,10 +855,10 @@ export default function StudentsAdminPage() {
 
                 <div className="p-6 bg-white/5 border-t border-white/5 flex items-center justify-between">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        Intelligence Coverage : <span className="text-white">{(sortedStudents.length / (students.length || 1) * 100).toFixed(0)}%</span> of Primary Registry
+                        Couverture du registre : <span className="text-white">{(sortedStudents.length / (students.length || 1) * 100).toFixed(0)} %</span>
                     </p>
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-400 mr-4">Records {sortedStudents.length} of {students.length}</span>
+                        <span className="text-xs font-bold text-slate-400 mr-4">{sortedStudents.length} enregistrement(s) sur {students.length}</span>
                         <button className="p-2 rounded-lg bg-slate-900 border border-white/5 text-slate-500 cursor-not-allowed"><ChevronRight size={16} className="rotate-180" /></button>
                         <button className="p-2 rounded-lg bg-slate-900 border border-white/5 text-slate-500 cursor-not-allowed"><ChevronRight size={16} /></button>
                     </div>
@@ -903,6 +949,54 @@ export default function StudentsAdminPage() {
                                             </div>
                                         </section>
 
+                                        {/* Internal Student Note */}
+                                        <section>
+                                            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                <MessageSquare size={16} className="text-brand-blue" /> Remarque interne
+                                            </h3>
+                                            <div className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-5">
+                                                <textarea
+                                                    rows={5}
+                                                    maxLength={3000}
+                                                    value={studentNote}
+                                                    onChange={(event) => {
+                                                        setStudentNote(event.target.value);
+                                                        setStudentNoteSaved(false);
+                                                    }}
+                                                    placeholder="Ajouter une remarque générale sur cet étudiant…"
+                                                    className="w-full resize-y rounded-xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-900 outline-none focus:border-brand-blue"
+                                                />
+                                                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div>
+                                                        {studentNoteSaved && (
+                                                            <p className="text-xs font-bold text-emerald-400">
+                                                                Remarque enregistrée.
+                                                            </p>
+                                                        )}
+                                                        {selectedProfile.admin_note_updated_at && (
+                                                            <p className="text-[10px] font-medium text-slate-500">
+                                                                Dernière modification : {new Date(selectedProfile.admin_note_updated_at).toLocaleString('fr-FR')}
+                                                            </p>
+                                                        )}
+                                                        <p className="text-[10px] font-medium text-slate-500">
+                                                            Cette remarque est visible uniquement par l’administration.
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSaveStudentNote}
+                                                        disabled={studentNoteSaving}
+                                                        className="btn-primary min-w-48 py-2.5 text-sm"
+                                                    >
+                                                        {studentNoteSaving
+                                                            ? <Loader2 className="animate-spin" size={16} />
+                                                            : <Save size={16} />}
+                                                        {studentNoteSaving ? 'Enregistrement…' : 'Enregistrer'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </section>
+
                                         {/* Financial Summary */}
                                         <section>
                                             <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -951,7 +1045,7 @@ export default function StudentsAdminPage() {
                                                                         <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${enrollment.status === 'confirmed' ? 'bg-emerald-500/20 text-emerald-400' :
                                                                             enrollment.status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-500/20 text-slate-400'
                                                                             }`}>
-                                                                            {enrollment.status}
+                                                                            {getStatusLabel(enrollment.status)}
                                                                         </span>
                                                                     </div>
                                                                     <h4 className="font-black text-white">{enrollment.course?.title || 'Formation inconnue'}</h4>

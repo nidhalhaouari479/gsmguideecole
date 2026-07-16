@@ -51,7 +51,7 @@ export default function AnalyticsAdminPage() {
     const cards = [
         { label: 'Visiteurs', value: data?.kpis.uniqueVisitors?.toLocaleString() ?? '—', icon: Users, color: 'text-brand-blue', bg: 'bg-brand-blue/10' },
         { label: 'Temps Moyen', value: data?.kpis.avgTime ?? '—', icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-        { label: 'Total Clicks', value: data?.kpis.totalClicks?.toLocaleString() ?? '—', icon: MousePointer2, color: 'text-brand-green', bg: 'bg-brand-green/10' },
+        { label: 'Nombre de clics', value: data?.kpis.totalClicks?.toLocaleString() ?? '—', icon: MousePointer2, color: 'text-brand-green', bg: 'bg-brand-green/10' },
         { label: 'Pages Vues', value: data?.kpis.totalPageViews?.toLocaleString() ?? '—', icon: FileText, color: 'text-rose-500', bg: 'bg-rose-500/10' },
     ];
 
@@ -71,7 +71,7 @@ export default function AnalyticsAdminPage() {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                 <div className="premium-card p-8 text-center max-w-lg">
-                    <h3 className="text-xl font-black text-rose-400 mb-2">Erreur API Analytics</h3>
+                    <h3 className="text-xl font-black text-rose-400 mb-2">Erreur du module d’analyse</h3>
                     <pre className="text-xs text-slate-400 bg-slate-950 p-4 rounded-xl overflow-auto text-left whitespace-pre-wrap">{error}</pre>
                     <button onClick={fetchData} className="mt-4 px-6 py-2 bg-brand-green text-slate-950 rounded-xl font-black uppercase tracking-widest text-xs">Réessayer</button>
                 </div>
@@ -85,10 +85,10 @@ export default function AnalyticsAdminPage() {
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.3em] text-[10px] mb-2">
-                        <Activity size={14} /> Intelligence Web Réelle
+                        <Activity size={14} /> Analyse réelle du site
                     </div>
                     <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">
-                        WEB <span className="text-brand-green">ANALYTICS</span>
+                        ANALYSE <span className="text-brand-green">DU SITE</span>
                     </h1>
                 </div>
                 <div className="flex gap-2">
@@ -153,7 +153,7 @@ export default function AnalyticsAdminPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse"></span>
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Live</span>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">En direct</span>
                                 </div>
                             </div>
                             <div className="h-[280px] w-full">
@@ -178,7 +178,7 @@ export default function AnalyticsAdminPage() {
                         {/* Clicks Pie Chart */}
                         <div className="premium-card p-8">
                             <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
-                                <PieIcon className="text-brand-blue" /> Clicks par bouton
+                                <PieIcon className="text-brand-blue" /> Clics par bouton
                             </h3>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 mb-4">Répartition des interactions</p>
                             {data.clicksChart.length > 0 ? (
@@ -236,14 +236,14 @@ export default function AnalyticsAdminPage() {
                                 <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
                                     <FileText className="text-rose-500" /> Pages les plus visitées
                                 </h3>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Top URLs & Performance</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Pages principales et performances</p>
                             </div>
                             <div className="overflow-x-auto overflow-y-auto flex-grow">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-white/[0.02]">
                                             <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">Page</th>
-                                            <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">Views</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">Vues</th>
                                             <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">Temps Moyen</th>
                                         </tr>
                                     </thead>

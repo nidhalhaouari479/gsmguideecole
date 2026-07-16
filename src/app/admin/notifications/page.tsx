@@ -29,6 +29,9 @@ export default function NotificationsPage() {
 
     const getNotifIcon = (type: string) => {
         switch (type) {
+            case 'reservation_submitted': return <Clock size={20} />;
+            case 'reservation_approved': return <CheckCircle size={20} className="text-white" />;
+            case 'reservation_rejected': return <XCircle size={20} className="text-white" />;
             case 'payment_submitted': return <CreditCard size={20} />;
             case 'payment_approved': return <CheckCircle size={20} className="text-white" />;
             case 'payment_rejected': return <XCircle size={20} className="text-white" />;
@@ -40,6 +43,9 @@ export default function NotificationsPage() {
     const getNotifColor = (type: string, isRead: boolean) => {
         if (isRead) return 'bg-slate-800 text-slate-500';
         switch (type) {
+            case 'reservation_submitted': return 'bg-brand-blue text-white shadow-brand-blue/20';
+            case 'reservation_approved': return 'bg-emerald-500 text-white shadow-emerald-500/20';
+            case 'reservation_rejected': return 'bg-rose-500 text-white shadow-rose-500/20';
             case 'payment_submitted': return 'bg-amber-500 text-white shadow-amber-500/20';
             case 'payment_approved': return 'bg-emerald-500 text-white shadow-emerald-500/20';
             case 'payment_rejected': return 'bg-rose-500 text-white shadow-rose-500/20';

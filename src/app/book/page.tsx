@@ -19,7 +19,8 @@ function BookingContent() {
     const [course, setCourse] = useState<any>(null);
     const [sessions, setSessions] = useState<any[]>([]);
     const [selectedSessionId, setSelectedSessionId] = useState<string>('');
-    const [paymentAmount, setPaymentAmount] = useState<number>(400);
+    const [paymentMode, setPaymentMode] = useState<'later' | 'now'>('later');
+    const [paymentAmount, setPaymentAmount] = useState<number>(0);
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -45,31 +46,34 @@ function BookingContent() {
                     .eq('id', courseId)
                     .single();
                 setCourse(courseData);
+                setPaymentAmount(Number(courseData?.reservation_amount ?? 400));
             }
 
             // Fetch all upcoming sessions for this course with enrollment counts
             if (courseId) {
                 const { data: sessionsData } = await supabase
                     .from('sessions')
-                    .select('*, enrollments(status)')
+                    .select('*, enrollments(status, receipt_url)')
                     .eq('course_id', courseId)
                     .gte('start_date', new Date().toISOString().split('T')[0])
                     .order('start_date', { ascending: true });
 
                 if (sessionsData && sessionsData.length > 0) {
                     const sessionsWithRealSeats = sessionsData.map((s: any) => {
-                        const approvedCount = s.enrollments?.filter((e: any) => e.status === 'approved').length || 0;
+                        const reservedCount = s.enrollments?.filter((e: any) =>
+                            e.status === 'approved' || e.status === 'pending'
+                        ).length || 0;
                         return {
                             ...s,
-                            real_seats_available: Math.max(0, s.seats_available - approvedCount)
+                            real_seats_available: Math.max(0, s.seats_available - reservedCount)
                         };
                     });
                     setSessions(sessionsWithRealSeats);
                     // Pre-select if valid session ID in URL, otherwise select the first one automatically
-                    if (sessionId && sessionsWithRealSeats.some((s: any) => s.id === sessionId)) {
+                    if (sessionId && sessionsWithRealSeats.some((s: any) => s.id === sessionId && s.real_seats_available > 0)) {
                         setSelectedSessionId(sessionId);
                     } else {
-                        setSelectedSessionId(sessionsWithRealSeats[0].id);
+                        setSelectedSessionId(sessionsWithRealSeats.find((s: any) => s.real_seats_available > 0)?.id || '');
                     }
                 }
             }
@@ -89,52 +93,76 @@ function BookingContent() {
     const handleBooking = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedSessionId || !user) return;
-        if (paymentAmount < 400) {
-            setError("Le montant minimum pour réserver est de 400 DT.");
+
+        const selectedSession = sessions.find((session) => session.id === selectedSessionId);
+        const reservationAmount = Number(course?.reservation_amount ?? 400);
+        const totalPrice = Number(course?.sold_price || course?.base_price || 0);
+
+        if (!selectedSession || selectedSession.real_seats_available <= 0) {
+            setError("Cette session est complète. Veuillez choisir une autre session.");
             return;
         }
-        if (!receiptFile) {
-            setError("Veuillez télécharger le reçu de paiement.");
-            return;
+
+        if (paymentMode === 'now') {
+            if (paymentAmount < reservationAmount) {
+                setError(`Le montant minimum pour cette formation est de ${reservationAmount} DT.`);
+                return;
+            }
+            if (paymentAmount > totalPrice) {
+                setError(`Le montant versé ne peut pas dépasser le prix total de ${totalPrice} DT.`);
+                return;
+            }
+            if (!receiptFile) {
+                setError("Veuillez télécharger le reçu de paiement.");
+                return;
+            }
         }
 
         setSubmitting(true);
         setError(null);
 
         try {
-            // 1. Upload receipt to Supabase Storage
-            const fileExt = receiptFile.name.split('.').pop();
-            const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-            const filePath = `receipts/${fileName}`;
+            let receiptUrl: string | null = null;
 
-            const { error: uploadError } = await supabase.storage
-                .from('receipts') // Renamed to 'receipts' which is more standard
-                .upload(filePath, receiptFile);
+            if (paymentMode === 'now' && receiptFile) {
+                const fileExt = receiptFile.name.split('.').pop();
+                const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+                const filePath = `receipts/${fileName}`;
 
-            if (uploadError) throw new Error("Erreur lors du téléchargement du reçu: " + uploadError.message);
+                const { error: uploadError } = await supabase.storage
+                    .from('receipts')
+                    .upload(filePath, receiptFile);
 
-            const { data: { publicUrl } } = supabase.storage
-                .from('receipts')
-                .getPublicUrl(filePath);
+                if (uploadError) {
+                    throw new Error("Erreur lors du téléchargement du reçu : " + uploadError.message);
+                }
 
-            // 2. Create enrollment
-            const { error: enrollError } = await supabase
-                .from('enrollments')
-                .insert({
-                    user_id: user.id,
-                    session_id: selectedSessionId,
-                    total_price: course?.sold_price || course?.base_price || 0,
-                    amount_paid: 0,
-                    receipt_url: JSON.stringify([{
-                        url: publicUrl,
-                        amount: paymentAmount,
-                        date: new Date().toISOString(),
-                        status: 'pending'
-                    }]),
-                    status: 'pending',
-                });
+                const { data: { publicUrl } } = supabase.storage
+                    .from('receipts')
+                    .getPublicUrl(filePath);
 
-            if (enrollError) throw enrollError;
+                receiptUrl = JSON.stringify([{
+                    url: publicUrl,
+                    amount: paymentAmount,
+                    date: new Date().toISOString(),
+                    status: 'pending'
+                }]);
+            }
+
+            const response = await fetch('/api/enrollments/reserve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: selectedSessionId,
+                    receiptUrl,
+                    declaredAmount: paymentMode === 'now' ? paymentAmount : 0,
+                }),
+            });
+
+            const result = await response.json();
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Erreur lors de la réservation.');
+            }
 
             setSuccess(true);
         } catch (err: any) {
@@ -163,9 +191,13 @@ function BookingContent() {
                     <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
                         <CheckCircle size={40} className="text-green-500" />
                     </div>
-                    <h1 className="text-2xl font-black mb-3 text-slate-900 dark:text-white">Demande envoyée !</h1>
+                    <h1 className="text-2xl font-black mb-3 text-slate-900 dark:text-white">
+                        Demande envoyée !
+                    </h1>
                     <p className="text-slate-500 mb-8">
-                        Votre reçu a bien été transmis. Nous allons vérifier votre paiement. Vous recevrez une confirmation dès que votre inscription sera validée par l'administration.
+                        {paymentMode === 'later'
+                            ? "Votre réservation sans paiement est en attente de validation par l’administration. Le montant reçu est de 0 DT."
+                            : "Votre reçu a bien été transmis. Nous allons vérifier votre paiement et vous recevrez une confirmation après sa validation."}
                     </p>
                     <Link href="/dashboard" className="btn-primary w-full py-3 text-center block">
                         Mon Tableau de Bord
@@ -185,8 +217,6 @@ function BookingContent() {
             </div>
         );
     }
-
-    const selectedSessionInfo = sessions.find(s => s.id === selectedSessionId);
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-32 px-6">
@@ -214,10 +244,14 @@ function BookingContent() {
                             {sessions.map((s) => (
                                 <button
                                     key={s.id}
-                                    onClick={() => setSelectedSessionId(s.id)}
+                                    type="button"
+                                    onClick={() => s.real_seats_available > 0 && setSelectedSessionId(s.id)}
+                                    disabled={s.real_seats_available <= 0}
                                     className={`flex items-center justify-between p-4 rounded-xl border-2 text-left transition-all ${selectedSessionId === s.id
                                         ? 'border-brand-blue bg-brand-blue/5 shadow-inner'
-                                        : 'border-border bg-white dark:bg-slate-800 hover:border-brand-blue/30'
+                                        : s.real_seats_available <= 0
+                                            ? 'border-border bg-slate-100 dark:bg-slate-900 opacity-60 cursor-not-allowed'
+                                            : 'border-border bg-white dark:bg-slate-800 hover:border-brand-blue/30'
                                         }`}
                                 >
                                     <div>
@@ -233,12 +267,17 @@ function BookingContent() {
                                             <span>Rythme: {(() => {
                                                 try {
                                                     const p = JSON.parse(s.schedule);
-                                                    return p.label || s.schedule;
+                                                    const label = p.label || s.schedule;
+                                                    return label === 'Full Time'
+                                                        ? 'Temps plein'
+                                                        : label === 'Part Time'
+                                                            ? 'Temps partiel'
+                                                            : label === 'Weekend' ? 'Week-end' : label;
                                                 } catch (e) { return s.schedule; }
                                             })()}</span>
                                             <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                                             <span className={s.real_seats_available <= 5 ? 'text-red-500 font-medium' : 'text-green-600 font-medium'}>
-                                                {s.real_seats_available} places restantes
+                                                {s.real_seats_available > 0 ? `${s.real_seats_available} places restantes` : 'Session complète'}
                                             </span>
                                         </div>
                                     </div>
@@ -251,60 +290,118 @@ function BookingContent() {
                     </div>
 
                     <form onSubmit={handleBooking} className="space-y-8 mt-12 pt-8 border-t border-border">
-                        <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-widest">Étape 2 : Justificatif de Paiement</h3>
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-widest">Étape 2 : Choisissez quand payer</h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Montant versé (DT)</label>
-                                <div className="relative">
-                                    <input
-                                        type="number"
-                                        min="400"
-                                        value={paymentAmount}
-                                        onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                                    />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPaymentMode('later');
+                                    setError(null);
+                                }}
+                                className={`p-5 rounded-2xl border-2 text-left transition-all ${paymentMode === 'later'
+                                    ? 'border-brand-green bg-brand-green/10'
+                                    : 'border-border hover:border-brand-green/40'
+                                    }`}
+                            >
+                                <div className="flex items-center justify-between gap-3 mb-2">
+                                    <span className="font-black text-slate-900 dark:text-white">Réserver sans payer</span>
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMode === 'later' ? 'border-brand-green bg-brand-green' : 'border-slate-300'}`}>
+                                        {paymentMode === 'later' && <div className="w-2 h-2 rounded-full bg-white" />}
+                                    </div>
+                                </div>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Votre place est bloquée maintenant. Vous pourrez payer plus tard depuis votre tableau de bord.
+                                </p>
+                            </button>
 
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPaymentMode('now');
+                                    setError(null);
+                                }}
+                                className={`p-5 rounded-2xl border-2 text-left transition-all ${paymentMode === 'now'
+                                    ? 'border-brand-blue bg-brand-blue/5'
+                                    : 'border-border hover:border-brand-blue/40'
+                                    }`}
+                            >
+                                <div className="flex items-center justify-between gap-3 mb-2">
+                                    <span className="font-black text-slate-900 dark:text-white">J’ai déjà payé</span>
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMode === 'now' ? 'border-brand-blue bg-brand-blue' : 'border-slate-300'}`}>
+                                        {paymentMode === 'now' && <div className="w-2 h-2 rounded-full bg-white" />}
+                                    </div>
+                                </div>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Saisissez le montant versé et joignez votre justificatif pour validation.
+                                </p>
+                            </button>
+                        </div>
+
+                        {paymentMode === 'now' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Montant versé (DT)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min={course.reservation_amount ?? 400}
+                                            max={course.sold_price || course.base_price}
+                                            step="0.01"
+                                            value={paymentAmount}
+                                            onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                                        />
+                                    </div>
+
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                                        Prix Total : {course.sold_price ? (
+                                            <>
+                                                <span className="text-brand-green">{course.sold_price} DT</span>
+                                                <span className="ml-2 line-through opacity-50">{course.base_price} DT</span>
+                                            </>
+                                        ) : (
+                                            <>{course.base_price} DT</>
+                                        )}
+                                    </p>
                                 </div>
 
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                                    Prix Total : {course.sold_price ? (
-                                        <>
-                                            <span className="text-brand-green">{course.sold_price} DT</span>
-                                            <span className="ml-2 line-through opacity-50">{course.base_price} DT</span>
-                                        </>
-                                    ) : (
-                                        <>{course.base_price} DT</>
-                                    )}
-                                </p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Photo du reçu / PDF</label>
-                                <div className={`relative border-2 border-dashed rounded-xl p-3 transition-all ${receiptFile ? 'border-brand-green bg-brand-green/5' : 'border-border bg-slate-50 dark:bg-slate-900'}`}>
-                                    <input
-                                        type="file"
-                                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                        onChange={handleFileChange}
-                                        accept="image/*,.pdf"
-                                    />
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${receiptFile ? 'bg-brand-green text-white' : 'bg-white dark:bg-slate-800 text-slate-400 shadow-sm'}`}>
-                                            <Upload size={18} />
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Photo du reçu / PDF</label>
+                                    <div className={`relative border-2 border-dashed rounded-xl p-3 transition-all ${receiptFile ? 'border-brand-green bg-brand-green/5' : 'border-border bg-slate-50 dark:bg-slate-900'}`}>
+                                        <input
+                                            type="file"
+                                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                            onChange={handleFileChange}
+                                            accept="image/*,.pdf"
+                                        />
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${receiptFile ? 'bg-brand-green text-white' : 'bg-white dark:bg-slate-800 text-slate-400 shadow-sm'}`}>
+                                                <Upload size={18} />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-400 truncate">
+                                                {receiptFile ? receiptFile.name : "Cliquez pour uploader"}
+                                            </span>
                                         </div>
-                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 truncate">
-                                            {receiptFile ? receiptFile.name : "Cliquez pour uploader"}
-                                        </span>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
-                        <div className="p-5 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200/50 flex items-start gap-4">
-                            <ShieldCheck size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div className={`p-5 rounded-2xl border flex items-start gap-4 ${paymentMode === 'later'
+                            ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200/50'
+                            : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200/50'
+                            }`}>
+                            <ShieldCheck size={20} className={`${paymentMode === 'later' ? 'text-emerald-600' : 'text-amber-600'} shrink-0 mt-0.5`} />
                             <div className="space-y-1">
-                                <p className="text-sm font-bold text-amber-800 dark:text-amber-200">Règle de réservation</p>
-                                <p className="text-xs text-amber-700/80 dark:text-amber-400/80 leading-relaxed">
-                                    Un versement minimal de <strong>400 DT</strong> est requis pour bloquer votre place. Le reste du montant ({(course.sold_price || course.base_price) - paymentAmount} DT) sera réglé au début de la formation.Veuillez effectuer le paiement sur le RIB : <strong>05 206 0000513003641 83</strong>.
+                                <p className={`text-sm font-bold ${paymentMode === 'later' ? 'text-emerald-800 dark:text-emerald-200' : 'text-amber-800 dark:text-amber-200'}`}>
+                                    {paymentMode === 'later' ? 'Réservation sans paiement' : 'Paiement avec justificatif'}
+                                </p>
+                                <p className={`text-xs leading-relaxed ${paymentMode === 'later' ? 'text-emerald-700/80 dark:text-emerald-400/80' : 'text-amber-700/80 dark:text-amber-400/80'}`}>
+                                    {paymentMode === 'later' ? (
+                                        <>Aucun versement n’est demandé aujourd’hui. Le montant total de <strong>{course.sold_price || course.base_price} DT</strong> restera à régler depuis votre tableau de bord.</>
+                                    ) : (
+                                        <>Un versement minimal de <strong>{course.reservation_amount ?? 400} DT</strong> est demandé avec un reçu. Le reste ({Math.max(0, (course.sold_price || course.base_price) - paymentAmount)} DT) pourra être réglé plus tard. RIB : <strong>05 206 0000513003641 83</strong>.</>
+                                    )}
                                 </p>
                             </div>
                         </div>
@@ -318,11 +415,17 @@ function BookingContent() {
 
                         <button
                             type="submit"
-                            disabled={submitting}
-                            className={`btn-primary w-full py-4 flex items-center justify-center gap-2 text-base transition-all ${submitting ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.01] active:scale-[0.99] shadow-xl shadow-brand-blue/20'}`}
+                            disabled={submitting || !selectedSessionId}
+                            className={`btn-primary w-full py-4 flex items-center justify-center gap-2 text-base transition-all ${submitting || !selectedSessionId ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.01] active:scale-[0.99] shadow-xl shadow-brand-blue/20'}`}
                         >
                             {submitting ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
-                            {submitting ? "Traitement en cours..." : "Finaliser ma réservation"}
+                            {submitting
+                                ? "Traitement en cours..."
+                                : !selectedSessionId
+                                    ? "Aucune place disponible"
+                                    : paymentMode === 'later'
+                                        ? "Réserver ma place sans payer"
+                                        : "Envoyer mon justificatif"}
                         </button>
                     </form>
                 </motion.div>

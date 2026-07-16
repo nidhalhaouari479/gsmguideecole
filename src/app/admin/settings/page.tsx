@@ -41,9 +41,9 @@ export default function SettingsAdminPage() {
     };
 
     const tabs = [
-        { id: 'general', label: 'CORE_SYSTEM', icon: Server },
-        { id: 'payments', label: 'FINANCIAL_GATEWAY', icon: CreditCard },
-        { id: 'security', label: 'ACCESS_CONTROL', icon: Fingerprint },
+        { id: 'general', label: 'SYSTÈME GÉNÉRAL', icon: Server },
+        { id: 'payments', label: 'PARAMÈTRES FINANCIERS', icon: CreditCard },
+        { id: 'security', label: 'CONTRÔLE DES ACCÈS', icon: Fingerprint },
     ];
 
     return (
@@ -53,10 +53,10 @@ export default function SettingsAdminPage() {
                 <div>
                     <div className="flex items-center gap-3 text-brand-green text-[10px] font-black uppercase tracking-[0.4em] mb-4">
                         <div className="w-10 h-[1px] bg-gradient-to-r from-brand-green to-transparent" />
-                        SYSTEM_CONFIGURATION
+                        CONFIGURATION DU SYSTÈME
                     </div>
-                    <h1 className="text-5xl font-black text-white tracking-tighter">System <span className="text-slate-500">Parameters</span></h1>
-                    <p className="text-slate-500 text-sm font-bold mt-2 uppercase tracking-widest">Global Variables & Security Directives</p>
+                    <h1 className="text-5xl font-black text-white tracking-tighter">Paramètres <span className="text-slate-500">du système</span></h1>
+                    <p className="text-slate-500 text-sm font-bold mt-2 uppercase tracking-widest">Variables générales et directives de sécurité</p>
                 </div>
 
                 <button
@@ -65,7 +65,7 @@ export default function SettingsAdminPage() {
                     className="btn-command flex items-center justify-center gap-3 w-full md:w-auto"
                 >
                     {saving ? <Loader2 className="animate-spin" size={18} strokeWidth={3} /> : success ? <CheckCircle size={18} strokeWidth={3} className="text-brand-green" /> : <Save size={18} strokeWidth={3} />}
-                    {success ? 'DATA_COMMITTED' : 'EXECUTE_SAVE'}
+                    {success ? 'DONNÉES ENREGISTRÉES' : 'ENREGISTRER'}
                 </button>
             </header>
 
@@ -102,19 +102,19 @@ export default function SettingsAdminPage() {
                         </div>
                         <div className="flex items-center gap-2 text-brand-blue text-[9px] font-black uppercase tracking-widest mb-3">
                             <div className="w-1.5 h-1.5 rounded-full bg-brand-blue animate-pulse" />
-                            System Status
+                            État du système
                         </div>
                         <div className="space-y-2 relative z-10">
                             <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                 <span>Network</span>
-                                <span className="text-brand-green">Optimized</span>
+                                <span className="text-brand-green">Optimisé</span>
                             </div>
                             <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <span>Database</span>
-                                <span className="text-brand-green">Connected</span>
+                                <span>Base de données</span>
+                                <span className="text-brand-green">Connecté</span>
                             </div>
                             <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <span>Encryption</span>
+                                <span>Chiffrement</span>
                                 <span className="text-brand-blue">AES-256</span>
                             </div>
                         </div>
@@ -132,30 +132,30 @@ export default function SettingsAdminPage() {
                         {activeTab === 'general' && (
                             <div className="space-y-10">
                                 <div className="border-b border-white/5 pb-8 mb-10">
-                                    <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Core Academy Identity</h3>
-                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Public-facing operational metrics.</p>
+                                    <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Identité de l’académie</h3>
+                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Informations publiques de l’établissement.</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <Building size={12} className="text-brand-green" /> Facility Designation
+                                            <Building size={12} className="text-brand-green" /> Nom de l’établissement
                                         </label>
                                         <div className="relative group">
-                                            <input type="text" defaultValue="Dreamworld Academy" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
+                                            <input type="text" defaultValue="GSM Guide Academy" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
                                         </div>
                                     </div>
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <Mail size={12} className="text-brand-green" /> Primary Comm Channel
+                                            <Mail size={12} className="text-brand-green" /> Adresse e-mail principale
                                         </label>
                                         <div className="relative group">
-                                            <input type="email" defaultValue="support@dreamworld.tn" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-brand-blue focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
+                                            <input type="email" defaultValue="Gsmguideacademy@gmail.com" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-brand-blue focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
                                         </div>
                                     </div>
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <Phone size={12} className="text-brand-blue" /> Voice Link
+                                            <Phone size={12} className="text-brand-blue" /> Numéro de téléphone
                                         </label>
                                         <div className="relative group">
                                             <input type="tel" defaultValue="+216 71 000 000" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-blue/50 focus:ring-4 focus:ring-brand-blue/10 transition-all uppercase tracking-wider" />
@@ -163,7 +163,7 @@ export default function SettingsAdminPage() {
                                     </div>
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <MapPin size={12} className="text-brand-green" /> Physical Coordinates
+                                            <MapPin size={12} className="text-brand-green" /> Adresse physique
                                         </label>
                                         <div className="relative group">
                                             <input type="text" defaultValue="Tunis, Tunisie" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
@@ -176,31 +176,31 @@ export default function SettingsAdminPage() {
                         {activeTab === 'payments' && (
                             <div className="space-y-10">
                                 <div className="border-b border-white/5 pb-8 mb-10">
-                                    <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Financial Routing Protocol</h3>
-                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Variables for monetary transfers.</p>
+                                    <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Coordonnées financières</h3>
+                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Paramètres utilisés pour les virements.</p>
                                 </div>
 
                                 <div className="p-6 bg-brand-neon/5 border border-brand-neon/20 rounded-2xl flex gap-6 text-brand-neon mb-10 items-start shadow-[0_0_20px_rgba(244,63,94,0.05)]">
                                     <AlertTriangle className="shrink-0 mt-1" size={24} />
                                     <div>
-                                        <h4 className="text-sm font-black uppercase tracking-widest mb-1">Critical Parameter</h4>
+                                        <h4 className="text-sm font-black uppercase tracking-widest mb-1">Paramètre sensible</h4>
                                         <p className="text-[10px] font-bold uppercase tracking-wide leading-relaxed opacity-80">
-                                            Verify routing numbers carefully. Invalid configuration will result in transaction failures and system alerts.
+                                            Vérifiez attentivement les coordonnées bancaires. Une configuration incorrecte entraînera des échecs de transaction.
                                         </p>
                                     </div>
                                 </div>
 
                                 <div className="space-y-8 max-w-2xl">
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Financial Institution</label>
+                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Établissement bancaire</label>
                                         <input type="text" defaultValue="BIAT Tunisie" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Routing / Account String (RIB)</label>
+                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Numéro de compte (RIB)</label>
                                         <input type="text" defaultValue="08 000 00000000000 00" className="w-full px-6 py-5 bg-slate-950/80 border border-brand-green/20 rounded-2xl font-black text-xl tracking-[0.3em] text-brand-green focus:outline-none focus:border-brand-green focus:ring-4 focus:ring-brand-green/20 transition-all placeholder:tracking-normal shadow-inner" />
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Base Authorization Limit (DT)</label>
+                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Montant minimal autorisé (DT)</label>
                                         <input type="number" defaultValue="200" className="w-48 px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all tabular-nums text-xl" />
                                     </div>
                                 </div>
@@ -210,28 +210,28 @@ export default function SettingsAdminPage() {
                         {activeTab === 'security' && (
                             <div className="space-y-10">
                                 <div className="border-b border-white/5 pb-8 mb-10">
-                                    <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Authorization Overrides</h3>
-                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Manage master access credentials.</p>
+                                    <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Paramètres de sécurité</h3>
+                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Gérer les identifiants d’accès principaux.</p>
                                 </div>
 
                                 <div className="space-y-8 max-w-lg">
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Current Security Key</label>
+                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Mot de passe actuel</label>
                                         <div className="relative group">
                                             <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-blue transition-colors" size={18} />
                                             <input type="password" placeholder="••••••••••••" className="w-full pl-16 pr-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-blue/50 focus:ring-4 focus:ring-brand-blue/10 transition-all tracking-[0.3em]" />
                                         </div>
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">New Security Key</label>
+                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Nouveau mot de passe</label>
                                         <div className="relative group">
                                             <Shield className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-green transition-colors" size={18} />
-                                            <input type="password" placeholder="MINIMUM 12 CHARACTERS" className="w-full pl-16 pr-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-widest text-xs" />
+                                            <input type="password" placeholder="12 CARACTÈRES MINIMUM" className="w-full pl-16 pr-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-widest text-xs" />
                                         </div>
                                     </div>
                                     <div className="pt-6 flex flex-col sm:flex-row gap-4 border-t border-white/5">
-                                        <button className="flex-1 py-5 bg-slate-950 border border-brand-neon/30 text-brand-neon rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-brand-neon/10 transition-all shadow-[0_0_15px_rgba(244,63,94,0.1)]">Initialize Cipher</button>
-                                        <button className="flex-1 py-5 bg-slate-950 border border-rose-500/20 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-rose-500/10 transition-all">Revoke Clearance</button>
+                                        <button className="flex-1 py-5 bg-slate-950 border border-brand-neon/30 text-brand-neon rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-brand-neon/10 transition-all shadow-[0_0_15px_rgba(244,63,94,0.1)]">Mettre à jour le mot de passe</button>
+                                        <button className="flex-1 py-5 bg-slate-950 border border-rose-500/20 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-rose-500/10 transition-all">Révoquer les accès</button>
                                     </div>
                                 </div>
                             </div>

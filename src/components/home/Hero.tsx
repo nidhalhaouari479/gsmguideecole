@@ -61,7 +61,7 @@ const Hero = () => {
                                     <div key={i} className="w-14 h-14 rounded-full border-4 border-white dark:border-slate-800 bg-slate-200 overflow-hidden relative shadow-md">
                                         <Image 
                                             src={`https://i.pravatar.cc/150?u=${i + 10}`} 
-                                            alt="Student" 
+                                            alt="Étudiant"
                                             fill 
                                             sizes="56px"
                                             className="object-cover" 
@@ -83,7 +83,7 @@ const Hero = () => {
                             transition={{ duration: 1 }}
                             className="relative z-10 w-full h-full rounded-[48px] overflow-hidden shadow-2xl border-2 border-slate-200 dark:border-slate-800"
                         >
-                            <img src="/603807524_122162202128668326_405473167361075168_n.jpg" className="w-full h-full object-cover" alt="GSM Academy Lab" />
+                            <img src="/603807524_122162202128668326_405473167361075168_n.jpg" className="w-full h-full object-cover" alt="Atelier GSM Guide Academy" />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent" />
                         </motion.div>
 
@@ -132,7 +132,7 @@ const Hero = () => {
                             <iframe
                                 className="w-full h-full"
                                 src="https://www.youtube.com/embed/F06FjwYzz4E?autoplay=1&mute=1"
-                                title="GSM Academy Presentation"
+                                title="Présentation de GSM Guide Academy"
                                 frameBorder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen

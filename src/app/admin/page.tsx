@@ -200,7 +200,7 @@ export default function AdminDashboard() {
                                 title: s.courses?.title_fr || 'Formation',
                                 label: parsed.label || 'Session Standard',
                                 time: se.start_time,
-                                room: 'Lab Main'
+                                room: 'Atelier principal'
                             });
                         }
                     });
@@ -263,7 +263,7 @@ export default function AdminDashboard() {
                         className="absolute inset-0 bg-brand-green/20 rounded-full blur-xl"
                     />
                 </div>
-                <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Syncing Intelligence Engine...</p>
+                <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Chargement du tableau de bord...</p>
             </div>
         );
     }
@@ -274,17 +274,17 @@ export default function AdminDashboard() {
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.3em] text-[10px] mb-2">
-                        <Zap size={14} fill="currentColor" /> Console Command Center
+                        <Zap size={14} fill="currentColor" /> Centre de contrôle
                     </div>
                     <h1 className="text-5xl font-black text-white tracking-tighter uppercase italic">
-                        SYSTEM <span className="text-brand-green">INTELLIGENCE</span>
+                        TABLEAU <span className="text-brand-green">DE BORD</span>
                     </h1>
-                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-2">GSM GUIDE ACADEMY • Operational Control Dashboard</p>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-2">GSM GUIDE ACADEMY • Tableau de contrôle opérationnel</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="px-6 py-2 bg-slate-900 border border-white/5 rounded-2xl flex items-center gap-3 shadow-2xl">
                         <div className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
-                        <span className="text-xs font-black text-white uppercase tracking-widest">LIVE DATA FEED</span>
+                        <span className="text-xs font-black text-white uppercase tracking-widest">DONNÉES EN DIRECT</span>
                     </div>
                     <button 
                         onClick={handleGenerateReport}
@@ -303,7 +303,7 @@ export default function AdminDashboard() {
                     { label: 'Total Étudiants', value: stats.students, sub: `+${stats.newToday} aujourd'hui`, icon: Users, color: 'text-brand-blue', bg: 'bg-brand-blue/10' },
                     { label: 'Chiffre d\'Affaires', value: `${stats.revenue.toLocaleString()} DT`, sub: 'Revenus confirmés', icon: CreditCard, color: 'text-brand-green', bg: 'bg-brand-green/10' },
                     { label: 'Sessions Actives', value: stats.sessions, sub: 'Planning opérationnel', icon: Calendar, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-                    { label: 'Experts Tech', value: stats.teachers, sub: 'Professeurs actifs', icon: GraduationCap, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                    { label: 'Experts techniques', value: stats.teachers, sub: 'Professeurs actifs', icon: GraduationCap, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
                 ].map((stat, i) => (
                     <motion.div
                         key={stat.label}
@@ -334,9 +334,9 @@ export default function AdminDashboard() {
                         <div>
                             <h3 className="text-xl font-black text-white flex items-center gap-2 uppercase italic tracking-tight">
                                 <TrendingUp size={24} className="text-brand-green" />
-                                Growth Performance
+                                Évolution des revenus
                             </h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Timeline des revenus mensuels (DT)</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Évolution des revenus mensuels (DT)</p>
                         </div>
                     </div>
                     
@@ -388,7 +388,7 @@ export default function AdminDashboard() {
                     {/* Course Popularity */}
                     <div className="premium-card p-6">
                         <h3 className="text-xs font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-                            <Layers size={16} className="text-brand-blue" /> Top Formations
+                            <Layers size={16} className="text-brand-blue" /> Formations populaires
                         </h3>
                         <div className="space-y-4">
                             {coursePerformance.map((item, i) => (
@@ -487,8 +487,8 @@ export default function AdminDashboard() {
                             <Target size={24} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-black text-white uppercase italic tracking-tight">Acquisition Intelligence</h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Origine des inscriptions (Source)</p>
+                            <h3 className="text-lg font-black text-white uppercase italic tracking-tight">Origine des inscriptions</h3>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Répartition par source</p>
                         </div>
                     </div>
 
@@ -530,18 +530,18 @@ export default function AdminDashboard() {
                         <ShieldCheck size={32} />
                     </div>
                     <div>
-                        <h4 className="text-xl font-black text-white italic uppercase tracking-tight">Core Integrity Optimized</h4>
-                        <p className="text-xs text-slate-500 font-bold mt-1 uppercase tracking-widest">Connectivité Supabase stable • 99.9% Up-time</p>
+                        <h4 className="text-xl font-black text-white italic uppercase tracking-tight">Intégrité du système optimisée</h4>
+                        <p className="text-xs text-slate-500 font-bold mt-1 uppercase tracking-widest">Connectivité Supabase stable • Disponibilité de 99,9 %</p>
                     </div>
                 </div>
                 <div className="flex gap-4">
                     <div className="px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col justify-center">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Latency</span>
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Latence</span>
                         <span className="text-lg font-black text-white tabular-nums">14ms</span>
                     </div>
                     <div className="px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col justify-center">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Backup</span>
-                        <span className="text-lg font-black text-green-400 tabular-nums">SECURED</span>
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Sauvegarde</span>
+                        <span className="text-lg font-black text-green-400 tabular-nums">SÉCURISÉE</span>
                     </div>
                 </div>
             </div>

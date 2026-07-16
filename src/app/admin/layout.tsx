@@ -7,7 +7,7 @@ import {
     LayoutDashboard, Users, BookOpen, CreditCard, Settings, LogOut, Menu, X,
     Loader2, GraduationCap, Calendar, BarChart3, Search, Bell, ChevronLeft,
     ChevronRight, Command, Zap, ArrowRight, ShieldCheck, Sun, Moon,
-    CheckCircle, XCircle, Clock, UserPlus, FileText, ChevronDown
+    CheckCircle, XCircle, Clock, UserPlus, FileText, ChevronDown, ClipboardCheck
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -109,7 +109,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-4">
                     <Loader2 className="animate-spin text-brand-green" size={48} />
-                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs animate-pulse">GSM Guide Academy Ops...</p>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs animate-pulse">Chargement de l’administration...</p>
                 </div>
             </div>
         );
@@ -120,14 +120,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
 
     const navigation = [
-        { name: 'Console', href: '/admin', icon: LayoutDashboard, keywords: 'overview dashboard accueil' },
+        { name: 'Tableau de bord', href: '/admin', icon: LayoutDashboard, keywords: 'overview dashboard accueil' },
         { name: 'Étudiants', href: '/admin/students', icon: Users, keywords: 'élèves students clients inscriptions' },
         { name: 'Professeurs', href: '/admin/teachers', icon: GraduationCap, keywords: 'enseignants formateurs staff' },
         { name: 'Catalogue', href: '/admin/courses', icon: BookOpen, keywords: 'formations cours modules academic' },
         { name: 'Sessions', href: '/admin/sessions', icon: Calendar, keywords: 'planning dates calendrier' },
+        { name: 'Présences', href: '/admin/presence', icon: ClipboardCheck, keywords: 'présence absent retard excusé feuille appel' },
         { name: 'Finances', href: '/admin/payments', icon: CreditCard, keywords: 'argent revenus transactions pognon' },
-        { name: 'Analytics', href: '/admin/analytics', icon: BarChart3, keywords: 'stats data intelligence graphiques' },
-        { name: 'Réglages', href: '/admin/settings', icon: Settings, keywords: 'config paramètres préférences' },
     ];
 
     const searchResults = navigation.filter(item =>
@@ -142,6 +141,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const getNotifIcon = (type: string) => {
         switch (type) {
+            case 'reservation_submitted': return <Clock size={18} className="text-brand-blue" />;
+            case 'reservation_approved': return <CheckCircle size={18} className="text-emerald-500" />;
+            case 'reservation_rejected': return <XCircle size={18} className="text-rose-500" />;
             case 'payment_submitted': return <CreditCard size={18} />;
             case 'payment_approved': return <CheckCircle size={18} className="text-emerald-500" />;
             case 'payment_rejected': return <XCircle size={18} className="text-rose-500" />;
@@ -153,6 +155,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const getNotifColor = (type: string, isRead: boolean) => {
         if (isRead) return 'bg-slate-800 text-slate-500';
         switch (type) {
+            case 'reservation_submitted': return 'bg-brand-blue/20 text-brand-blue';
+            case 'reservation_approved': return 'bg-emerald-500/20 text-emerald-500';
+            case 'reservation_rejected': return 'bg-rose-500/20 text-rose-500';
             case 'payment_submitted': return 'bg-amber-500/20 text-amber-500';
             case 'payment_approved': return 'bg-emerald-500/20 text-emerald-500';
             case 'payment_rejected': return 'bg-rose-500/20 text-rose-500';
@@ -244,7 +249,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                                     <div className="w-8 h-8 rounded-lg bg-slate-900 border border-white/5 flex items-center justify-center text-slate-400 group-hover:text-brand-green transition-colors">
                                                         <item.icon size={18} />
                                                     </div>
-                                                    <span className="text-sm font-bold text-slate-300">Open {item.name}</span>
+                                                    <span className="text-sm font-bold text-slate-300">Ouvrir {item.name}</span>
                                                 </button>
                                             ))}
                                         </div>

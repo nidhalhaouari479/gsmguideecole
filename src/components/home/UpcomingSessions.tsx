@@ -26,8 +26,27 @@ const UpcomingSessions = () => {
                 }
                 // Riverside: Updated to parameterized RPC.
 
-                // Now we need the course details for these sessions
+                // Count both pending and approved reservations because both
+                // temporarily occupy a place until the admin rejects them.
                 const sessionIds = data.map((s: any) => s.id);
+                const activeReservationsBySession = new Map<string, number>();
+
+                if (sessionIds.length > 0) {
+                    const { data: activeReservations } = await supabase
+                        .from('enrollments')
+                        .select('session_id, status')
+                        .in('session_id', sessionIds)
+                        .in('status', ['pending', 'approved']);
+
+                    (activeReservations || []).forEach((reservation: any) => {
+                        activeReservationsBySession.set(
+                            reservation.session_id,
+                            (activeReservationsBySession.get(reservation.session_id) || 0) + 1
+                        );
+                    });
+                }
+
+                // Now we need the course details for these sessions
                 const { data: coursesData, error: coursesError } = await supabase
                     .from('courses')
                     .select('id, title_fr, title_en, base_price, sold_price, image_url, category')
@@ -55,11 +74,19 @@ const UpcomingSessions = () => {
                                 fr: new Date(s.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
                                 en: new Date(s.start_date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
                             },
-                            seats: Math.max(0, s.seats_available - Number(s.approved_enrollments_count || 0)),
+                            seats: Math.max(
+                                0,
+                                s.seats_available - (
+                                    activeReservationsBySession.get(s.id)
+                                    ?? Number(s.approved_enrollments_count || 0)
+                                )
+                            ),
                             price: course.sold_price ? `${course.sold_price} DT` : `${course.base_price} DT`,
                             oldPrice: course.sold_price ? `${course.base_price} DT` : null,
                             image: course.image_url,
-                            category: course.category
+                            category: course.category === 'Software'
+                                ? 'Logiciel'
+                                : course.category === 'Hardware' ? 'Matériel' : course.category
                         };
                     })
                     .sort((a: any, b: any) => new Date(a.date.en).getTime() - new Date(b.date.en).getTime())

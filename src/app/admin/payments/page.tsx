@@ -20,7 +20,9 @@ import {
     Target,
     Activity,
     DollarSign,
-    PieChart
+    PieChart,
+    MessageSquare,
+    Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -45,7 +47,15 @@ interface Enrollment {
         };
     };
     declared_amount?: number;
+    finance_note?: string | null;
+    finance_note_updated_at?: string | null;
 }
+
+const getPaymentStatusLabel = (status: string) => {
+    if (status?.toLowerCase() === 'approved') return 'Validé';
+    if (status?.toLowerCase() === 'rejected') return 'Refusé';
+    return 'En attente';
+};
 
 export default function PaymentsAdminPage() {
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -64,6 +74,9 @@ export default function PaymentsAdminPage() {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [confirmAmount, setConfirmAmount] = useState<Record<string, string>>({});
+    const [financeNotes, setFinanceNotes] = useState<Record<string, string>>({});
+    const [noteLoading, setNoteLoading] = useState<string | null>(null);
+    const [noteSaved, setNoteSaved] = useState<string | null>(null);
 
     useEffect(() => {
         fetchEnrollments();
@@ -99,10 +112,52 @@ export default function PaymentsAdminPage() {
             });
 
             setEnrollments(enriched);
+            setFinanceNotes(
+                enriched.reduce((notes: Record<string, string>, enrollment: Enrollment) => {
+                    notes[enrollment.id] = enrollment.finance_note || '';
+                    return notes;
+                }, {})
+            );
         } catch (error) {
             console.error('Error fetching enrollments:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSaveFinanceNote = async (enrollmentId: string) => {
+        setNoteLoading(enrollmentId);
+        setNoteSaved(null);
+
+        try {
+            const response = await fetch('/api/admin/payments/note', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    enrollmentId,
+                    note: financeNotes[enrollmentId] || '',
+                }),
+            });
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Impossible d’enregistrer la remarque.');
+            }
+
+            setEnrollments((current) => current.map((enrollment) =>
+                enrollment.id === enrollmentId
+                    ? {
+                        ...enrollment,
+                        finance_note: result.data.finance_note,
+                        finance_note_updated_at: result.data.finance_note_updated_at,
+                    }
+                    : enrollment
+            ));
+            setNoteSaved(enrollmentId);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Erreur lors de l’enregistrement.');
+        } finally {
+            setNoteLoading(null);
         }
     };
 
@@ -183,7 +238,7 @@ export default function PaymentsAdminPage() {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                 <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-extrabold uppercase tracking-[0.4em] text-[10px] animate-pulse">Processing Ledger...</p>
+                <p className="text-slate-500 font-extrabold uppercase tracking-[0.4em] text-[10px] animate-pulse">Chargement des opérations financières...</p>
             </div>
         );
     }
@@ -205,7 +260,7 @@ export default function PaymentsAdminPage() {
             en.profiles?.full_name || 'N/A',
             en.profiles?.email || 'N/A',
             en.sessions?.courses?.title_fr || 'N/A',
-            en.status,
+            getPaymentStatusLabel(en.status),
             en.amount_paid,
             en.total_price,
             new Date(en.created_at).toLocaleDateString()
@@ -245,7 +300,7 @@ export default function PaymentsAdminPage() {
         doc.rect(20, 45, 255, 30, 'F');
         doc.setTextColor(30, 41, 59);
         doc.setFontSize(10);
-        doc.text(`Total Transactions: ${filteredEnrollments.length}`, 30, 60);
+        doc.text(`Nombre de transactions : ${filteredEnrollments.length}`, 30, 60);
         doc.text(`Revenu Encaissé: ${stats.actualRevenue.toLocaleString()} DT`, 100, 60);
         doc.text(`Revenu Prévisionnel: ${stats.foreseenRevenue.toLocaleString()} DT`, 180, 60);
 
@@ -253,7 +308,7 @@ export default function PaymentsAdminPage() {
         const tableData = filteredEnrollments.map(en => [
             en.profiles?.full_name || 'N/A',
             en.sessions?.courses?.title_fr || 'N/A',
-            en.status.toUpperCase(),
+            getPaymentStatusLabel(en.status).toUpperCase(),
             `${en.amount_paid.toLocaleString()} DT`,
             `${en.total_price.toLocaleString()} DT`,
             new Date(en.created_at).toLocaleDateString('fr-FR')
@@ -322,7 +377,7 @@ export default function PaymentsAdminPage() {
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <CreditCard size={14} /> Financial Intelligence
+                        <CreditCard size={14} /> Gestion financière
                     </div>
                     <h1 className="text-4xl font-black text-white tracking-tighter">Flux <span className="text-slate-500">Financiers</span></h1>
                 </div>
@@ -332,7 +387,7 @@ export default function PaymentsAdminPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
-                            placeholder="Search Ledger Entry..."
+                            placeholder="Rechercher une opération..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
@@ -439,7 +494,7 @@ export default function PaymentsAdminPage() {
                     <button
                         onClick={handleExportCSVList}
                         className="p-3 bg-slate-900 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all shadow-lg"
-                        title="Export CSV"
+                        title="Exporter en CSV"
                     >
                         <Download size={20} />
                     </button>
@@ -447,7 +502,7 @@ export default function PaymentsAdminPage() {
                         onClick={handleExportPDFList}
                         className="btn-primary py-3 px-6 h-auto shadow-none"
                     >
-                        PDF REPORT
+                        RAPPORT PDF
                     </button>
                 </div>
             </header>
@@ -503,7 +558,7 @@ export default function PaymentsAdminPage() {
             <div className="premium-card overflow-hidden">
                 <div className="p-6 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 bg-white/[0.02]">
                     <div className="flex items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                        Finance Ledger Records matching: <span className="text-brand-green ml-2">{filteredEnrollments.length}</span>
+                        Opérations financières correspondantes : <span className="text-brand-green ml-2">{filteredEnrollments.length}</span>
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -512,7 +567,7 @@ export default function PaymentsAdminPage() {
                                 onClick={() => setFilterConfig({ status: 'all', dateType: 'all', dateValue: '' })}
                                 className="px-4 py-2 bg-rose-500/10 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20"
                             >
-                                Clear Active Filters
+                                Effacer les filtres actifs
                             </button>
                         ) : null}
                     </div>
@@ -522,12 +577,13 @@ export default function PaymentsAdminPage() {
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-white/[0.01] border-b border-white/5">
-                                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Asset / Candidat</th>
-                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Acquisition Object</th>
-                                <th className="px-6 py-5 text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Bio-Receipt</th>
-                                <th className="px-6 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Liquidity Value</th>
-                                <th className="px-6 py-5 text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Validation State</th>
-                                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Ops</th>
+                                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Étudiant</th>
+                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Formation</th>
+                                <th className="px-6 py-5 text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Justificatif</th>
+                                <th className="px-6 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Montant</th>
+                                <th className="px-6 py-5 text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">État de validation</th>
+                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Remarque</th>
+                                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -546,13 +602,13 @@ export default function PaymentsAdminPage() {
                                             </div>
                                             <div>
                                                 <p className="font-black text-sm text-white">{en.profiles?.full_name}</p>
-                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{en.profiles?.phone || 'NO_PH_REC'}</p>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{en.profiles?.phone || 'Téléphone non renseigné'}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="space-y-1">
-                                            <p className="text-sm font-black text-slate-200 group-hover:text-brand-green transition-colors tracking-tight">{en.sessions?.courses?.title_fr || 'UNKNOWN_MODULE'}</p>
+                                            <p className="text-sm font-black text-slate-200 group-hover:text-brand-green transition-colors tracking-tight">{en.sessions?.courses?.title_fr || 'Formation inconnue'}</p>
                                             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                                 <Calendar size={12} className="text-brand-green/50" />
                                                 {en.sessions?.start_date ? new Date(en.sessions.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'N/D'}
@@ -583,11 +639,11 @@ export default function PaymentsAdminPage() {
                                                         target="_blank"
                                                         className="inline-flex items-center gap-2 px-4 py-2 bg-brand-green/10 text-brand-green border border-brand-green/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-green hover:text-black transition-all"
                                                     >
-                                                        <Eye size={12} /> SCAN_REC
+                                                        <Eye size={12} /> VOIR LE REÇU
                                                     </a>
                                                 ) : (
                                                     <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest flex items-center justify-center gap-1 opacity-50">
-                                                        <AlertCircle size={12} /> NULL_REC
+                                                        <AlertCircle size={12} /> SANS REÇU
                                                     </span>
                                                 );
                                             })()}
@@ -608,7 +664,7 @@ export default function PaymentsAdminPage() {
                                             ) : (
                                                 <>
                                                     <p className="text-sm font-black text-white">{en.amount_paid.toLocaleString()} DT</p>
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">TOTAL: {en.total_price.toLocaleString()} DT</p>
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">TOTAL : {en.total_price.toLocaleString()} DT</p>
                                                 </>
                                             )}
                                         </div>
@@ -618,22 +674,61 @@ export default function PaymentsAdminPage() {
                                             en.status?.toLowerCase() === 'rejected' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
                                                 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
                                             }`}>
-                                            {en.status?.toLowerCase() === 'approved' ? 'CLEARED' : en.status?.toLowerCase() === 'rejected' ? 'DENIED' : 'PENDING'}
+                                            {en.status?.toLowerCase() === 'approved' ? 'VALIDÉ' : en.status?.toLowerCase() === 'rejected' ? 'REFUSÉ' : 'EN ATTENTE'}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex min-w-64 items-start gap-2">
+                                            <div className="relative flex-1">
+                                                <MessageSquare className="absolute left-3 top-3 text-slate-400" size={14} />
+                                                <textarea
+                                                    rows={2}
+                                                    maxLength={2000}
+                                                    value={financeNotes[en.id] || ''}
+                                                    onChange={(event) => {
+                                                        setFinanceNotes((current) => ({
+                                                            ...current,
+                                                            [en.id]: event.target.value,
+                                                        }));
+                                                        setNoteSaved(null);
+                                                    }}
+                                                    placeholder="Remarque interne…"
+                                                    className="w-full resize-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs text-slate-900 outline-none focus:border-brand-green/50"
+                                                />
+                                                {noteSaved === en.id && (
+                                                    <span className="mt-1 block text-[10px] font-bold text-emerald-500">
+                                                        Remarque enregistrée
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSaveFinanceNote(en.id)}
+                                                disabled={noteLoading === en.id}
+                                                title="Enregistrer la remarque"
+                                                className="rounded-xl border border-brand-blue/20 bg-brand-blue/10 p-2.5 text-brand-blue transition-all hover:bg-brand-blue hover:text-white disabled:opacity-60"
+                                            >
+                                                {noteLoading === en.id
+                                                    ? <Loader2 className="animate-spin" size={15} />
+                                                    : <Save size={15} />}
+                                            </button>
+                                        </div>
                                     </td>
                                     <td className="px-8 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2">
                                             {en.status?.toLowerCase() === 'pending' && (
                                                 <>
                                                     <div className="flex items-center gap-2 mr-2">
-                                                        <input
-                                                            type="number"
-                                                            placeholder="Montant Tranche"
-                                                            defaultValue={en.declared_amount || ''}
-                                                            onChange={(e) => setConfirmAmount(prev => ({ ...prev, [en.id]: e.target.value }))}
-                                                            className="w-24 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                                            title="ENTRER LE MONTANT DE CETTE TRANCHE"
-                                                        />
+                                                        {en.receipt_url && (
+                                                            <input
+                                                                type="number"
+                                                                placeholder="Montant Tranche"
+                                                                defaultValue={en.declared_amount || ''}
+                                                                onChange={(e) => setConfirmAmount(prev => ({ ...prev, [en.id]: e.target.value }))}
+                                                                className="w-24 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-brand-green/50"
+                                                                title="ENTRER LE MONTANT DE CETTE TRANCHE"
+                                                            />
+                                                        )}
                                                         <button
                                                             onClick={() => {
                                                                 const validatedTranche = confirmAmount[en.id] ? parseFloat(confirmAmount[en.id]) : (Number(en.declared_amount) || 0);
@@ -643,7 +738,7 @@ export default function PaymentsAdminPage() {
                                                             }}
                                                             disabled={actionLoading === en.id}
                                                             className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 transition-all flex items-center justify-center"
-                                                            title="AUTHORIZE_PAYMENT"
+                                                            title={en.receipt_url ? 'VALIDER LE PAIEMENT' : 'VALIDER LA RÉSERVATION À 0 DT'}
                                                         >
                                                             {actionLoading === en.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
                                                         </button>
@@ -652,7 +747,7 @@ export default function PaymentsAdminPage() {
                                                         onClick={() => handleUpdateStatus(en.id, 'rejected')}
                                                         disabled={actionLoading === en.id}
                                                         className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/20 transition-all flex items-center justify-center"
-                                                        title="DENY_ADMISSION"
+                                                        title="Refuser la demande"
                                                     >
                                                         {actionLoading === en.id ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
                                                     </button>
@@ -661,7 +756,7 @@ export default function PaymentsAdminPage() {
                                             <button
                                                 onClick={() => handleDownloadReceipt(en)}
                                                 className="p-2.5 rounded-xl bg-brand-green/10 text-brand-green hover:bg-brand-green hover:text-black border border-brand-green/20 transition-all flex items-center justify-center"
-                                                title="GENERATE_RECEIPT"
+                                                title="Générer le reçu"
                                             >
                                                 <Receipt size={16} />
                                             </button>

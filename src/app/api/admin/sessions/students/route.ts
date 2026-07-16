@@ -26,6 +26,7 @@ export async function GET(req: Request) {
                 status,
                 amount_paid,
                 total_price,
+                receipt_url,
                 created_at
             `)
             .eq('session_id', sessionId);
@@ -69,6 +70,7 @@ export async function GET(req: Request) {
                 status: enrollment.status,
                 amount_paid: enrollment.amount_paid,
                 total_price: enrollment.total_price,
+                has_financial_history: Number(enrollment.amount_paid || 0) > 0 || Boolean(enrollment.receipt_url),
                 enrolled_at: enrollment.created_at
             };
         });

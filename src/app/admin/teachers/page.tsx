@@ -144,7 +144,7 @@ export default function TeachersAdminPage() {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                 <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px] animate-pulse">Accessing Personnel Registry...</p>
+                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px] animate-pulse">Chargement du registre des professeurs...</p>
             </div>
         );
     }
@@ -159,7 +159,7 @@ export default function TeachersAdminPage() {
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <Briefcase size={14} /> Personnel Intelligence
+                        <Briefcase size={14} /> Gestion des professeurs
                     </div>
                     <h1 className="text-4xl font-black text-white tracking-tighter">Registre <span className="text-slate-500">Professeurs</span></h1>
                 </div>
@@ -169,7 +169,7 @@ export default function TeachersAdminPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
-                            placeholder="Search Personnel ID..."
+                            placeholder="Rechercher un professeur..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
@@ -179,7 +179,7 @@ export default function TeachersAdminPage() {
                         onClick={() => handleOpenModal()}
                         className="btn-primary py-3 px-6 h-auto shadow-none"
                     >
-                        RECRUIT
+                        AJOUTER
                     </button>
                 </div>
             </header>
@@ -277,7 +277,7 @@ export default function TeachersAdminPage() {
                                     <td colSpan={6} className="px-6 py-32 text-center">
                                         <div className="flex flex-col items-center gap-4">
                                             <Users size={48} className="text-slate-800" />
-                                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Registry Zero-Match Record</p>
+                                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun professeur correspondant</p>
                                         </div>
                                     </td>
                                 </tr>

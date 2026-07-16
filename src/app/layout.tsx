@@ -8,8 +8,8 @@ import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "GSM Guide Academy - Smartphone Repair Expert",
-  description: "Become a Smartphone Repair Expert with GSM Guide Academy. High-quality practical training with certified experts.",
+  title: "GSM Guide Academy - Expert en réparation de smartphones",
+  description: "Devenez expert en réparation de smartphones avec GSM Guide Academy grâce à des formations pratiques de haute qualité.",
   icons: {
     icon: "/gsmlogo.png",
     apple: "/gsmlogo.png",
@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="fr" data-theme="light" style={{ colorScheme: "light" }}>
       <body className={inter.className}>
         <LanguageProvider>
           <AnalyticsProvider>
@@ -38,4 +38,3 @@ export default function RootLayout({
     </html>
   );
 }
-

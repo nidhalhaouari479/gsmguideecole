@@ -1,6 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
 @import "tailwindcss";
 
+/* Dark utilities only activate with an explicit .dark class.
+   The public site never adds this class, so the system theme cannot
+   switch the interface to dark mode automatically. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-plus-jakarta: "Plus Jakarta Sans", ui-sans-serif, system-ui;
 
@@ -40,6 +45,7 @@
 
 
 :root {
+  color-scheme: light;
   --font-sans: var(--font-plus-jakarta);
   --foreground-rgb: 15, 23, 42;
   --background-start-rgb: 255, 255, 255;

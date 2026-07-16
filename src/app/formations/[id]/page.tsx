@@ -48,7 +48,7 @@ export default function FormationDetail() {
                 // Fetch course details (with instructor name) from database
                 const { data: course, error: courseError } = await supabase
                     .from('courses')
-                    .select('*, professeurs(nom, prenom)')
+                    .select('*, professeurs(nom, prenom), course_programs(id, content, position)')
                     .eq('id', id)
                     .single();
 
@@ -72,6 +72,24 @@ export default function FormationDetail() {
                 }
                 // Riverside: Updated to v2 RPC.
 
+                const sessionIds = (sessionsWithCounts || []).map((session: any) => session.id);
+                const activeReservationsBySession = new Map<string, number>();
+
+                if (sessionIds.length > 0) {
+                    const { data: activeReservations } = await supabase
+                        .from('enrollments')
+                        .select('session_id, status')
+                        .in('session_id', sessionIds)
+                        .in('status', ['pending', 'approved']);
+
+                    (activeReservations || []).forEach((reservation: any) => {
+                        activeReservationsBySession.set(
+                            reservation.session_id,
+                            (activeReservationsBySession.get(reservation.session_id) || 0) + 1
+                        );
+                    });
+                }
+
                 if (course) {
                     const formattedData = {
                         title: { fr: course.title_fr, en: course.title_en },
@@ -82,15 +100,12 @@ export default function FormationDetail() {
                         price: course.sold_price ? `${course.sold_price} DT` : `${course.base_price} DT`,
                         image: course.image_url,
                         instructor: course.instructor_name,
-                        category: course.category,
+                        category: course.category === 'Software'
+                            ? 'Logiciel'
+                            : course.category === 'Hardware' ? 'Matériel' : course.category,
                         level: course.level,
-                        // Learning outcomes
-                        learning: [
-                            { fr: "Diagnostic complet hardware iPhone & Android", en: "Complete iPhone & Android hardware diagnosis" },
-                            { fr: "Changement de vitre et écrans (tous modèles)", en: "Glass and screen replacement (all models)" },
-                            { fr: "Soudure de connecteurs de charge et petits composants", en: "Soldering of charging ports and small components" },
-                            { fr: "Flashage, déblocage et restauration système", en: "Flashing, unlocking, and system restoration" }
-                        ],
+                        learning: [...(course.course_programs || [])]
+                            .sort((a: any, b: any) => a.position - b.position),
                         sessions: (sessionsWithCounts || [])
                             .sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
                             .map((s: any) => {
@@ -98,8 +113,14 @@ export default function FormationDetail() {
                                     id: s.id,
                                     start: s.start_date,
                                     end: s.end_date,
-                                    schedule: s.schedule || "Full Time",
-                                    seats: Math.max(0, s.seats_available - Number(s.approved_enrollments_count || 0))
+                                    schedule: s.schedule || "Temps plein",
+                                    seats: Math.max(
+                                        0,
+                                        s.seats_available - (
+                                            activeReservationsBySession.get(s.id)
+                                            ?? Number(s.approved_enrollments_count || 0)
+                                        )
+                                    )
                                 };
                             })
                     };
@@ -187,7 +208,7 @@ export default function FormationDetail() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
                 <h2 className="text-2xl font-bold mb-4">Formation not found</h2>
-                <button onClick={() => router.push('/formations')} className="btn-primary px-6 py-2">Back to Formations</button>
+                <button onClick={() => router.push('/formations')} className="btn-primary px-6 py-2">Retour aux formations</button>
             </div>
         );
     }
@@ -215,7 +236,7 @@ export default function FormationDetail() {
 
                             <div className="flex flex-col gap-4">
                                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-blue/20 backdrop-blur-md text-brand-blue border border-brand-blue/30 font-bold text-xs uppercase tracking-widest w-fit">
-                                    <BookOpen size={14} /> Best Seller
+                                    <BookOpen size={14} /> Meilleure vente
                                 </div>
                                 <h1 className="text-4xl md:text-6xl font-black text-white leading-tight max-w-4xl tracking-tight">
                                     {formation.title[language]}
@@ -241,7 +262,7 @@ export default function FormationDetail() {
                                 <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/10 px-6 py-3 rounded-2xl text-white">
                                     <Clock size={20} className="text-brand-green" />
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] uppercase font-bold opacity-60">Duration</span>
+                                        <span className="text-[10px] uppercase font-bold opacity-60">Durée</span>
                                         <span className="font-bold">{formation.duration}</span>
                                     </div>
                                 </div>
@@ -310,7 +331,7 @@ export default function FormationDetail() {
                             </div>
                             <div className="mt-8 pt-8 border-t border-border flex items-center gap-4 text-sm text-slate-400 font-medium">
                                 <ShieldCheck size={18} className="text-brand-green" />
-                                <span>Dépôt de 400 DT requis pour la réservation. Satisfaction garantie à 100 %.</span>
+                                <span>Réservation possible sans acompte. Le paiement pourra être effectué plus tard.</span>
                             </div>
                         </section>
 
@@ -319,59 +340,69 @@ export default function FormationDetail() {
                                 <span className="w-1.5 h-8 bg-brand-blue rounded-full"></span>
                                 Aperçu du cours
                             </h2>
-                            <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-3xl">
+                            <p
+                                dir="auto"
+                                className="text-lg text-start text-slate-600 dark:text-slate-400 leading-loose max-w-3xl whitespace-pre-wrap break-words [unicode-bidi:plaintext]"
+                            >
                                 {formation.longDesc[language]}
                             </p>
                         </section>
 
-                        <section className="space-y-8">
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                                <span className="w-1.5 h-8 bg-brand-green rounded-full"></span>
-                                Programme du cours
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {formation.learning.map((item: any, i: number) => (
-                                    <motion.div
-                                        key={i}
-                                        whileHover={{ x: 5 }}
-                                        className="flex items-center gap-4 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-border group hover:border-brand-blue transition-all shadow-sm"
-                                    >
-                                        <div className="bg-brand-blue/10 p-2 rounded-xl text-brand-blue group-hover:bg-brand-blue group-hover:text-white transition-colors">
-                                            <CheckCircle2 size={24} />
-                                        </div>
-                                        <span className="font-bold text-slate-700 dark:text-slate-300">{item[language]}</span>
-                                    </motion.div>
-                                ))}
-                            </div>
-                        </section>
+                        {formation.learning.length > 0 && (
+                            <section className="space-y-8">
+                                <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                                    <span className="w-1.5 h-8 bg-brand-green rounded-full"></span>
+                                    Programme du cours
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {formation.learning.map((item: any) => (
+                                        <motion.div
+                                            key={item.id}
+                                            whileHover={{ x: 5 }}
+                                            className="flex items-center gap-4 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-border group hover:border-brand-blue transition-all shadow-sm"
+                                        >
+                                            <div className="bg-brand-blue/10 p-2 rounded-xl text-brand-blue group-hover:bg-brand-blue group-hover:text-white transition-colors">
+                                                <CheckCircle2 size={24} />
+                                            </div>
+                                            <span
+                                                dir="auto"
+                                                className="font-bold text-start text-slate-700 dark:text-slate-300 [unicode-bidi:plaintext]"
+                                            >
+                                                {item.content}
+                                            </span>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
 
                         <section className="space-y-8 bg-brand-blue/5 dark:bg-brand-blue/10 p-10 rounded-3xl border border-brand-blue/10">
-                            <h2 className="text-3xl font-black text-brand-blue">Included Benefits</h2>
+                            <h2 className="text-3xl font-black text-brand-blue">Avantages inclus</h2>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 <div className="space-y-4 p-6 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl">
                                     <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500 w-fit"><ShieldCheck size={32} /></div>
-                                    <h4 className="font-black text-lg">Official Diploma</h4>
-                                    <p className="text-sm text-slate-500">Recognized certificate to start your own business.</p>
+                                    <h4 className="font-black text-lg">Diplôme officiel</h4>
+                                    <p className="text-sm text-slate-500">Certificat reconnu pour lancer votre propre activité.</p>
                                 </div>
                                 <div className="space-y-4 p-6 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl">
                                     <div className="p-3 bg-green-500/10 rounded-xl text-green-500 w-fit"><Users size={32} /></div>
-                                    <h4 className="font-black text-lg">Daily Labs</h4>
-                                    <p className="text-sm text-slate-500">90% practical learning in our modern lab ecosystem.</p>
+                                    <h4 className="font-black text-lg">Ateliers quotidiens</h4>
+                                    <p className="text-sm text-slate-500">90 % d’apprentissage pratique dans nos ateliers modernes.</p>
                                 </div>
                                 <div className="space-y-4 p-6 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl">
                                     <div className="p-3 bg-orange-500/10 rounded-xl text-orange-500 w-fit"><Award size={32} /></div>
-                                    <h4 className="font-black text-lg">Career Boost</h4>
-                                    <p className="text-sm text-slate-500">Job support and lifetime access to our community.</p>
+                                    <h4 className="font-black text-lg">Accompagnement professionnel</h4>
+                                    <p className="text-sm text-slate-500">Aide à l’emploi et accès permanent à notre communauté.</p>
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-8 border-t border-brand-blue/10">
                                 <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400 font-bold">
                                     <CheckCircle className="text-brand-green" size={20} />
-                                    <span>Free toolkit for every student</span>
+                                    <span>Boîte à outils offerte à chaque étudiant</span>
                                 </div>
                                 <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400 font-bold">
                                     <CheckCircle className="text-brand-green" size={20} />
-                                    <span>Modern diagnostic materials used</span>
+                                    <span>Utilisation de matériel de diagnostic moderne</span>
                                 </div>
                             </div>
                         </section>
@@ -526,7 +557,8 @@ export default function FormationDetail() {
                                 <div className="mt-8 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-border flex items-start gap-4">
                                     <AlertCircle size={20} className="text-brand-blue shrink-0 mt-0.5" />
                                     <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                                        Remarque : Un dépôt non remboursable de 400 DT est obligatoire pour finaliser votre inscription et réserver votre place.                                    </p>
+                                        Remarque : vous pouvez réserver votre place sans acompte et effectuer le paiement plus tard depuis votre espace étudiant.
+                                    </p>
                                 </div>
                             </div>
 

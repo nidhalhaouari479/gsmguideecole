@@ -72,7 +72,7 @@ export default function SessionsAdminPage() {
         course_id: '',
         instructor_id: '',
         seats_available: 12,
-        schedule: 'Full Time',
+        schedule: 'Temps plein',
         seanceCount: 1,
         seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
     });
@@ -88,7 +88,9 @@ export default function SessionsAdminPage() {
     const [isAddingStudent, setIsAddingStudent] = useState(false);
     const [allStudents, setAllStudents] = useState<any[]>([]);
     const [studentSearchQuery, setStudentSearchQuery] = useState('');
-    const [isEnrolling, setIsEnrolling] = useState(false);
+    const [loadingStudents, setLoadingStudents] = useState(false);
+    const [enrollingStudentId, setEnrollingStudentId] = useState<string | null>(null);
+    const [removingStudentId, setRemovingStudentId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchSessions();
@@ -165,7 +167,7 @@ export default function SessionsAdminPage() {
                 course_id: '',
                 instructor_id: '',
                 seats_available: 12,
-                schedule: 'Full Time',
+                schedule: 'Temps plein',
                 seanceCount: 1,
                 seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
             });
@@ -194,7 +196,13 @@ export default function SessionsAdminPage() {
         try {
             const p = JSON.parse(session.schedule);
             parsedSchedule = {
-                label: p.label || 'Personalized',
+                label: p.label === 'Full Time'
+                    ? 'Temps plein'
+                    : p.label === 'Part Time'
+                        ? 'Temps partiel'
+                        : p.label === 'Weekend'
+                            ? 'Week-end'
+                            : p.label || 'Personnalisé',
                 seances: p.seances || [],
                 instructor_id: p.instructor_id || ''
             };
@@ -237,18 +245,32 @@ export default function SessionsAdminPage() {
     };
 
     const fetchAllStudents = async () => {
+        setLoadingStudents(true);
         try {
             const response = await fetch('/api/admin/students');
             const data = await response.json();
+            if (data.error) throw new Error(data.error);
             setAllStudents(data);
         } catch (error) {
             console.error('Error fetching students:', error);
+            alert('Impossible de charger la liste des étudiants.');
+        } finally {
+            setLoadingStudents(false);
         }
+    };
+
+    const refreshManifest = async () => {
+        if (!selectedSessionId) return;
+
+        const response = await fetch(`/api/admin/sessions/students?sessionId=${selectedSessionId}`);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        setManifestStudents(data);
     };
 
     const handleAddStudent = async (studentId: string) => {
         if (!selectedSessionId) return;
-        setIsEnrolling(true);
+        setEnrollingStudentId(studentId);
         try {
             const response = await fetch('/api/admin/enrollments', {
                 method: 'POST',
@@ -257,17 +279,38 @@ export default function SessionsAdminPage() {
             });
             const data = await response.json();
             if (data.error) throw new Error(data.error);
-            
-            // Refresh manifest after adding
-            const manifestRes = await fetch(`/api/admin/sessions/students?sessionId=${selectedSessionId}`);
-            const manifestData = await manifestRes.json();
-            setManifestStudents(manifestData);
-            setIsAddingStudent(false);
+
+            await Promise.all([refreshManifest(), fetchSessions()]);
             setStudentSearchQuery('');
         } catch (error: any) {
             alert(error.message);
         } finally {
-            setIsEnrolling(false);
+            setEnrollingStudentId(null);
+        }
+    };
+
+    const handleRemoveStudent = async (student: any) => {
+        if (!selectedSessionId) return;
+        if (!confirm(`Retirer ${student.full_name} de cette session ? Son compte étudiant ne sera pas supprimé.`)) return;
+
+        setRemovingStudentId(student.id);
+        try {
+            const response = await fetch('/api/admin/enrollments', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: student.id,
+                    sessionId: selectedSessionId
+                })
+            });
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || 'Impossible de retirer cet étudiant.');
+
+            await Promise.all([refreshManifest(), fetchSessions()]);
+        } catch (error: any) {
+            alert(error.message);
+        } finally {
+            setRemovingStudentId(null);
         }
     };
 
@@ -276,11 +319,19 @@ export default function SessionsAdminPage() {
         s.instructor?.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const availableStudents = allStudents.filter(student =>
+        !manifestStudents.some(enrolledStudent => enrolledStudent.id === student.id)
+        && (
+            student.full_name?.toLowerCase().includes(studentSearchQuery.toLowerCase())
+            || student.email?.toLowerCase().includes(studentSearchQuery.toLowerCase())
+        )
+    );
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                 <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px] animate-pulse">Syncing Deployment Intel...</p>
+                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px] animate-pulse">Synchronisation des sessions...</p>
             </div>
         );
     }
@@ -293,9 +344,9 @@ export default function SessionsAdminPage() {
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <CalendarIcon size={14} /> Deployment Planning
+                        <CalendarIcon size={14} /> Planification des formations
                     </div>
-                    <h1 className="text-4xl font-black text-white tracking-tighter">Sessions <span className="text-slate-500">& Planning</span></h1>
+                    <h1 className="text-4xl font-black text-white tracking-tighter">Sessions <span className="text-slate-500">et planning</span></h1>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -303,7 +354,7 @@ export default function SessionsAdminPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
-                            placeholder="Filter Deployment Cycle..."
+                            placeholder="Rechercher une session..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
@@ -330,7 +381,7 @@ export default function SessionsAdminPage() {
                                 course_id: '',
                                 instructor_id: '',
                                 seats_available: 12,
-                                schedule: 'Full Time',
+                                schedule: 'Temps plein',
                                 seanceCount: 1,
                                 seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
                             });
@@ -339,7 +390,7 @@ export default function SessionsAdminPage() {
                         }}
                         className="btn-primary py-3 px-6 h-auto shadow-none flex items-center gap-2"
                     >
-                        <Plus size={18} /> NEW SESSION
+                        <Plus size={18} /> NOUVELLE SESSION
                     </button>
                 </div>
             </header>
@@ -450,7 +501,7 @@ export default function SessionsAdminPage() {
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2 text-slate-500">
                                             <Clock size={14} className="text-brand-green" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Schedule</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Planning</span>
                                         </div>
                                         <p className="text-sm font-black text-slate-200 uppercase tracking-tighter">
                                             {(() => {
@@ -458,14 +509,24 @@ export default function SessionsAdminPage() {
                                                     const parsed = JSON.parse(session.schedule);
                                                     return (
                                                         <span className="flex items-center gap-2">
-                                                            {parsed.label}
+                                                            {parsed.label === 'Full Time'
+                                                                ? 'Temps plein'
+                                                                : parsed.label === 'Part Time'
+                                                                    ? 'Temps partiel'
+                                                                    : parsed.label === 'Weekend'
+                                                                        ? 'Week-end'
+                                                                        : parsed.label}
                                                             <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">
                                                                 {parsed.seances?.length || 0} séances
                                                             </span>
                                                         </span>
                                                     );
                                                 } catch (e) {
-                                                    return session.schedule;
+                                                    return session.schedule === 'Full Time'
+                                                        ? 'Temps plein'
+                                                        : session.schedule === 'Part Time'
+                                                            ? 'Temps partiel'
+                                                            : session.schedule === 'Weekend' ? 'Week-end' : session.schedule;
                                                 }
                                             })()}
                                         </p>
@@ -505,7 +566,7 @@ export default function SessionsAdminPage() {
                 <div className="py-32 text-center">
                     <div className="flex flex-col items-center gap-4">
                         <CalendarIcon size={48} className="text-slate-800" />
-                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Registry Zero-Match Deployment Cycle</p>
+                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucune session correspondante</p>
                     </div>
                 </div>
             )}
@@ -524,11 +585,11 @@ export default function SessionsAdminPage() {
                             <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
                                 <div>
                                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                                        {editingSessionId ? 'Update' : 'New'} Training <span className="text-brand-green">Session</span>
+                                        {editingSessionId ? 'Modifier la' : 'Nouvelle'} <span className="text-brand-green">session de formation</span>
                                     </h2>
                                     <div className="flex items-center gap-4 mt-2">
                                         <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 1 ? 'text-brand-green' : 'text-slate-500'}`}>
-                                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 1 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>1</span> {editingSessionId ? 'EDIT' : 'INFO'}
+                                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 1 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>1</span> {editingSessionId ? 'MODIFIER' : 'INFORMATIONS'}
                                         </div>
                                         <div className="w-8 h-[1px] bg-slate-800" />
                                         <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 2 ? 'text-brand-green' : 'text-slate-500'}`}>
@@ -596,7 +657,7 @@ export default function SessionsAdminPage() {
                                                         value={formData.schedule}
                                                         onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
                                                         className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
-                                                        placeholder="Ex: Full Time / Weekend"
+                                                        placeholder="Ex. : Temps plein / Week-end"
                                                     />
                                                 </div>
                                             </div>
@@ -685,7 +746,7 @@ export default function SessionsAdminPage() {
                                     onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : setIsModalOpen(false)}
                                     className="px-8 py-4 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-xs uppercase tracking-widest transition-all"
                                 >
-                                    {currentStep === 1 ? 'Cancel' : 'Previous'}
+                                    {currentStep === 1 ? 'Annuler' : 'Précédent'}
                                 </button>
 
                                 {currentStep < 3 ? (
@@ -704,7 +765,7 @@ export default function SessionsAdminPage() {
                                         className="btn-primary py-4 px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center gap-2"
                                     >
                                         {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : (editingSessionId ? <Check size={18} /> : <Plus size={18} />)}
-                                        {isSubmitting ? 'ESTABLISHING...' : (editingSessionId ? 'UPDATE DEPLOYMENT' : 'FINALIZE DEPLOYMENT')}
+                                        {isSubmitting ? 'ENREGISTREMENT...' : (editingSessionId ? 'ENREGISTRER LES MODIFICATIONS' : 'CRÉER LA SESSION')}
                                     </button>
                                 )}
                             </div>
@@ -735,82 +796,26 @@ export default function SessionsAdminPage() {
                                 <div className="flex items-center gap-3">
                                     <button 
                                         onClick={() => {
-                                            if (!allStudents.length) fetchAllStudents();
-                                            setIsAddingStudent(!isAddingStudent);
+                                            fetchAllStudents();
+                                            setStudentSearchQuery('');
+                                            setIsAddingStudent(true);
                                         }}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                                            isAddingStudent ? 'bg-rose-500/20 text-rose-500 border-rose-500/20' : 'bg-brand-green/20 text-brand-green border-brand-green/20'
-                                        } border`}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-green/20 text-brand-green border border-brand-green/20 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-brand-green hover:text-black"
                                     >
-                                        {isAddingStudent ? <X size={14} /> : <Plus size={14} />}
-                                        {isAddingStudent ? 'CANCEL' : 'ADD STUDENT'}
+                                        <Plus size={14} />
+                                        Ajouter un étudiant
                                     </button>
-                                    <button onClick={() => setIsManifestOpen(false)} className="p-2 text-slate-500 hover:text-white bg-white/5 rounded-xl transition-all">
+                                    <button
+                                        onClick={() => {
+                                            setIsAddingStudent(false);
+                                            setIsManifestOpen(false);
+                                        }}
+                                        className="p-2 text-slate-500 hover:text-slate-900 bg-slate-100 rounded-xl transition-all"
+                                    >
                                         <X size={20} />
                                     </button>
                                 </div>
                             </div>
-
-                            {/* Add Student UI Overlay */}
-                            <AnimatePresence>
-                                {isAddingStudent && (
-                                    <motion.div 
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        className="bg-slate-50 border-b border-slate-100 overflow-hidden"
-                                    >
-                                        <div className="p-6 space-y-4">
-                                            <div className="relative">
-                                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                                                <input 
-                                                    type="text"
-                                                    placeholder="Search student by name or email..."
-                                                    value={studentSearchQuery}
-                                                    onChange={(e) => setStudentSearchQuery(e.target.value)}
-                                                    className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                                />
-                                            </div>
-                                            
-                                            <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2">
-                                                {allStudents
-                                                    .filter(s => 
-                                                        !manifestStudents.some(ms => ms.id === s.id) && 
-                                                        (s.full_name?.toLowerCase().includes(studentSearchQuery.toLowerCase()) || 
-                                                         s.email?.toLowerCase().includes(studentSearchQuery.toLowerCase()))
-                                                    )
-                                                    .map(student => (
-                                                        <div key={student.id} className="flex items-center justify-between p-3 rounded-xl bg-white hover:bg-slate-50 transition-all border border-slate-100 group">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
-                                                                    {student.full_name?.charAt(0)}
-                                                                </div>
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-xs font-bold text-slate-900">{student.full_name}</span>
-                                                                    <span className="text-[9px] text-slate-500">{student.email}</span>
-                                                                </div>
-                                                            </div>
-                                                            <button 
-                                                                onClick={() => handleAddStudent(student.id)}
-                                                                disabled={isEnrolling}
-                                                                className="px-3 py-1.5 rounded-lg bg-brand-green text-black font-black text-[9px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-                                                            >
-                                                                {isEnrolling ? <Loader2 size={12} className="animate-spin" /> : 'ENROLL'}
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                {studentSearchQuery && allStudents.filter(s => 
-                                                    !manifestStudents.some(ms => ms.id === s.id) && 
-                                                    (s.full_name?.toLowerCase().includes(studentSearchQuery.toLowerCase()) || 
-                                                     s.email?.toLowerCase().includes(studentSearchQuery.toLowerCase()))
-                                                ).length === 0 && (
-                                                    <p className="text-center py-4 text-[10px] font-black text-slate-600 uppercase tracking-widest">No matching students available</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
 
                             {/* Content */}
                             <div className="flex-grow overflow-y-auto custom-scrollbar p-0">
@@ -823,9 +828,10 @@ export default function SessionsAdminPage() {
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className="bg-white/5 border-b border-white/5">
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Student</th>
-                                                <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Contact Info</th>
-                                                <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Status</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Étudiant</th>
+                                                <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Coordonnées</th>
+                                                <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Statut</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
@@ -845,7 +851,7 @@ export default function SessionsAdminPage() {
                                                             <div className="flex flex-col">
                                                                 <span className="font-bold text-slate-900 text-sm">{student.full_name}</span>
                                                                 <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">
-                                                                    Joined: {new Date(student.enrolled_at).toLocaleDateString('fr-FR')}
+                                                                    Inscrit le : {new Date(student.enrolled_at).toLocaleDateString('fr-FR')}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -860,14 +866,31 @@ export default function SessionsAdminPage() {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-right">
+                                                    <td className="px-6 py-4">
                                                         <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
                                                             student.status === 'approved' 
                                                             ? 'bg-brand-green/10 text-brand-green border-brand-green/20' 
                                                             : 'bg-amber-400/10 text-amber-400 border-amber-400/20'
                                                         }`}>
-                                                            {student.status || 'PENDING'}
+                                                            {student.status === 'approved' ? 'VALIDÉ' : student.status === 'rejected' ? 'REFUSÉ' : 'EN ATTENTE'}
                                                         </span>
+                                                    </td>
+                                                    <td className="px-8 py-4 text-right">
+                                                        <button
+                                                            onClick={() => handleRemoveStudent(student)}
+                                                            disabled={removingStudentId === student.id || student.has_financial_history}
+                                                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white font-black text-[9px] uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-rose-50 disabled:hover:text-rose-600"
+                                                            title={student.has_financial_history
+                                                                ? 'Cette inscription contient un paiement ou un justificatif.'
+                                                                : 'Retirer de la session'}
+                                                        >
+                                                            {removingStudentId === student.id
+                                                                ? <Loader2 size={13} className="animate-spin" />
+                                                                : student.has_financial_history
+                                                                    ? <AlertCircle size={13} />
+                                                                    : <Trash2 size={13} />}
+                                                            {student.has_financial_history ? 'Paiement lié' : 'Retirer'}
+                                                        </button>
                                                     </td>
                                                 </motion.tr>
                                             ))}
@@ -887,8 +910,118 @@ export default function SessionsAdminPage() {
                                     Total Inscrits : <span className="text-slate-900">{manifestStudents.length}</span>
                                 </p>
                                 <button
-                                    onClick={() => setIsManifestOpen(false)}
+                                    onClick={() => {
+                                        setIsAddingStudent(false);
+                                        setIsManifestOpen(false);
+                                    }}
                                     className="px-8 py-3 rounded-xl bg-white text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all border border-slate-200"
+                                >
+                                    Fermer
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* STUDENT PICKER MODAL */}
+            <AnimatePresence>
+                {isManifestOpen && isAddingStudent && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.94, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.94, y: 20 }}
+                            className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl flex flex-col"
+                        >
+                            <div className="p-7 border-b border-slate-100 flex items-start justify-between gap-6">
+                                <div>
+                                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-1">
+                                        <Plus size={13} /> Nouvelle inscription
+                                    </div>
+                                    <h2 className="text-2xl font-black text-slate-900">Ajouter un étudiant</h2>
+                                    <p className="mt-1 text-xs font-medium text-slate-500">{selectedSessionLabel}</p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setStudentSearchQuery('');
+                                        setIsAddingStudent(false);
+                                    }}
+                                    className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
+                                    title="Fermer"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="p-6 border-b border-slate-100 bg-slate-50">
+                                <div className="relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+                                    <input
+                                        type="text"
+                                        autoFocus
+                                        placeholder="Rechercher par nom ou e-mail..."
+                                        value={studentSearchQuery}
+                                        onChange={(e) => setStudentSearchQuery(e.target.value)}
+                                        className="w-full bg-white border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                                {loadingStudents ? (
+                                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                        <Loader2 className="animate-spin text-brand-green" size={30} />
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Chargement des étudiants...</p>
+                                    </div>
+                                ) : availableStudents.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {availableStudents.map(student => (
+                                            <div
+                                                key={student.id}
+                                                className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:border-brand-green/50 hover:bg-slate-50 transition-all"
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center text-xs font-black text-slate-600">
+                                                        {student.full_name?.charAt(0) || 'E'}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-black text-slate-900 truncate">{student.full_name || 'Sans nom'}</p>
+                                                        <p className="text-xs text-slate-500 truncate">{student.email || 'E-mail indisponible'}</p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleAddStudent(student.id)}
+                                                    disabled={enrollingStudentId !== null}
+                                                    className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-green text-black font-black text-[10px] uppercase tracking-wider hover:brightness-105 transition-all disabled:opacity-50"
+                                                >
+                                                    {enrollingStudentId === student.id
+                                                        ? <Loader2 size={14} className="animate-spin" />
+                                                        : <Plus size={14} />}
+                                                    Ajouter
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                                        <Users size={42} className="text-slate-300 mb-4" />
+                                        <p className="font-black text-slate-700">Aucun étudiant disponible</p>
+                                        <p className="mt-1 text-xs text-slate-500">Tous les étudiants correspondants sont déjà inscrits à cette session.</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="p-6 border-t border-slate-100 flex items-center justify-between bg-white">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    {availableStudents.length} étudiant(s) disponible(s)
+                                </p>
+                                <button
+                                    onClick={() => {
+                                        setStudentSearchQuery('');
+                                        setIsAddingStudent(false);
+                                    }}
+                                    className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all"
                                 >
                                     Fermer
                                 </button>

@@ -58,15 +58,24 @@ export async function POST(req: Request) {
         const displayName = studentName || 'Cher étudiant';
         const displayCourse = courseName || 'votre formation';
         const isApproved = status === 'approved';
+        const isReservationWithoutPayment = !enrollment.receipt_url;
 
         // 1. Admin Dashboard Notification (Audit Trail)
         try {
             await supabaseAdmin.from('notifications').insert({
-                type: isApproved ? 'payment_approved' : 'payment_rejected',
-                title: isApproved ? '✅ Paiement Validé' : '❌ Paiement Rejeté',
-                message: isApproved 
-                    ? `Le paiement de ${studentName || 'un étudiant'} pour ${displayCourse} a été approuvé.`
-                    : `Le paiement de ${studentName || 'un étudiant'} pour ${displayCourse} a été rejeté.`,
+                type: isReservationWithoutPayment
+                    ? (isApproved ? 'reservation_approved' : 'reservation_rejected')
+                    : (isApproved ? 'payment_approved' : 'payment_rejected'),
+                title: isReservationWithoutPayment
+                    ? (isApproved ? '✅ Réservation validée' : '❌ Réservation refusée')
+                    : (isApproved ? '✅ Paiement validé' : '❌ Paiement rejeté'),
+                message: isReservationWithoutPayment
+                    ? (isApproved
+                        ? `La réservation sans paiement de ${studentName || 'un étudiant'} pour ${displayCourse} a été validée à 0 DT.`
+                        : `La réservation sans paiement de ${studentName || 'un étudiant'} pour ${displayCourse} a été refusée.`)
+                    : (isApproved
+                        ? `Le paiement de ${studentName || 'un étudiant'} pour ${displayCourse} a été approuvé.`
+                        : `Le paiement de ${studentName || 'un étudiant'} pour ${displayCourse} a été rejeté.`),
                 metadata: { enrollmentId, userId: enrollment.user_id, courseName: displayCourse }
             });
         } catch (notifErr) {
@@ -83,9 +92,13 @@ export async function POST(req: Request) {
                     let html = fs.readFileSync(templatePath, 'utf8');
                     const statusText = isApproved ? 'APPROUVÉ (VALIDÉ)' : 'REJETÉ (ANNULÉ)';
                     const statusClass = isApproved ? 'approved' : 'rejected';
-                    const message = isApproved 
-                        ? `Félicitations ! Votre paiement a été reçu et validé. Vos accès à la formation "${displayCourse}" sont maintenant confirmés.`
-                        : `Nous avons rencontré un problème avec votre justificatif de paiement pour "${displayCourse}". Veuillez nous contacter ou soumettre un nouveau justificatif.`;
+                    const message = isReservationWithoutPayment
+                        ? (isApproved
+                            ? `Votre réservation sans paiement pour "${displayCourse}" a été validée. Votre place est maintenant confirmée.`
+                            : `Votre demande de réservation pour "${displayCourse}" a été refusée. Veuillez nous contacter pour plus d’informations.`)
+                        : (isApproved
+                            ? `Félicitations ! Votre paiement a été reçu et validé. Vos accès à la formation "${displayCourse}" sont maintenant confirmés.`
+                            : `Nous avons rencontré un problème avec votre justificatif de paiement pour "${displayCourse}". Veuillez nous contacter ou soumettre un nouveau justificatif.`);
 
                     html = html.replace('{{NAME}}', displayName)
                                .replace('{{COURSE}}', displayCourse)
@@ -95,7 +108,9 @@ export async function POST(req: Request) {
 
                     await sendEmail({
                         to: studentEmail,
-                        subject: isApproved ? `✅ Paiement Validé : ${displayCourse}` : `❌ Problème de Paiement : ${displayCourse}`,
+                        subject: isReservationWithoutPayment
+                            ? (isApproved ? `✅ Réservation validée : ${displayCourse}` : `❌ Réservation refusée : ${displayCourse}`)
+                            : (isApproved ? `✅ Paiement validé : ${displayCourse}` : `❌ Problème de paiement : ${displayCourse}`),
                         html: html,
                     });
                 }
