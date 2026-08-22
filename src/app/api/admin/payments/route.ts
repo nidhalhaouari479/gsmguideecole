@@ -77,13 +77,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
 
-        const { userId, courseId, sessionId, amount, note } = await request.json();
+        const { userId, courseId, sessionId, amount, note, receiptUrl } = await request.json();
         const paymentAmount = Number(amount);
         const cleanNote = typeof note === 'string' ? note.trim() : '';
 
-        if (!userId || !courseId || !sessionId) {
+        if (!userId || !sessionId) {
             return NextResponse.json(
-                { error: 'Étudiant, formation et session requis.' },
+                { error: 'Étudiant et session requis.' },
                 { status: 400 }
             );
         }
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
             .eq('id', sessionId)
             .single();
 
-        if (sessionError || !session || session.course_id !== courseId) {
+        if (sessionError || !session || (courseId && session.course_id !== courseId)) {
             return NextResponse.json({ error: 'La session ne correspond pas à la formation choisie.' }, { status: 400 });
         }
 
@@ -133,29 +133,44 @@ export async function POST(request: Request) {
             );
         }
 
-        let receiptHistory: unknown = enrollment.receipt_url;
+        let history: Array<Record<string, unknown>> = [];
         if (typeof enrollment.receipt_url === 'string' && enrollment.receipt_url.startsWith('[')) {
             try {
-                const history = JSON.parse(enrollment.receipt_url);
-                if (Array.isArray(history)) {
-                    history.push({
-                        url: null,
-                        amount: paymentAmount,
-                        status: 'approved',
-                        source: 'admin',
-                        created_at: new Date().toISOString(),
-                    });
-                    receiptHistory = JSON.stringify(history);
-                }
+                const parsedHistory = JSON.parse(enrollment.receipt_url);
+                if (Array.isArray(parsedHistory)) history = parsedHistory;
             } catch {
-                receiptHistory = enrollment.receipt_url;
+                history = [];
             }
+        } else if (enrollment.receipt_url) {
+            history.push({
+                url: enrollment.receipt_url,
+                amount: currentPaid,
+                status: 'approved',
+                source: 'legacy',
+                date: new Date().toISOString(),
+            });
+        } else if (currentPaid > 0) {
+            history.push({
+                url: null,
+                amount: currentPaid,
+                status: 'approved',
+                source: 'existing_balance',
+                date: new Date().toISOString(),
+            });
         }
+
+        history.push({
+            url: typeof receiptUrl === 'string' && receiptUrl.trim() ? receiptUrl.trim() : null,
+            amount: paymentAmount,
+            status: 'approved',
+            source: 'admin',
+            date: new Date().toISOString(),
+        });
 
         const updatePayload: Record<string, unknown> = {
             amount_paid: newTotal,
             status: 'approved',
-            receipt_url: receiptHistory,
+            receipt_url: JSON.stringify(history),
         };
         if (cleanNote) {
             updatePayload.finance_note = cleanNote;

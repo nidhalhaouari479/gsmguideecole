@@ -24,7 +24,9 @@ import {
     Briefcase,
     Mail,
     Phone,
-    X
+    X,
+    CreditCard,
+    Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -55,6 +57,29 @@ interface Session {
         pending: number;
     };
 }
+
+const translateScheduleLabel = (label?: string) => {
+    if (!label) return 'Personnalisé';
+    const normalized = label.trim().toLowerCase();
+    if (normalized === 'full time') return 'Temps plein';
+    if (normalized === 'part time') return 'Temps partiel';
+    if (normalized === 'weekend' || normalized === 'week-end') return 'Fin de semaine';
+    if (normalized === 'personalized' || normalized === 'personalised') return 'Personnalisé';
+    return label;
+};
+
+const translateCategory = (category?: string) => {
+    if (!category) return 'Formation';
+    return category
+        .split(',')
+        .map(item => {
+            const normalized = item.trim().toLowerCase();
+            if (normalized === 'hardware') return 'Matériel';
+            if (normalized === 'software') return 'Logiciel';
+            return item.trim();
+        })
+        .join(', ');
+};
 
 export default function SessionsAdminPage() {
     const [sessions, setSessions] = useState<Session[]>([]);
@@ -87,6 +112,11 @@ export default function SessionsAdminPage() {
     const [loadingManifest, setLoadingManifest] = useState(false);
     const [selectedSessionLabel, setSelectedSessionLabel] = useState('');
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+    const [paymentStudent, setPaymentStudent] = useState<any | null>(null);
+    const [paymentAmount, setPaymentAmount] = useState('');
+    const [paymentNote, setPaymentNote] = useState('');
+    const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
+    const [savingPayment, setSavingPayment] = useState(false);
 
     // Manual Enrollment State
     const [isAddingStudent, setIsAddingStudent] = useState(false);
@@ -206,13 +236,7 @@ export default function SessionsAdminPage() {
         try {
             const p = JSON.parse(session.schedule);
             parsedSchedule = {
-                label: p.label === 'Full Time'
-                    ? 'Temps plein'
-                    : p.label === 'Part Time'
-                        ? 'Temps partiel'
-                        : p.label === 'Weekend'
-                            ? 'Week-end'
-                            : p.label || 'Personnalisé',
+                label: translateScheduleLabel(p.label),
                 seances: p.seances || [],
                 instructor_id: p.instructor_id || ''
             };
@@ -324,6 +348,87 @@ export default function SessionsAdminPage() {
         }
     };
 
+    const closePaymentModal = () => {
+        setPaymentStudent(null);
+        setPaymentAmount('');
+        setPaymentNote('');
+        setPaymentReceipt(null);
+    };
+
+    const handleSessionPayment = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!paymentStudent || !selectedSessionId) return;
+
+        const amount = Number(paymentAmount);
+        const alreadyPaid = Number(paymentStudent.amount_paid) || 0;
+        const totalPrice = Number(paymentStudent.total_price) || 0;
+        const remaining = Math.max(totalPrice - alreadyPaid, 0);
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+            alert('Saisissez un montant supérieur à 0 DT.');
+            return;
+        }
+        if (totalPrice > 0 && amount > remaining) {
+            alert(`Le montant dépasse le reste à payer (${remaining.toLocaleString('fr-FR')} DT).`);
+            return;
+        }
+        if (paymentReceipt && paymentReceipt.size > 10 * 1024 * 1024) {
+            alert('Le reçu ne doit pas dépasser 10 Mo.');
+            return;
+        }
+
+        setSavingPayment(true);
+        try {
+            let receiptUrl: string | null = null;
+
+            if (paymentReceipt) {
+                const extension = paymentReceipt.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'file';
+                const uploadData = new FormData();
+                uploadData.append('file', paymentReceipt);
+                uploadData.append('bucket', 'receipts');
+                uploadData.append('path', `receipts/admin_${paymentStudent.id}_${Date.now()}.${extension}`);
+
+                const uploadResponse = await fetch('/api/admin/upload', {
+                    method: 'POST',
+                    body: uploadData,
+                });
+                const uploadResult = await uploadResponse.json();
+                if (!uploadResponse.ok || uploadResult.error) {
+                    throw new Error(uploadResult.error || 'Impossible de téléverser le reçu.');
+                }
+                receiptUrl = uploadResult.url;
+            }
+
+            const response = await fetch('/api/admin/payments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: paymentStudent.id,
+                    sessionId: selectedSessionId,
+                    amount,
+                    note: paymentNote,
+                    receiptUrl,
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Impossible d’enregistrer le paiement.');
+            }
+
+            closePaymentModal();
+            try {
+                await Promise.all([refreshManifest(), fetchSessions()]);
+            } catch (refreshError) {
+                console.error('Payment saved but refresh failed:', refreshError);
+                alert('Le paiement est enregistré. Rechargez la page pour actualiser les montants.');
+            }
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Impossible d’enregistrer le paiement.');
+        } finally {
+            setSavingPayment(false);
+        }
+    };
+
     const isSessionClosed = (session: Session) => {
         const endOfSession = new Date(session.end_date);
         endOfSession.setHours(23, 59, 59, 999);
@@ -375,7 +480,7 @@ export default function SessionsAdminPage() {
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
                         <CalendarIcon size={14} /> Planification des formations
                     </div>
-                    <h1 className="text-4xl font-black text-white tracking-tighter">Sessions <span className="text-slate-500">et planning</span></h1>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Sessions <span className="text-slate-600">et calendrier</span></h1>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -435,8 +540,8 @@ export default function SessionsAdminPage() {
                             <Clock size={24} />
                         </div>
                         <div>
-                            <h3 className="text-3xl font-black text-white tracking-tighter tabular-nums">{openSessions}</h3>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Cycles Actifs</p>
+                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{openSessions}</h3>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Sessions actives</p>
                         </div>
                     </div>
                 </motion.div>
@@ -446,8 +551,8 @@ export default function SessionsAdminPage() {
                             <Users size={24} />
                         </div>
                         <div>
-                            <h3 className="text-3xl font-black text-white tracking-tighter tabular-nums">{totalStudents}</h3>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Équipage Enrôlé</p>
+                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{totalStudents}</h3>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Étudiants inscrits</p>
                         </div>
                     </div>
                 </motion.div>
@@ -457,7 +562,7 @@ export default function SessionsAdminPage() {
                             <Briefcase size={24} />
                         </div>
                         <div>
-                            <h3 className="text-3xl font-black text-white tracking-tighter tabular-nums">92%</h3>
+                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">92%</h3>
                             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Taux d'Occupation</p>
                         </div>
                     </div>
@@ -490,7 +595,7 @@ export default function SessionsAdminPage() {
                                 <th className="px-6 py-4">Formation</th>
                                 <th className="px-5 py-4">Instructeur</th>
                                 <th className="px-5 py-4">Date de début</th>
-                                <th className="px-5 py-4">Planning</th>
+                                <th className="px-5 py-4">Calendrier</th>
                                 <th className="px-5 py-4">Inscriptions</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
@@ -501,18 +606,18 @@ export default function SessionsAdminPage() {
                                 let seanceCount = 0;
                                 try {
                                     const parsed = JSON.parse(session.schedule);
-                                    planning = parsed.label === 'Full Time' ? 'Temps plein' : parsed.label === 'Part Time' ? 'Temps partiel' : parsed.label === 'Weekend' ? 'Week-end' : parsed.label;
+                                    planning = translateScheduleLabel(parsed.label);
                                     seanceCount = parsed.seances?.length || 0;
                                 } catch {
-                                    planning = session.schedule === 'Full Time' ? 'Temps plein' : session.schedule === 'Part Time' ? 'Temps partiel' : session.schedule === 'Weekend' ? 'Week-end' : session.schedule;
+                                    planning = translateScheduleLabel(session.schedule);
                                 }
                                 const occupancy = Math.round((session.stats.confirmed / session.seats_available) * 100) || 0;
                                 return (
                                     <motion.tr key={session.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="group hover:bg-brand-green/[0.04] transition-colors">
-                                        <td className="px-6 py-4"><div className="flex min-w-[320px] items-center gap-4"><img src={session.courses?.image_url || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=400&auto=format&fit=crop'} alt={session.courses?.title_fr} className="h-14 w-20 rounded-xl bg-slate-100 object-cover" /><div><p className="max-w-sm font-black leading-snug text-white group-hover:text-brand-green">{session.courses?.title_fr}</p><span className="mt-1 inline-flex rounded-md bg-brand-blue/10 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-brand-blue">{session.courses?.category}</span></div></div></td>
-                                        <td className="px-5 py-4 text-sm font-bold text-slate-600">{session.instructor?.full_name || 'Non assigné'}</td>
-                                        <td className="px-5 py-4 text-sm font-black text-slate-700">{new Date(session.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                        <td className="px-5 py-4"><p className="text-sm font-bold text-slate-700">{planning}</p>{seanceCount > 0 && <p className="mt-1 text-[10px] font-bold uppercase text-slate-400">{seanceCount} séances</p>}</td>
+                                        <td className="px-6 py-4"><div className="flex min-w-[320px] items-center gap-4"><img src={session.courses?.image_url || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=400&auto=format&fit=crop'} alt={session.courses?.title_fr} className="h-14 w-20 rounded-xl bg-slate-100 object-cover" /><div><p className="max-w-sm font-black leading-snug text-slate-900">{session.courses?.title_fr}</p><span className="mt-1 inline-flex rounded-md bg-brand-blue/10 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-brand-blue">{translateCategory(session.courses?.category)}</span></div></div></td>
+                                        <td className="px-5 py-4 text-sm font-bold text-slate-900">{session.instructor?.full_name || 'Non assigné'}</td>
+                                        <td className="px-5 py-4 text-sm font-black text-slate-900">{new Date(session.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                        <td className="px-5 py-4"><p className="text-sm font-bold text-slate-900">{planning}</p>{seanceCount > 0 && <p className="mt-1 text-[10px] font-bold uppercase text-slate-600">{seanceCount} séances</p>}</td>
                                         <td className="px-5 py-4"><div className="w-36"><div className="mb-2 flex justify-between text-[10px] font-black"><span className="text-slate-600">{session.stats.confirmed}/{session.seats_available}</span><span className="text-brand-blue">{occupancy}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-green" style={{ width: `${Math.min(occupancy, 100)}%` }} /></div></div></td>
                                         <td className="px-6 py-4"><div className="flex justify-end gap-2"><button onClick={() => handleViewManifest(session)} className="rounded-lg border border-slate-200 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-brand-green hover:border-brand-green">Inscrits</button><button onClick={() => handleEditClick(session)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-brand-green hover:text-brand-green" title="Modifier"><Edit2 size={16} /></button><button onClick={() => handleDeleteSession(session.id)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500" title="Supprimer"><Trash2 size={16} /></button></div></td>
                                     </motion.tr>
@@ -541,7 +646,7 @@ export default function SessionsAdminPage() {
                             <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/20 to-transparent" />
                             <div className="absolute top-4 left-4">
                                 <span className="bg-brand-blue/90 text-white text-[8px] font-black px-2 py-1 rounded uppercase tracking-widest">
-                                    {session.courses?.category}
+                                    {translateCategory(session.courses?.category)}
                                 </span>
                             </div>
                         </div>
@@ -550,15 +655,15 @@ export default function SessionsAdminPage() {
                             <div className="space-y-4">
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
-                                        <h2 className="text-xl font-black text-white tracking-tight leading-tight group-hover:text-brand-green transition-colors">
+                                        <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">
                                             {session.courses?.title_fr}
                                         </h2>
                                         <div className="flex items-center gap-2 mt-2">
                                             <div className="w-5 h-5 rounded-lg bg-white/5 flex items-center justify-center">
                                                 <Briefcase size={12} className="text-slate-500" />
                                             </div>
-                                            <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">
-                                                Instructeur: <span className="text-slate-200">{session.instructor?.full_name || 'NON ASSIGNÉ'}</span>
+                                            <span className="text-[10px] font-black text-slate-900 tracking-widest uppercase">
+                                                Instructeur : <span className="text-slate-900">{session.instructor?.full_name || 'NON ASSIGNÉ'}</span>
                                             </span>
                                         </div>
                                     </div>
@@ -582,43 +687,33 @@ export default function SessionsAdminPage() {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
-                                        <div className="flex items-center gap-2 text-slate-500">
+                                        <div className="flex items-center gap-2 text-slate-900">
                                             <CalendarIcon size={14} className="text-brand-green" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Start Date</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Date de début</span>
                                         </div>
-                                        <p className="text-sm font-black text-slate-200 uppercase tracking-tighter">
+                                        <p className="text-sm font-black text-slate-900 uppercase tracking-tighter">
                                             {new Date(session.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
                                         </p>
                                     </div>
                                     <div className="space-y-1">
-                                        <div className="flex items-center gap-2 text-slate-500">
+                                        <div className="flex items-center gap-2 text-slate-900">
                                             <Clock size={14} className="text-brand-green" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Planning</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Calendrier</span>
                                         </div>
-                                        <p className="text-sm font-black text-slate-200 uppercase tracking-tighter">
+                                        <p className="text-sm font-black text-slate-900 uppercase tracking-tighter">
                                             {(() => {
                                                 try {
                                                     const parsed = JSON.parse(session.schedule);
                                                     return (
                                                         <span className="flex items-center gap-2">
-                                                            {parsed.label === 'Full Time'
-                                                                ? 'Temps plein'
-                                                                : parsed.label === 'Part Time'
-                                                                    ? 'Temps partiel'
-                                                                    : parsed.label === 'Weekend'
-                                                                        ? 'Week-end'
-                                                                        : parsed.label}
-                                                            <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">
+                                                            {translateScheduleLabel(parsed.label)}
+                                                            <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-900">
                                                                 {parsed.seances?.length || 0} séances
                                                             </span>
                                                         </span>
                                                     );
                                                 } catch (e) {
-                                                    return session.schedule === 'Full Time'
-                                                        ? 'Temps plein'
-                                                        : session.schedule === 'Part Time'
-                                                            ? 'Temps partiel'
-                                                            : session.schedule === 'Weekend' ? 'Week-end' : session.schedule;
+                                                    return translateScheduleLabel(session.schedule);
                                                 }
                                             })()}
                                         </p>
@@ -629,7 +724,7 @@ export default function SessionsAdminPage() {
                             <div className="mt-8 pt-6 border-t border-white/5 flex items-end justify-between">
                                 <div className="space-y-2 flex-grow max-w-[180px]">
                                     <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-1">
-                                        <span className="text-slate-500 text-[8px]">Inscriptions: <span className="text-white">{session.stats.confirmed}/{session.seats_available}</span></span>
+                                        <span className="text-slate-900 text-[8px]">Inscriptions : <span className="text-slate-900">{session.stats.confirmed}/{session.seats_available}</span></span>
                                         <span className="text-brand-blue">{Math.round((session.stats.confirmed / session.seats_available) * 100)}%</span>
                                     </div>
                                     <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
@@ -685,11 +780,11 @@ export default function SessionsAdminPage() {
                                         </div>
                                         <div className="w-8 h-[1px] bg-slate-800" />
                                         <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 2 ? 'text-brand-green' : 'text-slate-500'}`}>
-                                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 2 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>2</span> COUNT
+                                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 2 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>2</span> NOMBRE
                                         </div>
                                         <div className="w-8 h-[1px] bg-slate-800" />
                                         <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 3 ? 'text-brand-green' : 'text-slate-500'}`}>
-                                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 3 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>3</span> SCHEDULE
+                                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 3 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>3</span> CALENDRIER
                                         </div>
                                     </div>
                                 </div>
@@ -848,7 +943,7 @@ export default function SessionsAdminPage() {
                                         disabled={currentStep === 1 && !formData.course_id}
                                         className="btn-primary py-4 px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center gap-2 group"
                                     >
-                                        NEXT STEP <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                        ÉTAPE SUIVANTE <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                                     </button>
                                 ) : (
                                     <button
@@ -923,6 +1018,9 @@ export default function SessionsAdminPage() {
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Étudiant</th>
                                                 <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Coordonnées</th>
                                                 <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Statut</th>
+                                                {!isProfessor && (
+                                                    <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Paiement</th>
+                                                )}
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Action</th>
                                             </tr>
                                         </thead>
@@ -967,6 +1065,31 @@ export default function SessionsAdminPage() {
                                                             {student.status === 'approved' ? 'VALIDÉ' : student.status === 'rejected' ? 'REFUSÉ' : 'EN ATTENTE'}
                                                         </span>
                                                     </td>
+                                                    {!isProfessor && (
+                                                        <td className="px-6 py-4">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setPaymentAmount('');
+                                                                    setPaymentNote('');
+                                                                    setPaymentReceipt(null);
+                                                                    setPaymentStudent(student);
+                                                                }}
+                                                                disabled={Number(student.total_price || 0) > 0 && Number(student.amount_paid || 0) >= Number(student.total_price || 0)}
+                                                                className="min-w-36 rounded-xl border border-brand-green/30 bg-brand-green/10 px-3 py-2 text-left transition-all hover:border-brand-green hover:bg-brand-green/20 disabled:cursor-default disabled:border-emerald-200 disabled:bg-emerald-50"
+                                                                title="Cliquer pour ajouter un paiement"
+                                                            >
+                                                                <span className="block text-xs font-black text-slate-900 tabular-nums">
+                                                                    {Number(student.amount_paid || 0).toLocaleString('fr-FR')} / {Number(student.total_price || 0).toLocaleString('fr-FR')} DT
+                                                                </span>
+                                                                <span className={`mt-0.5 block text-[9px] font-bold uppercase tracking-wider ${Number(student.total_price || 0) > Number(student.amount_paid || 0) ? 'text-rose-500' : 'text-emerald-600'}`}>
+                                                                    {Number(student.total_price || 0) > Number(student.amount_paid || 0)
+                                                                        ? `Reste : ${Math.max(Number(student.total_price || 0) - Number(student.amount_paid || 0), 0).toLocaleString('fr-FR')} DT`
+                                                                        : 'Soldé'}
+                                                                </span>
+                                                            </button>
+                                                        </td>
+                                                    )}
                                                     <td className="px-8 py-4 text-right">
                                                         <button
                                                             onClick={() => handleRemoveStudent(student)}
@@ -1011,6 +1134,123 @@ export default function SessionsAdminPage() {
                                     Fermer
                                 </button>
                             </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* SESSION PAYMENT MODAL - ADMIN ONLY */}
+            <AnimatePresence>
+                {paymentStudent && !isProfessor && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="w-full max-w-xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                        >
+                            <div className="flex items-start justify-between border-b border-slate-100 p-7">
+                                <div>
+                                    <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-green">
+                                        <CreditCard size={14} /> Paiement de la session
+                                    </div>
+                                    <h2 className="text-2xl font-black text-slate-900">Ajouter un paiement</h2>
+                                    <p className="mt-1 text-sm font-semibold text-slate-600">{paymentStudent.full_name}</p>
+                                    <p className="mt-0.5 text-xs text-slate-500">{selectedSessionLabel}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={closePaymentModal}
+                                    className="rounded-xl bg-slate-100 p-2 text-slate-500 transition-colors hover:text-slate-900"
+                                    title="Fermer"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSessionPayment} className="space-y-5 p-7">
+                                <div className="grid grid-cols-3 gap-3 rounded-2xl bg-slate-50 p-4 text-center">
+                                    <div>
+                                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Prix total</p>
+                                        <p className="mt-1 text-base font-black text-slate-900">{Number(paymentStudent.total_price || 0).toLocaleString('fr-FR')} DT</p>
+                                    </div>
+                                    <div className="border-x border-slate-200">
+                                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Déjà payé</p>
+                                        <p className="mt-1 text-base font-black text-emerald-600">{Number(paymentStudent.amount_paid || 0).toLocaleString('fr-FR')} DT</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Reste</p>
+                                        <p className="mt-1 text-base font-black text-rose-500">{Math.max(Number(paymentStudent.total_price || 0) - Number(paymentStudent.amount_paid || 0), 0).toLocaleString('fr-FR')} DT</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Montant reçu (DT) *</label>
+                                    <input
+                                        required
+                                        autoFocus
+                                        type="number"
+                                        min="0.001"
+                                        step="0.001"
+                                        max={Math.max(Number(paymentStudent.total_price || 0) - Number(paymentStudent.amount_paid || 0), 0) || undefined}
+                                        value={paymentAmount}
+                                        onChange={(event) => setPaymentAmount(event.target.value)}
+                                        placeholder="Exemple : 100"
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none focus:border-brand-green"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Reçu de paiement (facultatif)</label>
+                                    <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed p-4 transition-all ${paymentReceipt ? 'border-brand-green bg-brand-green/5' : 'border-slate-200 bg-slate-50 hover:border-brand-green/50'}`}>
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp,application/pdf"
+                                            className="hidden"
+                                            onChange={(event) => setPaymentReceipt(event.target.files?.[0] || null)}
+                                        />
+                                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${paymentReceipt ? 'bg-brand-green text-black' : 'bg-white text-slate-400 shadow-sm'}`}>
+                                            <Upload size={18} />
+                                        </span>
+                                        <span className="min-w-0">
+                                            <span className="block truncate text-sm font-semibold text-slate-800">
+                                                {paymentReceipt ? paymentReceipt.name : 'Cliquer pour ajouter le reçu'}
+                                            </span>
+                                            <span className="mt-0.5 block text-xs text-slate-500">JPG, PNG, WEBP ou PDF · maximum 10 Mo</span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Remarque</label>
+                                    <textarea
+                                        rows={3}
+                                        maxLength={2000}
+                                        value={paymentNote}
+                                        onChange={(event) => setPaymentNote(event.target.value)}
+                                        placeholder="Exemple : paiement en espèces…"
+                                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                    />
+                                </div>
+
+                                <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+                                    <button
+                                        type="button"
+                                        onClick={closePaymentModal}
+                                        className="rounded-xl border border-slate-200 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={savingPayment || !paymentAmount}
+                                        className="btn-primary flex h-auto items-center gap-2 px-6 py-3 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {savingPayment ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                                        Enregistrer le paiement
+                                    </button>
+                                </div>
+                            </form>
                         </motion.div>
                     </div>
                 )}

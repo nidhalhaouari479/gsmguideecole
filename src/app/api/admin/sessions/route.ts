@@ -82,7 +82,7 @@ export async function POST(req: Request) {
         const { course_id, instructor_id, seats_available, seances, schedule: globalSchedule } = body;
 
         if (!course_id || !seats_available || !seances || seances.length === 0) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ error: 'Veuillez renseigner tous les champs obligatoires.' }, { status: 400 });
         }
 
         const sortedSeances = [...seances].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
         const end_date = sortedSeances[sortedSeances.length - 1].date;
 
         const scheduleWithData = JSON.stringify({
-            label: globalSchedule || 'Personalized',
+            label: globalSchedule || 'Personnalisé',
             seances: seances,
             instructor_id: instructor_id || null
         });
@@ -129,7 +129,7 @@ export async function PUT(req: Request) {
         const { id, course_id, instructor_id, seats_available, seances, schedule: globalSchedule } = body;
 
         if (!id || !course_id || !seats_available || !seances || seances.length === 0) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ error: 'Veuillez renseigner tous les champs obligatoires.' }, { status: 400 });
         }
 
         const sortedSeances = [...seances].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -137,7 +137,7 @@ export async function PUT(req: Request) {
         const end_date = sortedSeances[sortedSeances.length - 1].date;
 
         const scheduleWithData = JSON.stringify({
-            label: globalSchedule || 'Personalized',
+            label: globalSchedule || 'Personnalisé',
             seances: seances,
             instructor_id: instructor_id || null
         });
@@ -177,7 +177,7 @@ export async function DELETE(req: Request) {
         const id = searchParams.get('id');
 
         if (!id) {
-            return NextResponse.json({ error: 'Missing session ID' }, { status: 400 });
+            return NextResponse.json({ error: 'Identifiant de session manquant.' }, { status: 400 });
         }
 
         const supabaseAdmin = createAdminClient();
