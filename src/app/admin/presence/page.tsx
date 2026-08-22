@@ -32,6 +32,7 @@ type Session = {
     start_date: string;
     end_date: string;
     schedule: string;
+    courses?: Course | null;
 };
 
 type StudentAttendance = {
@@ -98,22 +99,22 @@ export default function PresenceAdminPage() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [coursesResponse, sessionsResponse] = await Promise.all([
-                    fetch('/api/admin/courses'),
-                    fetch('/api/admin/sessions'),
-                ]);
-                const coursesData = await coursesResponse.json();
+                const sessionsResponse = await fetch('/api/admin/sessions');
                 const sessionsData = await sessionsResponse.json();
 
-                if (!coursesResponse.ok || coursesData.error) {
-                    throw new Error(coursesData.error || 'Impossible de charger les formations.');
-                }
                 if (!sessionsResponse.ok || sessionsData.error) {
                     throw new Error(sessionsData.error || 'Impossible de charger les sessions.');
                 }
 
-                setCourses(coursesData);
                 setSessions(sessionsData);
+                const availableCourses = Array.from(
+                    new Map(
+                        sessionsData
+                            .filter((session: Session) => session.courses)
+                            .map((session: Session) => [session.course_id, session.courses as Course])
+                    ).values()
+                ) as Course[];
+                setCourses(availableCourses);
             } catch (loadError) {
                 setError(loadError instanceof Error ? loadError.message : 'Erreur de chargement.');
             } finally {

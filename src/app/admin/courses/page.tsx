@@ -19,6 +19,7 @@ import {
     Filter,
     ChevronRight,
     LayoutGrid,
+    List,
     Target,
     Layers,
     Sparkles,
@@ -61,6 +62,7 @@ export default function CoursesAdminPage() {
     const [professors, setProfessors] = useState<Professor[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -263,6 +265,10 @@ export default function CoursesAdminPage() {
                             className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
+                    <div className="flex rounded-xl border border-slate-200 bg-white p-1">
+                        <button onClick={() => setViewMode('grid')} className={`rounded-lg p-2 transition-all ${viewMode === 'grid' ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:text-slate-900'}`} title="Afficher en cartes" aria-label="Afficher le catalogue en cartes"><LayoutGrid size={18} /></button>
+                        <button onClick={() => setViewMode('list')} className={`rounded-lg p-2 transition-all ${viewMode === 'list' ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:text-slate-900'}`} title="Afficher en tableau" aria-label="Afficher le catalogue en tableau"><List size={18} /></button>
+                    </div>
                     <button
                         onClick={() => handleOpenModal()}
                         className="btn-primary py-3 px-6 h-auto shadow-none"
@@ -294,7 +300,43 @@ export default function CoursesAdminPage() {
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className={`${viewMode === 'list' ? 'block' : 'hidden'} premium-card overflow-hidden`}>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[980px] border-collapse text-left">
+                        <thead className="border-b border-slate-200 bg-slate-50/80">
+                            <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                <th className="px-6 py-4">Formation</th>
+                                <th className="px-5 py-4">Catégorie</th>
+                                <th className="px-5 py-4">Durée</th>
+                                <th className="px-5 py-4">Professeur</th>
+                                <th className="px-5 py-4">Élèves</th>
+                                <th className="px-5 py-4">Prix</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredCourses.map((course, idx) => (
+                                <motion.tr key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="group hover:bg-brand-green/[0.04] transition-colors">
+                                    <td className="px-6 py-4">
+                                        <div className="flex min-w-[300px] items-center gap-4">
+                                            <img src={course.image_url} alt={course.title_fr} className="h-14 w-20 rounded-xl bg-slate-100 object-cover" />
+                                            <div><p className="max-w-sm font-black leading-snug text-white group-hover:text-brand-green">{course.title_fr}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{course.level || 'Tous niveaux'}</p></div>
+                                        </div>
+                                    </td>
+                                    <td className="px-5 py-4"><span className="inline-flex rounded-lg bg-brand-green/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-brand-green">{course.category === 'Software' ? 'Logiciel' : course.category === 'Hardware' ? 'Matériel' : course.category}</span></td>
+                                    <td className="px-5 py-4 text-sm font-bold text-slate-600">{course.duration}</td>
+                                    <td className="px-5 py-4 text-sm font-bold text-slate-600">{course.professeurs ? `${course.professeurs.nom} ${course.professeurs.prenom}` : 'Non assigné'}</td>
+                                    <td className="px-5 py-4 text-sm font-black text-slate-700">{course.student_count || 0}</td>
+                                    <td className="px-5 py-4">{course.sold_price && <p className="text-[10px] font-bold text-slate-400 line-through">{course.base_price} DT</p>}<p className={`text-base font-black ${course.sold_price ? 'text-brand-green' : 'text-white'}`}>{course.sold_price || course.base_price} DT</p><p className="text-[9px] font-bold uppercase text-slate-400">Avance {course.reservation_amount ?? 400} DT</p></td>
+                                    <td className="px-6 py-4"><div className="flex justify-end gap-2"><button onClick={() => handleOpenModal(course)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-brand-green hover:text-brand-green" title="Modifier"><Edit2 size={16} /></button><button onClick={() => handleDelete(course.id)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500" title="Supprimer"><Trash2 size={16} /></button></div></td>
+                                </motion.tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className={`${viewMode === 'grid' ? 'grid' : 'hidden'} grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8`}>
                 {filteredCourses.map((course, idx) => (
                     <motion.div
                         key={course.id}

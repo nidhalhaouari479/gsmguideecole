@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { supabase } from '@/lib/supabase';
 import { motion } from 'framer-motion';
-import { CheckCircle, AlertCircle, Loader2, Calendar, Tag, CreditCard, ArrowLeft, ShieldCheck, Upload } from 'lucide-react';
+import { CheckCircle, AlertCircle, Loader2, Calendar, Tag, CreditCard, ArrowLeft, ShieldCheck, Upload, Send } from 'lucide-react';
 import Link from 'next/link';
 
 function BookingContent() {
@@ -26,7 +26,9 @@ function BookingContent() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [requestSubmitted, setRequestSubmitted] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [requestForm, setRequestForm] = useState({ requestType: 'create_session', phone: '', availability: '', message: '' });
 
     useEffect(() => {
         const init = async () => {
@@ -172,6 +174,28 @@ function BookingContent() {
         }
     };
 
+    const handleSessionRequest = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!courseId) return;
+        setSubmitting(true);
+        setError(null);
+        try {
+            const response = await fetch('/api/session-requests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ courseId, ...requestForm })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Impossible d’envoyer la demande.');
+            setRequestSubmitted(true);
+            setSuccess(true);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
@@ -195,25 +219,50 @@ function BookingContent() {
                         Demande envoyée !
                     </h1>
                     <p className="text-slate-500 mb-8">
-                        {paymentMode === 'later'
+                        {requestSubmitted
+                            ? "Votre demande de session a bien été transmise. L’administration vous contactera dès qu’une session pourra être programmée."
+                            : paymentMode === 'later'
                             ? "Votre réservation sans paiement est en attente de validation par l’administration. Le montant reçu est de 0 DT."
                             : "Votre reçu a bien été transmis. Nous allons vérifier votre paiement et vous recevrez une confirmation après sa validation."}
                     </p>
-                    <Link href="/dashboard" className="btn-primary w-full py-3 text-center block">
-                        Mon Tableau de Bord
+                    <Link href={requestSubmitted ? "/formations" : "/dashboard"} className="btn-primary w-full py-3 text-center block">
+                        {requestSubmitted ? 'Voir les formations' : 'Mon Tableau de Bord'}
                     </Link>
                 </motion.div>
             </div>
         );
     }
 
-    if (!course || sessions.length === 0) {
+    if (!course) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50"><p className="font-bold text-slate-600">Formation introuvable.</p></div>;
+    }
+
+    if (sessions.length === 0) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
-                <AlertCircle size={40} className="text-red-400 mb-4" />
-                <h2 className="text-xl font-bold mb-2">Aucune session disponible</h2>
-                <p className="text-slate-500 mb-6">Il n'y a actuellement aucune session ouverte pour cette formation.</p>
-                <Link href="/formations" className="btn-primary px-6 py-2">Voir d'autres formations</Link>
+            <div className="min-h-screen bg-slate-50 px-6 py-28">
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-8 shadow-xl md:p-10">
+                    <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-green/15 text-brand-green"><Calendar size={28} /></div>
+                    <h2 className="text-2xl font-black text-slate-900">Demander une nouvelle session</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-500">Aucune session n’est actuellement ouverte pour <strong className="text-slate-700">{course.title_fr}</strong>. Remplissez ce formulaire et notre équipe vous contactera.</p>
+
+                    <form onSubmit={handleSessionRequest} className="mt-8 space-y-5">
+                        <div>
+                            <label className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-600">Votre demande *</label>
+                            <select required value={requestForm.requestType} onChange={e => setRequestForm({ ...requestForm, requestType: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-brand-green">
+                                <option value="create_session">Demander la création d’une session</option>
+                                <option value="next_session">M’enregistrer pour la prochaine session</option>
+                            </select>
+                        </div>
+                        <div className="grid gap-5 md:grid-cols-2">
+                            <div><label className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-600">Téléphone *</label><input required type="tel" value={requestForm.phone} onChange={e => setRequestForm({ ...requestForm, phone: e.target.value })} placeholder="Ex. +216 20 000 000" className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-brand-green" /></div>
+                            <div><label className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-600">Disponibilité *</label><input required value={requestForm.availability} onChange={e => setRequestForm({ ...requestForm, availability: e.target.value })} placeholder="Ex. week-end, septembre" className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-brand-green" /></div>
+                        </div>
+                        <div><label className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-600">Message</label><textarea rows={4} value={requestForm.message} onChange={e => setRequestForm({ ...requestForm, message: e.target.value })} placeholder="Précisez vos préférences..." className="w-full resize-none rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-brand-green" /></div>
+                        {error && <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-600"><AlertCircle size={17} />{error}</div>}
+                        <button disabled={submitting} type="submit" className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-black disabled:opacity-60">{submitting ? <Loader2 size={19} className="animate-spin" /> : <Send size={19} />}{submitting ? 'Envoi en cours...' : 'Envoyer ma demande'}</button>
+                    </form>
+                    <Link href="/formations" className="mt-5 block text-center text-sm font-bold text-slate-500 hover:text-slate-900">Voir d’autres formations</Link>
+                </motion.div>
             </div>
         );
     }

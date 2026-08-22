@@ -74,8 +74,16 @@ export async function middleware(request: NextRequest) {
             .eq('id', user.id)
             .single();
 
-        if (profile?.role !== 'admin') {
+        const role = profile?.role;
+        if (role !== 'admin' && role !== 'professor') {
             return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+        if (role === 'professor') {
+            const allowedPages = ['/admin/students', '/admin/sessions', '/admin/presence'];
+            if (request.nextUrl.pathname === '/admin') return NextResponse.redirect(new URL('/admin/students', request.url));
+            if (!allowedPages.some(path => request.nextUrl.pathname.startsWith(path))) {
+                return NextResponse.redirect(new URL('/admin/students', request.url));
+            }
         }
     }
 
@@ -91,8 +99,21 @@ export async function middleware(request: NextRequest) {
             .eq('id', user.id)
             .single();
 
-        if (profile?.role !== 'admin') {
+        const role = profile?.role;
+        if (role !== 'admin' && role !== 'professor') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        if (role === 'professor') {
+            const path = request.nextUrl.pathname;
+            const method = request.method;
+            const allowed =
+                (path === '/api/admin/students' && ['GET', 'POST'].includes(method)) ||
+                (path.startsWith('/api/admin/students/') && method === 'GET') ||
+                (path === '/api/admin/sessions' && method === 'GET') ||
+                (path === '/api/admin/sessions/students' && method === 'GET') ||
+                (path === '/api/admin/enrollments' && ['POST', 'DELETE'].includes(method)) ||
+                (path === '/api/admin/presence' && ['GET', 'POST'].includes(method));
+            if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
     }
 

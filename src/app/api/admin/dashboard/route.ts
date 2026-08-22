@@ -18,13 +18,17 @@ export async function GET() {
             { data: teachers },
             { data: sessions },
             { data: enrollments },
-            { data: courses }
+            { data: courses },
+            { data: sessionRequests },
+            { data: attendance }
         ] = await Promise.all([
             supabaseAdmin.from('profiles').select('*'),
             supabaseAdmin.from('professeurs').select('*'),
             supabaseAdmin.from('sessions').select('*, courses(*)'),
             supabaseAdmin.from('enrollments').select('*'),
-            supabaseAdmin.from('courses').select('*')
+            supabaseAdmin.from('courses').select('*'),
+            supabaseAdmin.from('session_requests').select('*, courses(title_fr)').order('created_at', { ascending: false }),
+            supabaseAdmin.from('attendance_records').select('status, seance_date, session_id')
         ]);
 
         // Filter students on the server to handle null roles correctly
@@ -35,7 +39,9 @@ export async function GET() {
             teachers: teachers || [],
             sessions: sessions || [],
             enrollments: enrollments || [],
-            courses: courses || []
+            courses: courses || [],
+            sessionRequests: sessionRequests || [],
+            attendance: attendance || []
         });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

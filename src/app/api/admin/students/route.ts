@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyAdmin } from '@/lib/auth-admin';
+import { verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
 
 export async function GET() {
     try {
-        const auth = await verifyAdmin();
+        const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
@@ -70,8 +70,8 @@ export async function GET() {
                 cin_number: profile.cin_number,
                 is_blocked: !!authUser?.user_metadata?.is_blocked,
                 enrollment_count: studentEnrollments.length,
-                total_paid: totalPaid,
-                total_remaining: totalPrice - totalPaid,
+                total_paid: auth.role === 'admin' ? totalPaid : 0,
+                total_remaining: auth.role === 'admin' ? totalPrice - totalPaid : 0,
                 last_enrollment: lastEnrollment,
                 created_at: profile.created_at
             };
@@ -86,7 +86,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const auth = await verifyAdmin();
+        const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }

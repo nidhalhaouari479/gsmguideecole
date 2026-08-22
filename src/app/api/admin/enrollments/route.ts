@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { verifyAdmin } from '@/lib/auth-admin';
+import { verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
+import { canAccessSession } from '@/lib/staff-session-access';
 
 export async function POST(req: Request) {
     try {
-        const auth = await verifyAdmin();
+        const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
@@ -13,6 +14,10 @@ export async function POST(req: Request) {
 
         if (!userId || !sessionId) {
             return NextResponse.json({ error: 'Étudiant et session requis.' }, { status: 400 });
+        }
+
+        if (!await canAccessSession(auth.user.id, auth.role, sessionId)) {
+            return NextResponse.json({ error: 'Cette session ne vous est pas attribuée.' }, { status: 403 });
         }
 
         const supabaseAdmin = createAdminClient();
@@ -88,7 +93,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
     try {
-        const auth = await verifyAdmin();
+        const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
@@ -96,6 +101,10 @@ export async function DELETE(req: Request) {
         const { userId, sessionId } = await req.json();
         if (!userId || !sessionId) {
             return NextResponse.json({ error: 'Étudiant et session requis.' }, { status: 400 });
+        }
+
+        if (!await canAccessSession(auth.user.id, auth.role, sessionId)) {
+            return NextResponse.json({ error: 'Cette session ne vous est pas attribuée.' }, { status: 403 });
         }
 
         const supabaseAdmin = createAdminClient();

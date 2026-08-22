@@ -20,3 +20,15 @@ export const verifyAdmin = async () => {
 
     return { user };
 };
+
+export const verifyStaff = async () => {
+    const supabase = await createSSRClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Unauthorized', status: 401 };
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role !== 'admin' && profile?.role !== 'professor') {
+        return { error: 'Forbidden', status: 403 };
+    }
+    return { user, role: profile.role as 'admin' | 'professor' };
+};

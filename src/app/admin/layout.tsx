@@ -17,6 +17,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const pathname = usePathname();
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
+    const [role, setRole] = useState<'admin' | 'professor'>('admin');
+    const [displayName, setDisplayName] = useState('');
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -42,16 +44,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('role')
+                .select('role, full_name')
                 .eq('id', user.id)
                 .single();
 
-            if (profile?.role !== 'admin') {
+            if (profile?.role !== 'admin' && profile?.role !== 'professor') {
                 router.push('/dashboard');
                 return;
             }
 
             setUser(user);
+            setRole(profile.role);
+            setDisplayName(profile.full_name || user.email || 'Professeur');
             setLoading(false);
         };
 
@@ -119,7 +123,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return <>{children}</>;
     }
 
-    const navigation = [
+    const allNavigation = [
         { name: 'Tableau de bord', href: '/admin', icon: LayoutDashboard, keywords: 'overview dashboard accueil' },
         { name: 'Étudiants', href: '/admin/students', icon: Users, keywords: 'élèves students clients inscriptions' },
         { name: 'Professeurs', href: '/admin/teachers', icon: GraduationCap, keywords: 'enseignants formateurs staff' },
@@ -128,6 +132,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'Présences', href: '/admin/presence', icon: ClipboardCheck, keywords: 'présence absent retard excusé feuille appel' },
         { name: 'Finances', href: '/admin/payments', icon: CreditCard, keywords: 'argent revenus transactions pognon' },
     ];
+    const navigation = role === 'professor'
+        ? allNavigation.filter(item => ['/admin/students', '/admin/sessions', '/admin/presence'].includes(item.href))
+        : allNavigation;
 
     const searchResults = navigation.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -201,7 +208,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     return (
-        <div className={`min-h-screen text-slate-800 flex font-sans overflow-hidden transition-colors duration-300 bg-[#f0f4f8]`}>
+        <div className={`admin-dashboard min-h-screen text-slate-800 flex overflow-hidden transition-colors duration-300 bg-[#f0f4f8]`}>
             {/* Command Palette Overlay */}
             <AnimatePresence>
                 {isSearchOpen && (
@@ -500,11 +507,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <div className="h-8 w-px bg-white/5 mx-2 hidden md:block"></div>
                         <div className="flex items-center gap-3">
                             <div className={`hidden md:block text-right`}>
-                                <p className={`text-sm font-bold uppercase tracking-tighter text-slate-800`}>ADMINISTRATEUR</p>
-                                <p className={`text-[10px] font-bold uppercase tracking-widest text-slate-400`}>Profil Administrateur</p>
+                                <p className={`text-sm font-bold uppercase tracking-tighter text-slate-800`}>{role === 'professor' ? 'PROFESSEUR' : 'ADMINISTRATEUR'}</p>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest text-slate-400`}>{role === 'professor' ? displayName : 'Profil Administrateur'}</p>
                             </div>
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-950 border border-white/10 flex items-center justify-center text-white font-black shadow-lg">
-                                AD
+                                {role === 'professor' ? 'PR' : 'AD'}
                             </div>
                         </div>
                     </div>

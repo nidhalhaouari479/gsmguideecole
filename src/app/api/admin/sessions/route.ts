@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyAdmin } from '@/lib/auth-admin';
+import { verifyAdmin, verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
 
 export async function GET() {
     try {
-        const auth = await verifyAdmin();
+        const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
@@ -60,7 +60,11 @@ export async function GET() {
             };
         });
 
-        return NextResponse.json(sessionsWithStats);
+        const visibleSessions = auth.role === 'professor'
+            ? sessionsWithStats.filter(session => session.instructor?.id === auth.user.id)
+            : sessionsWithStats;
+
+        return NextResponse.json(visibleSessions);
     } catch (error: any) {
         console.error('Sessions API Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

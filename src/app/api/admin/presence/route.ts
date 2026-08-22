@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { verifyAdmin } from '@/lib/auth-admin';
+import { verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
+import { canAccessSession } from '@/lib/staff-session-access';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
@@ -24,7 +25,7 @@ const parseSeances = (schedule: string): Seance[] => {
 
 export async function GET(req: Request) {
     try {
-        const auth = await verifyAdmin();
+        const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
@@ -35,6 +36,10 @@ export async function GET(req: Request) {
 
         if (!sessionId || !seanceKey) {
             return NextResponse.json({ error: 'Session et séance requises.' }, { status: 400 });
+        }
+
+        if (!await canAccessSession(auth.user.id, auth.role, sessionId)) {
+            return NextResponse.json({ error: 'Cette session ne vous est pas attribuée.' }, { status: 403 });
         }
 
         const supabaseAdmin = createAdminClient();
@@ -93,7 +98,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
     try {
-        const auth = await verifyAdmin();
+        const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
@@ -111,6 +116,10 @@ export async function POST(req: Request) {
 
         if (!sessionId || !seance?.date || !seance?.start_time || !Array.isArray(records)) {
             return NextResponse.json({ error: 'Données de présence incomplètes.' }, { status: 400 });
+        }
+
+        if (!await canAccessSession(auth.user.id, auth.role, sessionId)) {
+            return NextResponse.json({ error: 'Cette session ne vous est pas attribuée.' }, { status: 403 });
         }
 
         const validStatuses: AttendanceStatus[] = ['present', 'absent', 'late', 'excused'];

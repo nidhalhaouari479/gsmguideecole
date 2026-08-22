@@ -32,6 +32,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { supabase } from '@/lib/supabase';
 
 interface StudentData {
     id: string;
@@ -94,6 +95,8 @@ const getStatusLabel = (status: string) => {
 export default function StudentsAdminPage() {
     const [students, setStudents] = useState<StudentData[]>([]);
     const [loading, setLoading] = useState(true);
+    // Sensitive financial/admin controls stay hidden until the role is verified.
+    const [isProfessor, setIsProfessor] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: keyof StudentData; direction: 'asc' | 'desc' } | null>(null);
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -102,7 +105,7 @@ export default function StudentsAdminPage() {
     // Filter State
     const [filterConfig, setFilterConfig] = useState<{
         status: 'all' | 'blocked' | 'active';
-        payment: 'all' | 'debt' | 'paid';
+        payment: 'all' | 'unpaid' | 'paid';
         activity: 'all' | 'enrolled' | 'none';
         dateType: 'all' | 'year' | 'month' | 'exact';
         dateValue: string;
@@ -137,6 +140,11 @@ export default function StudentsAdminPage() {
 
     useEffect(() => {
         fetchStudents();
+        supabase.auth.getUser().then(async ({ data: { user } }) => {
+            if (!user) return;
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+            setIsProfessor(profile?.role === 'professor');
+        });
     }, []);
 
     const fetchStudents = async () => {
@@ -498,7 +506,9 @@ export default function StudentsAdminPage() {
             (filterConfig.status === 'blocked' ? s.is_blocked : !s.is_blocked);
 
         const matchesPayment = filterConfig.payment === 'all' ||
-            (filterConfig.payment === 'debt' ? s.total_remaining > 0 : s.total_remaining === 0);
+            (filterConfig.payment === 'unpaid'
+                ? s.enrollment_count > 0 && s.total_remaining > 0
+                : s.enrollment_count > 0 && s.total_remaining <= 0);
 
         const matchesActivity = filterConfig.activity === 'all' ||
             (filterConfig.activity === 'enrolled' ? s.enrollment_count > 0 : s.enrollment_count === 0);
@@ -576,7 +586,7 @@ export default function StudentsAdminPage() {
                                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                                         className="absolute right-0 mt-4 w-64 bg-slate-900 border border-white/10 rounded-3xl shadow-2xl p-6 z-50 space-y-6"
                                     >
-                                        <div>
+                                        {!isProfessor && <div>
                                             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Statut Compte</p>
                                             <div className="flex flex-wrap gap-2">
                                                 {['all', 'active', 'blocked'].map((s) => (
@@ -589,25 +599,25 @@ export default function StudentsAdminPage() {
                                                     </button>
                                                 ))}
                                             </div>
-                                        </div>
+                                        </div>}
 
-                                        <div>
+                                        {!isProfessor && <div>
                                             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Situation Financière</p>
                                             <div className="flex flex-wrap gap-2">
-                                                {['all', 'debt', 'paid'].map((p) => (
+                                                {['all', 'unpaid', 'paid'].map((p) => (
                                                     <button
                                                         key={p}
                                                         onClick={() => setFilterConfig(prev => ({ ...prev, payment: p as any }))}
                                                         className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterConfig.payment === p ? 'bg-brand-blue text-white' : 'bg-white/5 text-slate-400 hover:text-white'}`}
                                                     >
-                                                        {p === 'all' ? 'Tous' : p === 'debt' ? 'Avec Créances' : 'Soldé'}
+                                                        {p === 'all' ? 'Tous' : p === 'unpaid' ? 'Non payé' : 'Payé'}
                                                     </button>
                                                 ))}
                                             </div>
-                                        </div>
+                                        </div>}
 
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Activité</p>
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Inscription formation</p>
                                             <div className="flex flex-wrap gap-2">
                                                 {['all', 'enrolled', 'none'].map((a) => (
                                                     <button
@@ -615,14 +625,14 @@ export default function StudentsAdminPage() {
                                                         onClick={() => setFilterConfig(prev => ({ ...prev, activity: a as any }))}
                                                         className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterConfig.activity === a ? 'bg-amber-500 text-slate-950' : 'bg-white/5 text-slate-400 hover:text-white'}`}
                                                     >
-                                                        {a === 'all' ? 'Tous' : a === 'enrolled' ? 'Inscrit' : 'Sans Formation'}
+                                                        {a === 'all' ? 'Tous' : a === 'enrolled' ? 'Inscrit' : 'Sans formation'}
                                                     </button>
                                                 ))}
                                             </div>
                                         </div>
 
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Filtrage Temporel</p>
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Date d'inscription</p>
                                             <div className="space-y-3">
                                                 <select
                                                     value={filterConfig.dateType}
@@ -687,14 +697,14 @@ export default function StudentsAdminPage() {
                     </button>
                     <button
                         onClick={handleExportList}
-                        className="btn-primary py-3 px-6 h-auto shadow-none bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
+                        className={`${isProfessor ? 'hidden' : 'flex'} btn-primary py-3 px-6 h-auto shadow-none bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white items-center gap-2`}
                         title="Exporter en CSV"
                     >
                         <Download size={18} /> CSV
                     </button>
                     <button
                         onClick={handleExportPDFList}
-                        className="btn-primary py-3 px-6 h-auto shadow-none bg-brand-blue/20 text-brand-blue hover:bg-brand-blue hover:text-white flex items-center gap-2"
+                        className={`${isProfessor ? 'hidden' : 'flex'} btn-primary py-3 px-6 h-auto shadow-none bg-brand-blue/20 text-brand-blue hover:bg-brand-blue hover:text-white items-center gap-2`}
                         title="Exporter en PDF"
                     >
                         <FileDown size={18} /> PDF
@@ -702,7 +712,7 @@ export default function StudentsAdminPage() {
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`${isProfessor ? 'hidden' : 'grid'} grid-cols-1 md:grid-cols-3 gap-6`}>
                 {statsCards.map((stat, i) => (
                     <motion.div
                         key={stat.label}
@@ -736,7 +746,7 @@ export default function StudentsAdminPage() {
                                 <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('created_at')}>
                                     <div className="flex items-center gap-2">Enregistré le <ArrowUpDown size={12} /></div>
                                 </th>
-                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('total_paid')}>
+                                <th className={`${isProfessor ? 'hidden' : ''} px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] cursor-pointer hover:text-white transition-colors`} onClick={() => handleSort('total_paid')}>
                                     <div className="flex items-center gap-2">Intelligence Financière <ArrowUpDown size={12} /></div>
                                 </th>
                                 <th className="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Admin Actions</th>
@@ -753,10 +763,7 @@ export default function StudentsAdminPage() {
                                         className="hover:bg-white/[0.02] transition-colors group"
                                     >
                                         <td className="px-8 py-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-white text-sm font-black shadow-lg border border-white/5 group-hover:border-brand-green/40 transition-all">
-                                                    {student.full_name?.replace(/^(M|Mme)\s+/i, '').charAt(0) || 'U'}
-                                                </div>
+                                            <div className="flex items-center">
                                                 <div className="flex flex-col">
                                                     <span className="font-black text-sm text-white">{student.full_name?.replace(/^(M|Mme)\s+/i, '') || student.full_name}</span>
                                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ID-{student.id.slice(0, 8)}</span>
@@ -787,7 +794,7 @@ export default function StudentsAdminPage() {
                                             </div>
                                         </td>
 
-                                        <td className="px-6 py-4 tabular-nums">
+                                        <td className={`${isProfessor ? 'hidden' : ''} px-6 py-4 tabular-nums`}>
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-black text-brand-green">+{student.total_paid} DT</span>
                                                 <span className={`text-[10px] font-bold ${student.total_remaining > 0 ? 'text-rose-400' : 'text-slate-600'}`}>
@@ -812,7 +819,7 @@ export default function StudentsAdminPage() {
                                                     onClick={() => handleAction(student.id, student.is_blocked ? 'unblock' : 'block')}
                                                     title={student.is_blocked ? "Autoriser" : "Restreindre"}
                                                     disabled={actionLoading === student.id}
-                                                    className={`p-2.5 rounded-xl border border-white/5 transition-all ${student.is_blocked
+                                                    className={`${isProfessor ? 'hidden' : ''} p-2.5 rounded-xl border border-white/5 transition-all ${student.is_blocked
                                                         ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
                                                         : 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
                                                         }`}
@@ -831,7 +838,7 @@ export default function StudentsAdminPage() {
                                                     onClick={() => handleAction(student.id, 'delete')}
                                                     title="Supprimer"
                                                     disabled={actionLoading === student.id}
-                                                    className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all border border-rose-500/20"
+                                                    className={`${isProfessor ? 'hidden' : ''} p-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all border border-rose-500/20`}
                                                 >
                                                     <X size={18} />
                                                 </button>
@@ -998,7 +1005,7 @@ export default function StudentsAdminPage() {
                                         </section>
 
                                         {/* Financial Summary */}
-                                        <section>
+                                        <section className={isProfessor ? 'hidden' : ''}>
                                             <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <CreditCard size={16} className="text-amber-400" /> Bilan Financier
                                             </h3>
@@ -1059,7 +1066,7 @@ export default function StudentsAdminPage() {
                                                             </div>
 
                                                             {/* Payment for this specific enrollment */}
-                                                            <div className="flex items-center gap-6 md:border-l border-white/10 md:pl-6">
+                                                            <div className={`${isProfessor ? 'hidden' : 'flex'} items-center gap-6 md:border-l border-white/10 md:pl-6`}>
                                                                 <div className="flex flex-col items-end">
                                                                     <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Paiement Partiel</span>
                                                                     <span className="text-sm font-black text-emerald-400">+{enrollment.amount_paid} / {enrollment.total_price} DT</span>

@@ -27,6 +27,7 @@ import {
     X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 
 interface Session {
     id: string;
@@ -60,8 +61,11 @@ export default function SessionsAdminPage() {
     const [courses, setCourses] = useState<any[]>([]);
     const [instructors, setInstructors] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    // Session mutation controls stay hidden until the role is verified.
+    const [isProfessor, setIsProfessor] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [sessionFilter, setSessionFilter] = useState<'all' | 'open' | 'closed'>('all');
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -94,7 +98,13 @@ export default function SessionsAdminPage() {
 
     useEffect(() => {
         fetchSessions();
-        fetchInitialData();
+        supabase.auth.getUser().then(async ({ data: { user } }) => {
+            if (!user) return;
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+            const professor = profile?.role === 'professor';
+            setIsProfessor(professor);
+            if (!professor) fetchInitialData();
+        });
     }, []);
 
     const fetchInitialData = async () => {
@@ -314,18 +324,37 @@ export default function SessionsAdminPage() {
         }
     };
 
-    const filteredSessions = sessions.filter(s =>
+    const isSessionClosed = (session: Session) => {
+        const endOfSession = new Date(session.end_date);
+        endOfSession.setHours(23, 59, 59, 999);
+        return new Date() > endOfSession;
+    };
+
+    const searchedSessions = sessions.filter(s =>
         s.courses?.title_fr?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.instructor?.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const availableStudents = allStudents.filter(student =>
-        !manifestStudents.some(enrolledStudent => enrolledStudent.id === student.id)
-        && (
-            student.full_name?.toLowerCase().includes(studentSearchQuery.toLowerCase())
-            || student.email?.toLowerCase().includes(studentSearchQuery.toLowerCase())
-        )
+    const filteredSessions = searchedSessions.filter(session =>
+        sessionFilter === 'all'
+        || (sessionFilter === 'open' && !isSessionClosed(session))
+        || (sessionFilter === 'closed' && isSessionClosed(session))
     );
+
+    const openSessionCount = sessions.filter(session => !isSessionClosed(session)).length;
+    const closedSessionCount = sessions.length - openSessionCount;
+
+    const normalizedStudentSearch = studentSearchQuery.trim().toLowerCase();
+    const normalizedPhoneSearch = studentSearchQuery.replace(/\D/g, '');
+    const availableStudents = allStudents.filter(student => {
+        const isAlreadyEnrolled = manifestStudents.some(enrolledStudent => enrolledStudent.id === student.id);
+        const normalizedStudentPhone = String(student.phone || '').replace(/\D/g, '');
+        const matchesPhone = normalizedPhoneSearch.length > 0 && normalizedStudentPhone.includes(normalizedPhoneSearch);
+        const matchesIdentity = String(student.full_name || '').toLowerCase().includes(normalizedStudentSearch)
+            || String(student.email || '').toLowerCase().includes(normalizedStudentSearch);
+
+        return !isAlreadyEnrolled && (matchesIdentity || matchesPhone);
+    });
 
     if (loading) {
         return (
@@ -360,16 +389,20 @@ export default function SessionsAdminPage() {
                             className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
-                    <div className="flex bg-slate-900 border border-white/5 p-1 rounded-xl">
+                    <div className="flex bg-white border border-slate-200 p-1 rounded-xl">
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-slate-900'}`}
+                            title="Afficher en cartes"
+                            aria-label="Afficher les sessions en cartes"
                         >
                             <LayoutGrid size={18} />
                         </button>
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-slate-900'}`}
+                            title="Afficher en tableau"
+                            aria-label="Afficher les sessions en tableau"
                         >
                             <List size={18} />
                         </button>
@@ -388,14 +421,14 @@ export default function SessionsAdminPage() {
                             setCurrentStep(1);
                             setIsModalOpen(true);
                         }}
-                        className="btn-primary py-3 px-6 h-auto shadow-none flex items-center gap-2"
+                        className={`${isProfessor ? 'hidden' : 'flex'} btn-primary py-3 px-6 h-auto shadow-none items-center gap-2`}
                     >
                         <Plus size={18} /> NOUVELLE SESSION
                     </button>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`${isProfessor ? 'hidden' : 'grid'} grid-cols-1 md:grid-cols-3 gap-6`}>
                 <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="premium-card p-6">
                     <div className="flex items-center gap-4">
                         <div className="p-3 rounded-2xl bg-brand-blue/10 text-brand-blue">
@@ -431,7 +464,66 @@ export default function SessionsAdminPage() {
                 </motion.div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+                {[
+                    { key: 'all' as const, label: 'Toutes les sessions', count: sessions.length },
+                    { key: 'open' as const, label: 'Sessions ouvertes', count: openSessionCount },
+                    { key: 'closed' as const, label: 'Sessions fermées', count: closedSessionCount }
+                ].map(filter => (
+                    <button
+                        key={filter.key}
+                        type="button"
+                        onClick={() => setSessionFilter(filter.key)}
+                        className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-all ${sessionFilter === filter.key ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                    >
+                        {filter.label}
+                        <span className={`rounded-md px-2 py-0.5 text-[10px] ${sessionFilter === filter.key ? 'bg-black/10' : 'bg-slate-100 text-slate-500'}`}>{filter.count}</span>
+                    </button>
+                ))}
+            </div>
+
+            <div className={`${viewMode === 'list' ? 'block' : 'hidden'} premium-card overflow-hidden`}>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[1100px] border-collapse text-left">
+                        <thead className="border-b border-slate-200 bg-slate-50/80">
+                            <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                <th className="px-6 py-4">Formation</th>
+                                <th className="px-5 py-4">Instructeur</th>
+                                <th className="px-5 py-4">Date de début</th>
+                                <th className="px-5 py-4">Planning</th>
+                                <th className="px-5 py-4">Inscriptions</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredSessions.map((session, idx) => {
+                                let planning = session.schedule;
+                                let seanceCount = 0;
+                                try {
+                                    const parsed = JSON.parse(session.schedule);
+                                    planning = parsed.label === 'Full Time' ? 'Temps plein' : parsed.label === 'Part Time' ? 'Temps partiel' : parsed.label === 'Weekend' ? 'Week-end' : parsed.label;
+                                    seanceCount = parsed.seances?.length || 0;
+                                } catch {
+                                    planning = session.schedule === 'Full Time' ? 'Temps plein' : session.schedule === 'Part Time' ? 'Temps partiel' : session.schedule === 'Weekend' ? 'Week-end' : session.schedule;
+                                }
+                                const occupancy = Math.round((session.stats.confirmed / session.seats_available) * 100) || 0;
+                                return (
+                                    <motion.tr key={session.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="group hover:bg-brand-green/[0.04] transition-colors">
+                                        <td className="px-6 py-4"><div className="flex min-w-[320px] items-center gap-4"><img src={session.courses?.image_url || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=400&auto=format&fit=crop'} alt={session.courses?.title_fr} className="h-14 w-20 rounded-xl bg-slate-100 object-cover" /><div><p className="max-w-sm font-black leading-snug text-white group-hover:text-brand-green">{session.courses?.title_fr}</p><span className="mt-1 inline-flex rounded-md bg-brand-blue/10 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-brand-blue">{session.courses?.category}</span></div></div></td>
+                                        <td className="px-5 py-4 text-sm font-bold text-slate-600">{session.instructor?.full_name || 'Non assigné'}</td>
+                                        <td className="px-5 py-4 text-sm font-black text-slate-700">{new Date(session.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                        <td className="px-5 py-4"><p className="text-sm font-bold text-slate-700">{planning}</p>{seanceCount > 0 && <p className="mt-1 text-[10px] font-bold uppercase text-slate-400">{seanceCount} séances</p>}</td>
+                                        <td className="px-5 py-4"><div className="w-36"><div className="mb-2 flex justify-between text-[10px] font-black"><span className="text-slate-600">{session.stats.confirmed}/{session.seats_available}</span><span className="text-brand-blue">{occupancy}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-green" style={{ width: `${Math.min(occupancy, 100)}%` }} /></div></div></td>
+                                        <td className="px-6 py-4"><div className="flex justify-end gap-2"><button onClick={() => handleViewManifest(session)} className="rounded-lg border border-slate-200 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-brand-green hover:border-brand-green">Inscrits</button><button onClick={() => handleEditClick(session)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-brand-green hover:text-brand-green" title="Modifier"><Edit2 size={16} /></button><button onClick={() => handleDeleteSession(session.id)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500" title="Supprimer"><Trash2 size={16} /></button></div></td>
+                                    </motion.tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className={`${viewMode === 'grid' ? 'grid' : 'hidden'} grid-cols-1 lg:grid-cols-2 gap-8`}>
                 {filteredSessions.map((session, idx) => (
                     <motion.div
                         key={session.id}
@@ -473,14 +565,14 @@ export default function SessionsAdminPage() {
                                     <div className="flex items-center gap-1">
                                         <button 
                                             onClick={() => handleEditClick(session)}
-                                            className="p-2 text-slate-500 hover:text-brand-green transition-colors bg-white/5 rounded-lg"
+                                            className={`${isProfessor ? 'hidden' : ''} p-2 text-slate-500 hover:text-brand-green transition-colors bg-white/5 rounded-lg`}
                                             title="Modifier"
                                         >
                                             <Edit2 size={16} />
                                         </button>
                                         <button 
                                             onClick={() => handleDeleteSession(session.id)}
-                                            className="p-2 text-slate-500 hover:text-red-500 transition-colors bg-white/5 rounded-lg"
+                                            className={`${isProfessor ? 'hidden' : ''} p-2 text-slate-500 hover:text-red-500 transition-colors bg-white/5 rounded-lg`}
                                             title="Supprimer"
                                         >
                                             <Trash2 size={16} />
@@ -960,7 +1052,7 @@ export default function SessionsAdminPage() {
                                     <input
                                         type="text"
                                         autoFocus
-                                        placeholder="Rechercher par nom ou e-mail..."
+                                        placeholder="Rechercher par nom, e-mail ou téléphone..."
                                         value={studentSearchQuery}
                                         onChange={(e) => setStudentSearchQuery(e.target.value)}
                                         className="w-full bg-white border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 text-sm text-slate-900 outline-none focus:border-brand-green"
@@ -988,6 +1080,10 @@ export default function SessionsAdminPage() {
                                                     <div className="min-w-0">
                                                         <p className="text-sm font-black text-slate-900 truncate">{student.full_name || 'Sans nom'}</p>
                                                         <p className="text-xs text-slate-500 truncate">{student.email || 'E-mail indisponible'}</p>
+                                                        <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                                                            <Phone size={12} className="text-brand-green" />
+                                                            {student.phone || 'Téléphone indisponible'}
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <button

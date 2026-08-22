@@ -29,6 +29,7 @@ interface TeacherData {
     nom: string;
     prenom: string;
     specialite: string;
+    email: string;
     created_at: string;
 }
 
@@ -41,7 +42,7 @@ export default function TeachersAdminPage() {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTeacher, setEditingTeacher] = useState<TeacherData | null>(null);
-    const [formData, setFormData] = useState({ nom: '', prenom: '', specialite: '' });
+    const [formData, setFormData] = useState({ nom: '', prenom: '', specialite: '', email: '', password: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -95,11 +96,11 @@ export default function TeachersAdminPage() {
             setFormData({
                 nom: teacher.nom || '',
                 prenom: teacher.prenom || '',
-                specialite: teacher.specialite || ''
+                specialite: teacher.specialite || '', email: teacher.email || '', password: ''
             });
         } else {
             setEditingTeacher(null);
-            setFormData({ nom: '', prenom: '', specialite: '' });
+            setFormData({ nom: '', prenom: '', specialite: '', email: '', password: '' });
         }
         setIsModalOpen(true);
     };
@@ -306,7 +307,7 @@ export default function TeachersAdminPage() {
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-4">
+                            <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-400 mb-1">Nom *</label>
                                     <input
@@ -339,6 +340,23 @@ export default function TeachersAdminPage() {
                                         placeholder="Ex: Mathématiques"
                                     />
                                 </div>
+
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 mb-1">Email de connexion *</label>
+                                        <input type="email" required value={formData.email} name="teacher-account-email" autoComplete="off"
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
+                                            placeholder="professeur@exemple.com" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 mb-1">{editingTeacher ? 'Nouveau mot de passe' : 'Mot de passe *'}</label>
+                                        <input type="password" required={!editingTeacher} minLength={8} value={formData.password} name="teacher-new-password" autoComplete="new-password"
+                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                            className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
+                                            placeholder="8 caractères minimum" />
+                                    </div>
+                                </>
 
                                 <div className="flex justify-end gap-3 mt-8">
                                     <button

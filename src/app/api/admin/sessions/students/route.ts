@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { verifyAdmin } from '@/lib/auth-admin';
+import { verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
+import { canAccessSession } from '@/lib/staff-session-access';
 
 export async function GET(req: Request) {
     try {
-        const auth = await verifyAdmin();
+        const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
@@ -14,6 +15,10 @@ export async function GET(req: Request) {
 
         if (!sessionId) {
             return NextResponse.json({ error: 'Session ID is required' }, { status: 400 });
+        }
+
+        if (!await canAccessSession(auth.user.id, auth.role, sessionId)) {
+            return NextResponse.json({ error: 'Cette session ne vous est pas attribuée.' }, { status: 403 });
         }
 
         const supabaseAdmin = createAdminClient();
@@ -68,8 +73,8 @@ export async function GET(req: Request) {
                 email: profile?.email || authUser?.email || 'N/A',
                 phone: profile?.phone || authUser?.phone || authUser?.user_metadata?.phone || 'N/A',
                 status: enrollment.status,
-                amount_paid: enrollment.amount_paid,
-                total_price: enrollment.total_price,
+                amount_paid: auth.role === 'admin' ? enrollment.amount_paid : 0,
+                total_price: auth.role === 'admin' ? enrollment.total_price : 0,
                 has_financial_history: Number(enrollment.amount_paid || 0) > 0 || Boolean(enrollment.receipt_url),
                 enrolled_at: enrollment.created_at
             };

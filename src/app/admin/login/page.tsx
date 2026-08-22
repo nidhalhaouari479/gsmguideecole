@@ -38,14 +38,14 @@ export default function AdminLogin() {
             .eq('id', data.user.id)
             .single();
 
-        if (profileError || profile?.role !== 'admin') {
+        if (profileError || !['admin', 'professor'].includes(profile?.role)) {
             await supabase.auth.signOut();
             setError('ACCÈS REFUSÉ : droits administrateur insuffisants');
             setLoading(false);
             return;
         }
 
-        router.push('/admin');
+        router.push(profile.role === 'professor' ? '/admin/students' : '/admin');
         router.refresh();
     };
 

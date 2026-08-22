@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyAdmin } from '@/lib/auth-admin';
+import { verifyAdmin, verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
 
 export async function GET(req: Request, context: any) {
     try {
-        const auth = await verifyAdmin();
+        const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
@@ -124,12 +124,18 @@ export async function GET(req: Request, context: any) {
             admin_note_updated_at: profile.admin_note_updated_at || null,
             created_at: profile.created_at,
             // Payment summary
-            total_paid: totalPaid,
-            total_price: totalPrice,
-            total_remaining: totalPrice - totalPaid,
+            total_paid: auth.role === 'admin' ? totalPaid : 0,
+            total_price: auth.role === 'admin' ? totalPrice : 0,
+            total_remaining: auth.role === 'admin' ? totalPrice - totalPaid : 0,
             enrollment_count: (enrollments || []).length,
             // Detailed enrollments
-            enrollments: enrichedEnrollments,
+            enrollments: auth.role === 'admin' ? enrichedEnrollments : enrichedEnrollments.map(enrollment => ({
+                ...enrollment,
+                amount_paid: 0,
+                total_price: 0,
+                remaining: 0,
+                course: enrollment.course ? { ...enrollment.course, base_price: 0 } : null
+            })),
         };
 
         return NextResponse.json(studentProfile);

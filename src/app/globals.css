@@ -64,6 +64,85 @@ body {
   min-height: 100vh;
 }
 
+/* Typography used by both administrator and professor dashboards. */
+.admin-dashboard {
+  /* Inter is loaded by next/font on the root body. */
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Dashboard type scale */
+.admin-dashboard main h1 {
+  font-size: clamp(30px, 2.2vw, 36px) !important;
+  font-weight: 700 !important;
+  line-height: 1.15;
+  letter-spacing: -0.025em !important;
+}
+
+.admin-dashboard main .admin-main-title {
+  font-size: clamp(48px, 4vw, 56px) !important;
+  font-weight: 700 !important;
+  line-height: 1.05;
+  letter-spacing: -0.035em !important;
+}
+
+.admin-home-dashboard .premium-card h2,
+.admin-home-dashboard .premium-card h3,
+.admin-home-dashboard .premium-card h4 {
+  font-size: clamp(16px, 1.2vw, 18px) !important;
+  font-weight: 600 !important;
+  line-height: 1.35;
+}
+
+.admin-home-dashboard .text-3xl,
+.admin-home-dashboard .text-4xl {
+  font-size: clamp(26px, 2.2vw, 32px) !important;
+  font-weight: 700 !important;
+  line-height: 1.15;
+}
+
+.admin-dashboard main .text-base {
+  font-size: 16px !important;
+}
+
+.admin-dashboard main .text-sm {
+  font-size: 14px !important;
+}
+
+.admin-dashboard main .text-xs {
+  font-size: 13px !important;
+}
+
+.admin-dashboard main .text-\[8px\],
+.admin-dashboard main .text-\[9px\],
+.admin-dashboard main .text-\[10px\] {
+  font-size: 12px !important;
+  line-height: 1.4;
+}
+
+.admin-dashboard .font-black,
+.admin-dashboard .font-extrabold {
+  font-weight: 700 !important;
+}
+
+.admin-dashboard .font-bold,
+.admin-dashboard .font-semibold {
+  font-weight: 600 !important;
+}
+
+.admin-dashboard button,
+.admin-dashboard .btn-primary,
+.admin-dashboard .btn-secondary,
+.admin-dashboard .admin-sidebar-link {
+  font-size: clamp(14px, 1vw, 16px);
+  font-weight: 600 !important;
+}
+
 @utility premium-card {
   background-color: var(--color-card);
   border: 1px solid var(--color-border);
@@ -84,7 +163,7 @@ body {
 @utility btn-primary {
   background-color: var(--color-brand-green);
   color: #000;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0.75rem 2rem;
   border-radius: 0.75rem;
   transition: all 0.2s ease;

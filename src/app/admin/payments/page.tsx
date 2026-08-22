@@ -22,7 +22,9 @@ import {
     DollarSign,
     PieChart,
     MessageSquare,
-    Save
+    Save,
+    Plus,
+    X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -40,8 +42,12 @@ interface Enrollment {
         phone: string;
     };
     sessions: {
+        id: string;
+        course_id: string;
         start_date: string;
+        schedule?: string;
         courses: {
+            id: string;
             title_fr: string;
             category: string;
         };
@@ -77,6 +83,16 @@ export default function PaymentsAdminPage() {
     const [financeNotes, setFinanceNotes] = useState<Record<string, string>>({});
     const [noteLoading, setNoteLoading] = useState<string | null>(null);
     const [noteSaved, setNoteSaved] = useState<string | null>(null);
+    const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
+    const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+    const [paymentStudentSearch, setPaymentStudentSearch] = useState('');
+    const [paymentForm, setPaymentForm] = useState({
+        userId: '',
+        courseId: '',
+        sessionId: '',
+        amount: '',
+        note: '',
+    });
 
     useEffect(() => {
         fetchEnrollments();
@@ -161,6 +177,37 @@ export default function PaymentsAdminPage() {
         }
     };
 
+    const resetPaymentForm = () => {
+        setPaymentForm({ userId: '', courseId: '', sessionId: '', amount: '', note: '' });
+        setPaymentStudentSearch('');
+    };
+
+    const handleAddPayment = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setPaymentSubmitting(true);
+
+        try {
+            const response = await fetch('/api/admin/payments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(paymentForm),
+            });
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Impossible d’ajouter le paiement.');
+            }
+
+            setIsAddPaymentOpen(false);
+            resetPaymentForm();
+            await fetchEnrollments();
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Impossible d’ajouter le paiement.');
+        } finally {
+            setPaymentSubmitting(false);
+        }
+    };
+
     const handleUpdateStatus = async (id: string, newStatus: string, amount?: number) => {
         setActionLoading(id);
         const enrollment = enrollments.find(e => e.id === id);
@@ -226,6 +273,43 @@ export default function PaymentsAdminPage() {
         // Then by date (newest first)
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
+
+    const paymentStudents = enrollments.reduce<Array<{ id: string; name: string; phone: string; email: string }>>((items, enrollment) => {
+        if (!items.some(student => student.id === enrollment.user_id)) {
+            items.push({
+                id: enrollment.user_id,
+                name: enrollment.profiles?.full_name || 'Sans nom',
+                phone: enrollment.profiles?.phone || '',
+                email: enrollment.profiles?.email || '',
+            });
+        }
+        return items;
+    }, []).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
+    const normalizedPaymentStudentSearch = paymentStudentSearch.trim().toLowerCase();
+    const normalizedPaymentPhoneSearch = paymentStudentSearch.replace(/\D/g, '');
+    const filteredPaymentStudents = paymentStudents.filter(student => {
+        if (!normalizedPaymentStudentSearch) return true;
+        const matchesIdentity = student.name.toLowerCase().includes(normalizedPaymentStudentSearch)
+            || student.email.toLowerCase().includes(normalizedPaymentStudentSearch);
+        const matchesPhone = normalizedPaymentPhoneSearch.length > 0
+            && student.phone.replace(/\D/g, '').includes(normalizedPaymentPhoneSearch);
+        return matchesIdentity || matchesPhone;
+    });
+
+    const selectedStudentEnrollments = enrollments.filter(enrollment => enrollment.user_id === paymentForm.userId);
+    const paymentCourses = selectedStudentEnrollments.reduce<Array<{ id: string; title: string }>>((items, enrollment) => {
+        const course = enrollment.sessions?.courses;
+        if (course?.id && !items.some(item => item.id === course.id)) {
+            items.push({ id: course.id, title: course.title_fr || 'Formation sans nom' });
+        }
+        return items;
+    }, []).sort((a, b) => a.title.localeCompare(b.title, 'fr'));
+
+    const paymentSessions = selectedStudentEnrollments.filter(enrollment =>
+        enrollment.sessions?.courses?.id === paymentForm.courseId
+    );
+    const selectedPaymentEnrollment = paymentSessions.find(enrollment => enrollment.sessions?.id === paymentForm.sessionId);
 
     const stats = {
         pendingCount: enrollments.filter(e => e.status?.toLowerCase() === 'pending').length,
@@ -383,6 +467,13 @@ export default function PaymentsAdminPage() {
                 </div>
 
                 <div className="flex items-center gap-4">
+                    <button
+                        type="button"
+                        onClick={() => setIsAddPaymentOpen(true)}
+                        className="btn-primary flex h-auto items-center gap-2 px-5 py-3 shadow-none"
+                    >
+                        <Plus size={18} /> Ajouter un paiement
+                    </button>
                     <div className="relative max-w-md w-full">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
@@ -596,10 +687,7 @@ export default function PaymentsAdminPage() {
                                     className="hover:bg-white/[0.02] transition-colors group"
                                 >
                                     <td className="px-8 py-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 border border-white/5 flex items-center justify-center text-white text-sm font-black shadow-lg group-hover:border-brand-green/40 transition-all">
-                                                {en.profiles?.full_name?.charAt(0) || 'U'}
-                                            </div>
+                                        <div className="flex items-center">
                                             <div>
                                                 <p className="font-black text-sm text-white">{en.profiles?.full_name}</p>
                                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{en.profiles?.phone || 'Téléphone non renseigné'}</p>
@@ -608,7 +696,7 @@ export default function PaymentsAdminPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="space-y-1">
-                                            <p className="text-sm font-black text-slate-200 group-hover:text-brand-green transition-colors tracking-tight">{en.sessions?.courses?.title_fr || 'Formation inconnue'}</p>
+                                            <p className="text-sm font-black text-slate-900 tracking-tight">{en.sessions?.courses?.title_fr || 'Formation inconnue'}</p>
                                             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                                 <Calendar size={12} className="text-brand-green/50" />
                                                 {en.sessions?.start_date ? new Date(en.sessions.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'N/D'}
@@ -626,7 +714,8 @@ export default function PaymentsAdminPage() {
                                                         const history = JSON.parse(latestUrl);
                                                         if (Array.isArray(history)) {
                                                             const pending = [...history].reverse().find((item: any) => item.status === 'pending');
-                                                            latestUrl = pending ? pending.url : (history.length > 0 ? history[history.length - 1].url : null);
+                                                            const latestWithReceipt = [...history].reverse().find((item: any) => item.url);
+                                                            latestUrl = pending?.url || latestWithReceipt?.url || null;
                                                         }
                                                     } catch (e) {
                                                         // Ignore parse error
@@ -787,6 +876,181 @@ export default function PaymentsAdminPage() {
                     </div>
                 )}
             </div>
+
+            <AnimatePresence>
+                {isAddPaymentOpen && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                        >
+                            <div className="flex items-start justify-between border-b border-slate-100 p-7">
+                                <div>
+                                    <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-green">
+                                        <CreditCard size={13} /> Opération financière
+                                    </div>
+                                    <h2 className="text-2xl font-black text-slate-900">Ajouter un paiement</h2>
+                                    <p className="mt-1 text-xs font-medium text-slate-500">Le paiement sera ajouté au montant déjà encaissé.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsAddPaymentOpen(false);
+                                        resetPaymentForm();
+                                    }}
+                                    className="rounded-xl bg-slate-100 p-2 text-slate-500 transition-colors hover:text-slate-900"
+                                    title="Fermer"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleAddPayment} className="space-y-5 p-7">
+                                <div>
+                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Étudiant *</label>
+                                    <div className="relative mb-3">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                        <input
+                                            type="search"
+                                            value={paymentStudentSearch}
+                                            onChange={(event) => {
+                                                setPaymentStudentSearch(event.target.value);
+                                                setPaymentForm(current => ({
+                                                    ...current,
+                                                    userId: '',
+                                                    courseId: '',
+                                                    sessionId: '',
+                                                }));
+                                            }}
+                                            placeholder="Rechercher par nom, téléphone ou e-mail…"
+                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none focus:border-brand-green focus:bg-white"
+                                        />
+                                    </div>
+                                    <select
+                                        required
+                                        value={paymentForm.userId}
+                                        onChange={(event) => setPaymentForm(current => ({
+                                            ...current,
+                                            userId: event.target.value,
+                                            courseId: '',
+                                            sessionId: '',
+                                        }))}
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-brand-green"
+                                    >
+                                        <option value="">
+                                            {filteredPaymentStudents.length > 0
+                                                ? `Choisir un étudiant (${filteredPaymentStudents.length})`
+                                                : 'Aucun étudiant trouvé'}
+                                        </option>
+                                        {filteredPaymentStudents.map(student => (
+                                            <option key={student.id} value={student.id}>
+                                                {student.name}{student.phone ? ` — ${student.phone}` : ''}{student.email ? ` — ${student.email}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                                    <div>
+                                        <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Formation *</label>
+                                        <select
+                                            required
+                                            disabled={!paymentForm.userId}
+                                            value={paymentForm.courseId}
+                                            onChange={(event) => setPaymentForm(current => ({
+                                                ...current,
+                                                courseId: event.target.value,
+                                                sessionId: '',
+                                            }))}
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-brand-green disabled:cursor-not-allowed disabled:bg-slate-100"
+                                        >
+                                            <option value="">Choisir une formation</option>
+                                            {paymentCourses.map(course => (
+                                                <option key={course.id} value={course.id}>{course.title}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Session *</label>
+                                        <select
+                                            required
+                                            disabled={!paymentForm.courseId}
+                                            value={paymentForm.sessionId}
+                                            onChange={(event) => setPaymentForm(current => ({ ...current, sessionId: event.target.value }))}
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-brand-green disabled:cursor-not-allowed disabled:bg-slate-100"
+                                        >
+                                            <option value="">Choisir une session</option>
+                                            {paymentSessions.map(enrollment => (
+                                                <option key={enrollment.sessions.id} value={enrollment.sessions.id}>
+                                                    Session du {new Date(enrollment.sessions.start_date).toLocaleDateString('fr-FR')}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Montant payé (DT) *</label>
+                                    <input
+                                        required
+                                        type="number"
+                                        min="0.001"
+                                        step="0.001"
+                                        max={selectedPaymentEnrollment
+                                            ? Math.max(Number(selectedPaymentEnrollment.total_price) - Number(selectedPaymentEnrollment.amount_paid), 0)
+                                            : undefined}
+                                        value={paymentForm.amount}
+                                        onChange={(event) => setPaymentForm(current => ({ ...current, amount: event.target.value }))}
+                                        placeholder="Exemple : 300"
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-brand-green"
+                                    />
+                                    {selectedPaymentEnrollment && (
+                                        <p className="mt-2 text-xs font-bold text-slate-500">
+                                            Déjà payé : {Number(selectedPaymentEnrollment.amount_paid).toLocaleString('fr-FR')} DT · Reste : {Math.max(Number(selectedPaymentEnrollment.total_price) - Number(selectedPaymentEnrollment.amount_paid), 0).toLocaleString('fr-FR')} DT
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Remarque</label>
+                                    <textarea
+                                        rows={3}
+                                        maxLength={2000}
+                                        value={paymentForm.note}
+                                        onChange={(event) => setPaymentForm(current => ({ ...current, note: event.target.value }))}
+                                        placeholder="Ajouter une remarque interne sur ce paiement…"
+                                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                    />
+                                </div>
+
+                                <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsAddPaymentOpen(false);
+                                            resetPaymentForm();
+                                        }}
+                                        className="rounded-xl border border-slate-200 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={paymentSubmitting || !paymentForm.userId || !paymentForm.courseId || !paymentForm.sessionId || !paymentForm.amount}
+                                        className="btn-primary flex h-auto items-center gap-2 px-6 py-3 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {paymentSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                        Enregistrer le paiement
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

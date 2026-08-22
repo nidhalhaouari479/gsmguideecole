@@ -69,3 +69,121 @@ export async function GET() {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
+export async function POST(request: Request) {
+    try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
+        const { userId, courseId, sessionId, amount, note } = await request.json();
+        const paymentAmount = Number(amount);
+        const cleanNote = typeof note === 'string' ? note.trim() : '';
+
+        if (!userId || !courseId || !sessionId) {
+            return NextResponse.json(
+                { error: 'Étudiant, formation et session requis.' },
+                { status: 400 }
+            );
+        }
+        if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+            return NextResponse.json({ error: 'Le montant doit être supérieur à 0 DT.' }, { status: 400 });
+        }
+        if (cleanNote.length > 2000) {
+            return NextResponse.json(
+                { error: 'La remarque ne peut pas dépasser 2000 caractères.' },
+                { status: 400 }
+            );
+        }
+
+        const supabaseAdmin = createAdminClient();
+        const { data: session, error: sessionError } = await supabaseAdmin
+            .from('sessions')
+            .select('id, course_id')
+            .eq('id', sessionId)
+            .single();
+
+        if (sessionError || !session || session.course_id !== courseId) {
+            return NextResponse.json({ error: 'La session ne correspond pas à la formation choisie.' }, { status: 400 });
+        }
+
+        const { data: enrollment, error: enrollmentError } = await supabaseAdmin
+            .from('enrollments')
+            .select('id, amount_paid, total_price, receipt_url')
+            .eq('user_id', userId)
+            .eq('session_id', sessionId)
+            .single();
+
+        if (enrollmentError || !enrollment) {
+            return NextResponse.json(
+                { error: 'Cet étudiant n’est pas inscrit à cette session.' },
+                { status: 404 }
+            );
+        }
+
+        const currentPaid = Number(enrollment.amount_paid) || 0;
+        const totalPrice = Number(enrollment.total_price) || 0;
+        const newTotal = currentPaid + paymentAmount;
+
+        if (totalPrice > 0 && newTotal > totalPrice) {
+            return NextResponse.json(
+                { error: `Le montant dépasse le reste à payer (${Math.max(totalPrice - currentPaid, 0).toLocaleString('fr-FR')} DT).` },
+                { status: 400 }
+            );
+        }
+
+        let receiptHistory: unknown = enrollment.receipt_url;
+        if (typeof enrollment.receipt_url === 'string' && enrollment.receipt_url.startsWith('[')) {
+            try {
+                const history = JSON.parse(enrollment.receipt_url);
+                if (Array.isArray(history)) {
+                    history.push({
+                        url: null,
+                        amount: paymentAmount,
+                        status: 'approved',
+                        source: 'admin',
+                        created_at: new Date().toISOString(),
+                    });
+                    receiptHistory = JSON.stringify(history);
+                }
+            } catch {
+                receiptHistory = enrollment.receipt_url;
+            }
+        }
+
+        const updatePayload: Record<string, unknown> = {
+            amount_paid: newTotal,
+            status: 'approved',
+            receipt_url: receiptHistory,
+        };
+        if (cleanNote) {
+            updatePayload.finance_note = cleanNote;
+            updatePayload.finance_note_updated_at = new Date().toISOString();
+            updatePayload.finance_note_updated_by = auth.user.id;
+        }
+
+        const { data, error: updateError } = await supabaseAdmin
+            .from('enrollments')
+            .update(updatePayload)
+            .eq('id', enrollment.id)
+            .select('*')
+            .single();
+
+        if (updateError) {
+            if (updateError.message.includes('finance_note')) {
+                return NextResponse.json(
+                    { error: 'Exécutez le fichier supabase-finance-comments.sql dans Supabase.' },
+                    { status: 500 }
+                );
+            }
+            throw updateError;
+        }
+
+        return NextResponse.json({ success: true, data });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Impossible d’ajouter le paiement.';
+        console.error('Manual Payment API Error:', error);
+        return NextResponse.json({ error: message }, { status: 500 });
+    }
+}
