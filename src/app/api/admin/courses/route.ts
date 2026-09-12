@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
+import { sanitizeCourseHtml } from '@/lib/rich-text';
 
 const normalizeProgramItems = (value: unknown): string[] | null => {
     if (!Array.isArray(value) || value.length !== 4) return null;
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
         const { data: createdCourse, error } = await supabaseAdmin
             .from('courses')
             .insert([{
-                title_fr, title_en, description_fr, description_en,
+                title_fr, title_en, description_fr: sanitizeCourseHtml(description_fr), description_en: sanitizeCourseHtml(description_en),
                 base_price, sold_price, reservation_amount: bookingAmount, duration, category, level,
                 instructor_id: instructor_id || null, image_url
             }])
@@ -122,7 +123,7 @@ export async function PUT(req: Request) {
         const { error } = await supabaseAdmin
             .from('courses')
             .update({
-                title_fr, title_en, description_fr, description_en,
+                title_fr, title_en, description_fr: sanitizeCourseHtml(description_fr), description_en: sanitizeCourseHtml(description_en),
                 base_price, sold_price, reservation_amount: bookingAmount, duration, category, level,
                 instructor_id: instructor_id || null, image_url
             })

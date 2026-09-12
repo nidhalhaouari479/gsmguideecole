@@ -26,6 +26,7 @@ import {
     Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import RichTextEditor from '@/components/admin/RichTextEditor';
 
 interface Course {
     id: string;
@@ -604,13 +605,10 @@ export default function CoursesAdminPage() {
 
                                 <div>
                                     <label className="block text-xs font-bold text-slate-400 mb-1">Description principale (français / arabe)</label>
-                                    <textarea
-                                        rows={8}
-                                        dir="auto"
+                                    <RichTextEditor
                                         value={formData.description_fr}
-                                        onChange={(e) => setFormData({ ...formData, description_fr: e.target.value })}
-                                        placeholder="Saisissez la description. Les textes arabes et les retours à la ligne seront affichés correctement."
-                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-start text-slate-900 leading-relaxed whitespace-pre-wrap [unicode-bidi:plaintext] focus:outline-none focus:border-brand-green/50"
+                                        onChange={(description_fr) => setFormData({ ...formData, description_fr })}
+                                        placeholder="Rédigez la description de la formation…"
                                     />
                                 </div>
 

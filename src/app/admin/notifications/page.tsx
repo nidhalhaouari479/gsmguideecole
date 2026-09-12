@@ -19,8 +19,10 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function NotificationsPage() {
+    const router = useRouter();
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
@@ -52,6 +54,17 @@ export default function NotificationsPage() {
             case 'new_student': return 'bg-brand-blue text-white shadow-brand-blue/20';
             default: return 'bg-brand-green text-white shadow-brand-green/20';
         }
+    };
+
+    const getNotificationHref = (type: string) => {
+        if (type === 'new_student') return '/admin/students';
+        if (type.includes('payment') || type.includes('reservation')) return '/admin/payments';
+        return '/admin/notifications';
+    };
+
+    const openNotification = (notif: { id: string; type: string; is_read: boolean }) => {
+        if (!notif.is_read) void markAsRead(notif.id);
+        router.push(getNotificationHref(notif.type));
     };
 
     useEffect(() => {
@@ -181,7 +194,8 @@ export default function NotificationsPage() {
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.05 }}
-                            className={`group relative p-6 rounded-3xl border transition-all ${!notif.is_read ? 'bg-brand-green/5 border-brand-green/20' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                            onClick={() => openNotification(notif)}
+                            className={`group relative cursor-pointer p-6 rounded-3xl border transition-all ${!notif.is_read ? 'bg-brand-green/5 border-brand-green/20' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
                         >
                             <div className="flex gap-6 items-start">
                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${getNotifColor(notif.type, notif.is_read)}`}>
@@ -193,7 +207,10 @@ export default function NotificationsPage() {
                                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             {!notif.is_read && (
                                                 <button 
-                                                    onClick={() => markAsRead(notif.id)}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        markAsRead(notif.id);
+                                                    }}
                                                     className="p-2 rounded-xl bg-brand-green/10 text-brand-green hover:bg-brand-green hover:text-white transition-all"
                                                     title="Marquer comme lu"
                                                 >
@@ -201,7 +218,10 @@ export default function NotificationsPage() {
                                                 </button>
                                             )}
                                             <button 
-                                                onClick={() => deleteNotification(notif.id)}
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    deleteNotification(notif.id);
+                                                }}
                                                 className="p-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
                                                 title="Supprimer définitivement"
                                             >

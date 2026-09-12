@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
 import { canAccessSession } from '@/lib/staff-session-access';
+import { notifyUserBySms } from '@/lib/winsms';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
@@ -130,7 +131,7 @@ export async function POST(req: Request) {
         const supabaseAdmin = createAdminClient();
         const { data: session, error: sessionError } = await supabaseAdmin
             .from('sessions')
-            .select('schedule')
+            .select('schedule, course_id')
             .eq('id', sessionId)
             .single();
 
@@ -177,6 +178,22 @@ export async function POST(req: Request) {
             .upsert(rows, { onConflict: 'session_id,seance_key,user_id' });
 
         if (upsertError) throw new Error(upsertError.message);
+
+        const { data: course } = await supabaseAdmin
+            .from('courses')
+            .select('title_fr')
+            .eq('id', session.course_id)
+            .maybeSingle();
+        const statusLabels: Record<AttendanceStatus, string> = {
+            present: 'présent', absent: 'absent', late: 'en retard', excused: 'absence excusée',
+        };
+        await Promise.allSettled(rows.map((row) => notifyUserBySms({
+            userId: row.user_id,
+            eventType: `attendance_${row.status}`,
+            eventKey: `attendance:${sessionId}:${seanceKey}:${row.user_id}:${row.status}`,
+            message: `GSM Guide: présence du ${new Date(seance.date).toLocaleDateString('fr-FR')} (${course?.title_fr || 'formation'}): ${statusLabels[row.status]}.`,
+            metadata: { sessionId, seanceKey, status: row.status },
+        })));
 
         return NextResponse.json({ success: true, saved: rows.length });
     } catch (error: unknown) {

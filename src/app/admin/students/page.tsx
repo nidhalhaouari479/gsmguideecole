@@ -27,7 +27,8 @@ import {
     Plus,
     UserPlus,
     MessageSquare,
-    Save
+    Save,
+    Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { jsPDF } from 'jspdf';
@@ -126,6 +127,10 @@ export default function StudentsAdminPage() {
     const [studentNote, setStudentNote] = useState('');
     const [studentNoteSaving, setStudentNoteSaving] = useState(false);
     const [studentNoteSaved, setStudentNoteSaved] = useState(false);
+    const [smsMessage, setSmsMessage] = useState('');
+    const [isCustomSms, setIsCustomSms] = useState(false);
+    const [smsSending, setSmsSending] = useState(false);
+    const [smsFeedback, setSmsFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     
     // Add Student State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -171,6 +176,9 @@ export default function StudentsAdminPage() {
             setSelectedProfile(data);
             setStudentNote(data.admin_note || '');
             setStudentNoteSaved(false);
+            setSmsMessage('');
+            setIsCustomSms(false);
+            setSmsFeedback(null);
         } catch (error) {
             console.error('Error fetching student profile:', error);
             alert('Impossible de charger le profil complet.');
@@ -178,6 +186,55 @@ export default function StudentsAdminPage() {
         } finally {
             setProfileLoading(false);
         }
+    };
+
+    const sendSms = async (message: string) => {
+        if (!selectedProfile || !message.trim()) return;
+
+        setSmsSending(true);
+        setSmsFeedback(null);
+        try {
+            const response = await fetch('/api/admin/sms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: selectedProfile.phone,
+                    message,
+                }),
+            });
+            const data = await response.json();
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Impossible d’envoyer le SMS.');
+            }
+
+            setSmsMessage('');
+            setSmsFeedback({
+                type: 'success',
+                message: data.reference
+                    ? `SMS envoyé. Référence : ${data.reference}`
+                    : 'SMS envoyé avec succès.',
+            });
+        } catch (error) {
+            setSmsFeedback({
+                type: 'error',
+                message: error instanceof Error ? error.message : 'Impossible d’envoyer le SMS.',
+            });
+        } finally {
+            setSmsSending(false);
+        }
+    };
+
+    const handleSendSms = async () => sendSms(smsMessage);
+
+    const sendPaymentReminder = (isLate: boolean) => {
+        if (!selectedProfile) return;
+        const remaining = Number(selectedProfile.total_remaining) || 0;
+        const firstName = (selectedProfile.full_name?.replace(/^(M|Mme)\s+/i, '').trim().split(/\s+/)[0] || 'cher étudiant').slice(0, 18);
+        const message = isLate
+            ? `GSM Guide Academy : Bonjour ${firstName}, sauf erreur, un solde de ${remaining} DT reste dû. Merci de le régulariser rapidement.`
+            : `GSM Guide Academy : Bonjour ${firstName}, rappel : il vous reste ${remaining} DT à régler. Merci de régulariser votre paiement.`;
+        if (!window.confirm(`Confirmer l’envoi du SMS ${isLate ? 'de retard' : 'de rappel'} de paiement à ${selectedProfile.phone} ?`)) return;
+        void sendSms(message);
     };
 
     const handleSaveStudentNote = async () => {
@@ -952,6 +1009,94 @@ export default function StudentsAdminPage() {
                                                     <p className="text-sm font-bold text-white">
                                                         {selectedProfile.gender || 'N/A'} {selectedProfile.age ? `/ ${selectedProfile.age} ans` : ''}
                                                     </p>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        {/* Send SMS */}
+                                        <section className={isProfessor ? 'hidden' : ''}>
+                                            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                <Send size={16} className="text-brand-green" /> Communication SMS
+                                            </h3>
+                                            <div className="rounded-2xl border border-brand-green/20 bg-brand-green/5 p-5">
+                                                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                                    <p className="text-xs font-bold text-slate-300">
+                                                        Destinataire : <span className="text-white">{selectedProfile.phone || 'Aucun numéro'}</span>
+                                                    </p>
+                                                </div>
+                                                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Choisissez un modèle ou rédigez un message</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => sendPaymentReminder(true)}
+                                                        disabled={smsSending || !selectedProfile.phone || selectedProfile.phone === 'N/A' || Number(selectedProfile.total_remaining) <= 0}
+                                                        className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-rose-300 transition-colors hover:bg-rose-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        Avis de retard ({selectedProfile.total_remaining} DT)
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => sendPaymentReminder(false)}
+                                                        disabled={smsSending || !selectedProfile.phone || selectedProfile.phone === 'N/A' || Number(selectedProfile.total_remaining) <= 0}
+                                                        className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-amber-300 transition-colors hover:bg-amber-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        Rappel de paiement
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsCustomSms(true);
+                                                            setSmsFeedback(null);
+                                                        }}
+                                                        className="rounded-xl border border-brand-green/30 bg-brand-green/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-brand-green transition-colors hover:bg-brand-green hover:text-white"
+                                                    >
+                                                        Message personnalisé
+                                                    </button>
+                                                </div>
+                                                {isCustomSms && (
+                                                    <div className="mt-3">
+                                                        <div className="mb-2 flex justify-end">
+                                                            <p className={`text-[10px] font-black tabular-nums ${smsMessage.length >= 150 ? 'text-amber-400' : 'text-slate-500'}`}>
+                                                                {smsMessage.length}/157 caractères
+                                                            </p>
+                                                        </div>
+                                                        <textarea
+                                                            rows={4}
+                                                            maxLength={157}
+                                                            value={smsMessage}
+                                                            onChange={(event) => {
+                                                                setSmsMessage(event.target.value);
+                                                                setSmsFeedback(null);
+                                                            }}
+                                                            placeholder="Saisissez le SMS à envoyer à cet étudiant…"
+                                                            className="w-full resize-none rounded-xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-900 outline-none focus:border-brand-green"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div aria-live="polite">
+                                                        {smsFeedback && (
+                                                            <p className={`text-xs font-bold ${smsFeedback.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                {smsFeedback.message}
+                                                            </p>
+                                                        )}
+                                                        <p className="text-[10px] font-medium text-slate-500">
+                                                            Envoi sécurisé via votre Sender ID WinSMS approuvé.
+                                                        </p>
+                                                    </div>
+                                                    {isCustomSms && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleSendSms}
+                                                            disabled={smsSending || !smsMessage.trim() || !selectedProfile.phone || selectedProfile.phone === 'N/A'}
+                                                            className="btn-primary min-w-48 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {smsSending
+                                                                ? <Loader2 className="animate-spin" size={16} />
+                                                                : <Send size={16} />}
+                                                            {smsSending ? 'Envoi…' : 'Envoyer le SMS'}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </section>

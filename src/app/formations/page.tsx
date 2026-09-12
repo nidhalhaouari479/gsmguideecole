@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 
 import { supabase } from '@/lib/supabase';
+import { htmlToPlainText } from '@/lib/rich-text';
 
 export default function FormationsPage() {
     const { language, t } = useLanguage();
@@ -211,7 +212,7 @@ export default function FormationsPage() {
                                         </div>
                                     )}
                                     <p className="text-slate-500 dark:text-slate-400 mb-8 flex-grow leading-relaxed text-sm line-clamp-4">
-                                        {f.desc[language]}
+                                        {htmlToPlainText(f.desc[language])}
                                     </p>
 
                                     <div className="grid grid-cols-1 xs:grid-cols-2 gap-4 sm:gap-6 mb-8 py-6 border-y border-border/50">

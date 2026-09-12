@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin, verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
+import { notifySessionStudents, notifyUserBySms } from '@/lib/winsms';
 
 export async function GET() {
     try {
@@ -111,6 +112,20 @@ export async function POST(req: Request) {
 
         if (error) throw error;
 
+        const { data: course } = await supabaseAdmin.from('courses').select('title_fr').eq('id', course_id).maybeSingle();
+        const { data: requests } = await supabaseAdmin
+            .from('session_requests')
+            .select('id, user_id')
+            .eq('course_id', course_id)
+            .eq('status', 'pending');
+        await Promise.allSettled((requests || []).map((item) => notifyUserBySms({
+            userId: item.user_id,
+            eventType: 'requested_session_available',
+            eventKey: `requested-session-available:${data.id}:${item.user_id}`,
+            message: `GSM Guide: une nouvelle session de ${course?.title_fr || 'la formation demandée'} est disponible dès le ${new Date(start_date).toLocaleDateString('fr-FR')}. Réservez votre place.`,
+            metadata: { sessionId: data.id, requestId: item.id },
+        })));
+
         return NextResponse.json({ success: true, data });
     } catch (error: any) {
         console.error('Create Session Error:', error);
@@ -159,6 +174,15 @@ export async function PUT(req: Request) {
 
         if (error) throw error;
 
+        const { data: course } = await supabaseAdmin.from('courses').select('title_fr').eq('id', course_id).maybeSingle();
+        await notifySessionStudents({
+            sessionId: id,
+            eventType: 'session_updated',
+            eventKey: `session-updated:${id}:${scheduleWithData}`,
+            message: `GSM Guide: planning de ${course?.title_fr || 'votre formation'} modifié. Prochaine date: ${new Date(start_date).toLocaleDateString('fr-FR')}. Consultez votre espace.`,
+            metadata: { sessionId: id, startDate: start_date, endDate: end_date },
+        });
+
         return NextResponse.json({ success: true, data });
     } catch (error: any) {
         console.error('Update Session Error:', error);
@@ -181,6 +205,22 @@ export async function DELETE(req: Request) {
         }
 
         const supabaseAdmin = createAdminClient();
+
+        const { data: session } = await supabaseAdmin
+            .from('sessions')
+            .select('course_id, start_date')
+            .eq('id', id)
+            .maybeSingle();
+        const { data: course } = session?.course_id
+            ? await supabaseAdmin.from('courses').select('title_fr').eq('id', session.course_id).maybeSingle()
+            : { data: null };
+        await notifySessionStudents({
+            sessionId: id,
+            eventType: 'session_cancelled',
+            eventKey: `session-cancelled:${id}`,
+            message: `GSM Guide: la session ${course?.title_fr || ''} prévue le ${session?.start_date ? new Date(session.start_date).toLocaleDateString('fr-FR') : ''} est annulée. Contactez l'administration.`,
+            metadata: { sessionId: id },
+        });
 
         const { error } = await supabaseAdmin
             .from('sessions')

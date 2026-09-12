@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient, createSSRClient } from '@/lib/supabase-server';
+import { notifyAdminBySms, notifyUserBySms } from '@/lib/winsms';
 
 export async function POST(req: Request) {
     try {
@@ -116,7 +117,26 @@ export async function POST(req: Request) {
 
         if (notificationError) {
             console.error('[Reserve API] Notification error:', notificationError);
+        } else {
+            await notifyAdminBySms({
+                eventType: hasReceipt ? 'payment_submitted' : 'reservation_submitted',
+                eventKey: `admin-notification:reservation:${enrollment.id}`,
+                message: hasReceipt
+                    ? `GSM Guide - Paiement soumis : ${studentName}, ${course.title_fr}, ${amount} DT.`
+                    : `GSM Guide - Réservation reçue : ${studentName}, ${course.title_fr}.`,
+                metadata: { enrollmentId: enrollment.id, userId: user.id, amount, courseName: course.title_fr },
+            });
         }
+
+        await notifyUserBySms({
+            userId: user.id,
+            eventType: hasReceipt ? 'payment_submitted' : 'reservation_submitted',
+            eventKey: `reservation-submitted:${enrollment.id}`,
+            message: hasReceipt
+                ? `GSM Guide: justificatif de ${amount} DT reçu pour ${course.title_fr}. Validation en cours.`
+                : `GSM Guide: demande de réservation reçue pour ${course.title_fr}. Validation en cours.`,
+            metadata: { enrollmentId: enrollment.id, amount, sessionId },
+        });
 
         return NextResponse.json({ success: true, enrollmentId: enrollment.id });
     } catch (error: unknown) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
+import { notifyUserBySms } from '@/lib/winsms';
 
 export const dynamic = 'force-dynamic';
 
@@ -194,6 +195,22 @@ export async function POST(request: Request) {
             }
             throw updateError;
         }
+
+        const { data: course } = await supabaseAdmin
+            .from('courses')
+            .select('title_fr')
+            .eq('id', session.course_id)
+            .maybeSingle();
+        const remaining = Math.max(totalPrice - newTotal, 0);
+        await notifyUserBySms({
+            userId,
+            eventType: remaining === 0 ? 'payment_completed' : 'payment_added',
+            eventKey: `manual-payment:${enrollment.id}:${newTotal}`,
+            message: remaining === 0
+                ? `GSM Guide: paiement de ${paymentAmount} DT enregistré. ${course?.title_fr || 'Formation'} entièrement payée. Merci!`
+                : `GSM Guide: paiement de ${paymentAmount} DT enregistré pour ${course?.title_fr || 'votre formation'}. Total payé: ${newTotal} DT. Reste: ${remaining} DT.`,
+            metadata: { enrollmentId: enrollment.id, paymentAmount, totalPaid: newTotal, remaining },
+        });
 
         return NextResponse.json({ success: true, data });
     } catch (error: unknown) {

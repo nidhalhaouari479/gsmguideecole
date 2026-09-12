@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { notifyAdminBySms, notifyUserBySms } from '@/lib/winsms';
 
 export async function POST(req: Request) {
     try {
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
 
         // 1. Dashboard Notification
         try {
-            await supabaseAdmin.from('notifications').insert({
+            const { error: notificationError } = await supabaseAdmin.from('notifications').insert({
                 type: 'payment_submitted',
                 title: '💳 Nouveau Paiement Soumis',
                 message: `${displayName} a soumis un justificatif de paiement${amountStr} pour ${displayCourse}. En attente de validation.`,
@@ -79,6 +80,16 @@ export async function POST(req: Request) {
                     courseName: displayCourse
                 }
             });
+            if (notificationError) {
+                console.error('[Tranche API] DB notification error:', notificationError.message);
+            } else {
+                await notifyAdminBySms({
+                    eventType: 'payment_installment_submitted',
+                    eventKey: `admin-notification:payment-installment:${enrollmentId}:${history.length}:${declaredAmount}`,
+                    message: `GSM Guide - Paiement soumis : ${displayName}, ${displayCourse}, ${declaredAmount} DT.`,
+                    metadata: { enrollmentId, userId: enrollment.user_id, amount: declaredAmount, courseName: displayCourse },
+                });
+            }
         } catch (notifErr) {
             console.error('[Tranche API] DB Notification error:', notifErr);
         }
@@ -104,6 +115,14 @@ export async function POST(req: Request) {
         } catch (emailErr) {
             console.error('[Tranche API] Email notification error:', emailErr);
         }
+
+        await notifyUserBySms({
+            userId: enrollment.user_id,
+            eventType: 'payment_installment_submitted',
+            eventKey: `payment-installment:${enrollmentId}:${history.length}:${declaredAmount}`,
+            message: `GSM Guide: justificatif de paiement de ${declaredAmount} DT reçu pour ${displayCourse}. Validation en cours.`,
+            metadata: { enrollmentId, amount: declaredAmount },
+        });
 
         return NextResponse.json({ success: true });
     } catch (error: any) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
+import { notifyUserBySms } from '@/lib/winsms';
 
 export async function GET() {
     try {
@@ -129,6 +130,14 @@ export async function POST(request: Request) {
             await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
             throw profileError;
         }
+
+        await notifyUserBySms({
+            userId: authUser.user.id,
+            eventType: 'student_account_created',
+            eventKey: `student-account-created:${authUser.user.id}`,
+            message: `Bienvenue ${full_name || ''} chez GSM Guide Academy. Votre compte étudiant a été créé. Identifiant: ${email}`,
+            metadata: { source: 'admin' },
+        });
 
         return NextResponse.json({ success: true, user: authUser.user });
     } catch (error: any) {

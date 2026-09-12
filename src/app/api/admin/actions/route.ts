@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
+import { notifyUserBySms, sendWinSms } from '@/lib/winsms';
 
 export async function POST(req: Request) {
     try {
@@ -18,6 +19,11 @@ export async function POST(req: Request) {
         const supabaseAdmin = createAdminClient();
 
         if (action === 'delete') {
+            const { data: profile } = await supabaseAdmin.from('profiles').select('phone').eq('id', userId).maybeSingle();
+            if (profile?.phone) {
+                const result = await sendWinSms(profile.phone, 'GSM Guide: votre compte étudiant a été supprimé. Contactez l’administration pour toute question.');
+                if (!result.success) console.error('[Delete account SMS]', result.message);
+            }
             // 1. Attempt to delete from enrollments (to avoid FK issues)
             await supabaseAdmin.from('enrollments').delete().eq('user_id', userId);
 
@@ -57,6 +63,16 @@ export async function POST(req: Request) {
                     details: blockError.message
                 }, { status: 500 });
             }
+
+            await notifyUserBySms({
+                userId,
+                eventType: isBlocked ? 'account_blocked' : 'account_unblocked',
+                eventKey: `account:${userId}:${action}`,
+                message: isBlocked
+                    ? `GSM Guide: votre compte a été temporairement bloqué. Contactez l'administration pour plus d'informations.`
+                    : 'GSM Guide: votre compte a été débloqué. Vous pouvez de nouveau accéder à votre espace étudiant.',
+                metadata: { action },
+            });
 
             return NextResponse.json({
                 success: true,

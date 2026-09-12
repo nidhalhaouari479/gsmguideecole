@@ -3,6 +3,7 @@ import { verifyAdmin } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
 import fs from 'fs';
 import path from 'path';
+import { notifyAdminBySms, notifyUserBySms } from '@/lib/winsms';
 
 export async function POST(req: Request) {
     try {
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
         // Fetch current enrollment for meta/history
         const { data: enrollment, error: fetchError } = await supabaseAdmin
             .from('enrollments')
-            .select('user_id, receipt_url, amount_paid, status')
+            .select('user_id, receipt_url, amount_paid, total_price, status')
             .eq('id', enrollmentId)
             .single();
 
@@ -78,6 +79,16 @@ export async function POST(req: Request) {
                         : `Le paiement de ${studentName || 'un étudiant'} pour ${displayCourse} a été rejeté.`),
                 metadata: { enrollmentId, userId: enrollment.user_id, courseName: displayCourse }
             });
+            await notifyAdminBySms({
+                eventType: isReservationWithoutPayment
+                    ? (isApproved ? 'reservation_approved' : 'reservation_rejected')
+                    : (isApproved ? 'payment_approved' : 'payment_rejected'),
+                eventKey: `admin-notification:${isReservationWithoutPayment ? 'reservation' : 'payment'}:${enrollmentId}:${status}`,
+                message: isReservationWithoutPayment
+                    ? `GSM Guide - Réservation ${isApproved ? 'validée' : 'refusée'} : ${studentName || 'Étudiant'}, ${displayCourse}.`
+                    : `GSM Guide - Paiement ${isApproved ? 'validé' : 'refusé'} : ${studentName || 'Étudiant'}, ${displayCourse}.`,
+                metadata: { enrollmentId, userId: enrollment.user_id, status, courseName: displayCourse },
+            });
         } catch (notifErr) {
             console.error('[Action API] DB Notification error:', notifErr);
         }
@@ -118,6 +129,24 @@ export async function POST(req: Request) {
         } catch (emailErr) {
             console.error('[Action API] Student email error:', emailErr);
         }
+
+        const paid = Number(amount !== undefined ? amount : enrollment.amount_paid) || 0;
+        const remaining = Math.max((Number(enrollment.total_price) || 0) - paid, 0);
+        await notifyUserBySms({
+            userId: enrollment.user_id,
+            eventType: isReservationWithoutPayment
+                ? (isApproved ? 'reservation_approved' : 'reservation_rejected')
+                : (isApproved ? 'payment_approved' : 'payment_rejected'),
+            eventKey: `${isReservationWithoutPayment ? 'reservation' : 'payment'}:${enrollmentId}:${status}:${paid}`,
+            message: isReservationWithoutPayment
+                ? (isApproved
+                    ? `GSM Guide: votre réservation pour ${displayCourse} est confirmée.`
+                    : `GSM Guide: votre réservation pour ${displayCourse} est refusée. Contactez l'administration.`)
+                : (isApproved
+                    ? `GSM Guide: paiement validé pour ${displayCourse}. Payé: ${paid} DT. Reste: ${remaining} DT.`
+                    : `GSM Guide: votre paiement pour ${displayCourse} est refusé. Contactez l'administration.`),
+            metadata: { enrollmentId, paid, remaining, status },
+        });
 
         return NextResponse.json({ success: true });
     } catch (error: any) {

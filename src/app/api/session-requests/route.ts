@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/auth-admin';
 import { createAdminClient, createSSRClient } from '@/lib/supabase-server';
+import { notifyUserBySms } from '@/lib/winsms';
 
 export async function POST(req: Request) {
     try {
@@ -44,8 +45,27 @@ export async function PATCH(req: Request) {
         if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
         const { id, status } = await req.json();
         if (!id || !['pending', 'processed', 'rejected'].includes(status)) return NextResponse.json({ error: 'Données invalides.' }, { status: 400 });
-        const { error } = await createAdminClient().from('session_requests').update({ status, processed_at: status === 'pending' ? null : new Date().toISOString() }).eq('id', id);
+        const admin = createAdminClient();
+        const { data: sessionRequest } = await admin
+            .from('session_requests')
+            .select('user_id, phone, request_type, course_id')
+            .eq('id', id)
+            .maybeSingle();
+        const { error } = await admin.from('session_requests').update({ status, processed_at: status === 'pending' ? null : new Date().toISOString() }).eq('id', id);
         if (error) throw error;
+        if (status !== 'pending' && sessionRequest?.phone) {
+            const { data: course } = await admin.from('courses').select('title_fr').eq('id', sessionRequest.course_id).maybeSingle();
+            const result = await notifyUserBySms({
+                userId: sessionRequest.user_id,
+                eventType: status === 'processed' ? 'session_request_processed' : 'session_request_rejected',
+                eventKey: `session-request:${id}:${status}`,
+                message: status === 'processed'
+                    ? `GSM Guide: votre demande pour ${course?.title_fr || 'la formation'} a été traitée. L'administration vous contactera prochainement.`
+                    : `GSM Guide: votre demande pour ${course?.title_fr || 'la formation'} a été refusée. Contactez l'administration pour plus d'informations.`,
+                metadata: { requestId: id, status },
+            });
+            if (!result.success) console.error('[Session request SMS]', result.message);
+        }
         return NextResponse.json({ success: true });
     } catch (error: unknown) {
         return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur de mise à jour.' }, { status: 500 });

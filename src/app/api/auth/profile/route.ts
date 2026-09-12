@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { notifyAdminBySms, notifyUserBySms } from '@/lib/winsms';
 
 export async function POST(req: Request) {
     try {
@@ -49,12 +50,22 @@ export async function POST(req: Request) {
             const adminEmail = "info@gsm-guide-academy.tn";
 
             // 1. Notification in Admin Dashboard (DB)
-            await supabaseAdmin.from('notifications').insert({
+            const { error: notificationError } = await supabaseAdmin.from('notifications').insert({
                 type: 'new_student',
                 title: 'Nouveau Étudiant',
                 message: `${full_name} vient de s'inscrire à l'académie.`,
                 metadata: { userId, email, phone, source }
             });
+            if (notificationError) {
+                console.error('[Profile API] DB notification error:', notificationError.message);
+            } else {
+                await notifyAdminBySms({
+                    eventType: 'new_student',
+                    eventKey: `admin-notification:new-student:${userId}`,
+                    message: `GSM Guide - Nouveau étudiant : ${full_name || email || 'Inscription reçue'}.`,
+                    metadata: { userId, email, phone, source },
+                });
+            }
 
             // 2. Email to Student
             const welcomeTemplatePath = path.join(process.cwd(), 'src/lib/email-templates/welcome-student.html');
@@ -88,6 +99,16 @@ export async function POST(req: Request) {
         } catch (notifError) {
             console.error('[Profile API] Notification system error:', notifError);
             // We don't fail the whole registration if notifications fail
+        }
+
+        if (!profileError && phone) {
+            await notifyUserBySms({
+                userId,
+                eventType: 'student_registered',
+                eventKey: `student-registered:${userId}`,
+                message: `Bienvenue ${full_name || ''} chez GSM Guide Academy. Votre inscription est enregistrée. Connectez-vous pour choisir votre formation.`,
+                metadata: { source: source || 'website' },
+            });
         }
 
         return NextResponse.json({ success: true });

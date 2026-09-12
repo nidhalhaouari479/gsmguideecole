@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
 import { canAccessSession } from '@/lib/staff-session-access';
+import { notifyUserBySms } from '@/lib/winsms';
 
 export async function POST(req: Request) {
     try {
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
         // 2. Fetch session and course price
         const { data: session, error: sessionError } = await supabaseAdmin
             .from('sessions')
-            .select('course_id, seats_available')
+            .select('course_id, seats_available, start_date')
             .eq('id', sessionId)
             .single();
 
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
 
         const { data: course, error: courseError } = await supabaseAdmin
             .from('courses')
-            .select('base_price, sold_price')
+            .select('base_price, sold_price, title_fr')
             .eq('id', session.course_id)
             .single();
 
@@ -83,6 +84,14 @@ export async function POST(req: Request) {
             .single();
 
         if (enrollError) throw enrollError;
+
+        await notifyUserBySms({
+            userId,
+            eventType: 'enrollment_created',
+            eventKey: `enrollment-created:${data.id}`,
+            message: `GSM Guide: inscription confirmée à ${course.title_fr}. Début: ${new Date(session.start_date).toLocaleDateString('fr-FR')}. Montant: ${totalPrice} DT.`,
+            metadata: { enrollmentId: data.id, sessionId, totalPrice },
+        });
 
         return NextResponse.json({ success: true, data });
     } catch (error: any) {
@@ -127,6 +136,15 @@ export async function DELETE(req: Request) {
             );
         }
 
+        const { data: sessionInfo } = await supabaseAdmin
+            .from('sessions')
+            .select('course_id')
+            .eq('id', sessionId)
+            .maybeSingle();
+        const { data: courseInfo } = sessionInfo?.course_id
+            ? await supabaseAdmin.from('courses').select('title_fr').eq('id', sessionInfo.course_id).maybeSingle()
+            : { data: null };
+
         const { error: deleteError } = await supabaseAdmin
             .from('enrollments')
             .delete()
@@ -147,6 +165,14 @@ export async function DELETE(req: Request) {
         ) {
             console.error('Attendance cleanup after enrollment removal failed:', attendanceError);
         }
+
+        await notifyUserBySms({
+            userId,
+            eventType: 'enrollment_removed',
+            eventKey: `enrollment-removed:${enrollment.id}`,
+            message: `GSM Guide: votre inscription à ${courseInfo?.title_fr || 'la session'} a été annulée. Contactez l'administration si nécessaire.`,
+            metadata: { enrollmentId: enrollment.id, sessionId },
+        });
 
         return NextResponse.json({
             success: true,

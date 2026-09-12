@@ -185,7 +185,7 @@ export default function AdminDashboard() {
         });
 
         // 2. Revenue Timeline (Last 6 Months)
-        const months: { name: string; month: number; year: number; revenue: number; enrollments: number }[] = [];
+        const months: { name: string; month: number; year: number; revenue: number; siteStudents: number; trainingStudents: number }[] = [];
         for (let i = 5; i >= 0; i--) {
             const d = new Date();
             d.setMonth(d.getMonth() - i);
@@ -194,17 +194,31 @@ export default function AdminDashboard() {
                 month: d.getMonth(),
                 year: d.getFullYear(),
                 revenue: 0,
-                enrollments: 0
+                siteStudents: 0,
+                trainingStudents: 0
             });
         }
 
+        raw.students.forEach((student: any) => {
+            const date = new Date(student.created_at);
+            const entry = months.find(m => m.month === date.getMonth() && m.year === date.getFullYear());
+            if (entry) entry.siteStudents += 1;
+        });
+
+        const trainingStudentIdsByMonth = new Map<string, Set<string>>();
         confirmedEnrollments.forEach((e: any) => {
             const date = new Date(e.created_at);
             const entry = months.find(m => m.month === date.getMonth() && m.year === date.getFullYear());
             if (entry) {
                 entry.revenue += (Number(e.amount_paid) || 0);
-                entry.enrollments += 1;
+                const key = `${entry.year}-${entry.month}`;
+                const ids = trainingStudentIdsByMonth.get(key) || new Set<string>();
+                ids.add(e.user_id);
+                trainingStudentIdsByMonth.set(key, ids);
             }
+        });
+        months.forEach((entry) => {
+            entry.trainingStudents = trainingStudentIdsByMonth.get(`${entry.year}-${entry.month}`)?.size || 0;
         });
         setRevenueTimeline(months);
 
@@ -638,7 +652,7 @@ export default function AdminDashboard() {
                                 <TrendingUp size={24} className="text-brand-green" />
                                 Évolution des revenus
                             </h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Évolution des revenus mensuels (DT)</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Revenus, inscriptions au site et inscriptions en formation</p>
                         </div>
                     </div>
                     
@@ -661,6 +675,7 @@ export default function AdminDashboard() {
                                     axisLine={false}
                                 />
                                 <YAxis 
+                                    yAxisId="revenue"
                                     stroke="#475569" 
                                     fontSize={10} 
                                     fontWeight="bold" 
@@ -668,17 +683,51 @@ export default function AdminDashboard() {
                                     axisLine={false}
                                     tickFormatter={(val) => `${val/1000}k`}
                                 />
+                                <YAxis
+                                    yAxisId="students"
+                                    orientation="right"
+                                    stroke="#475569"
+                                    fontSize={10}
+                                    fontWeight="bold"
+                                    tickLine={false}
+                                    axisLine={false}
+                                    allowDecimals={false}
+                                />
                                 <Tooltip 
                                     contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', fontWeight: 'bold' }}
-                                    itemStyle={{ color: '#a1b83e' }}
+                                    formatter={(value, name) => [
+                                        name === 'Revenus (DT)' ? `${Number(value).toLocaleString('fr-FR')} DT` : value,
+                                        name,
+                                    ]}
                                 />
+                                <Legend verticalAlign="top" height={34} iconType="circle" />
                                 <Area 
                                     type="monotone" 
+                                    yAxisId="revenue"
                                     dataKey="revenue" 
+                                    name="Revenus (DT)"
                                     stroke="#a1b83e" 
                                     strokeWidth={4}
                                     fillOpacity={1} 
                                     fill="url(#colorRev)" 
+                                />
+                                <Line
+                                    type="monotone"
+                                    yAxisId="students"
+                                    dataKey="siteStudents"
+                                    name="Inscrits sur le site"
+                                    stroke="#2572B0"
+                                    strokeWidth={3}
+                                    dot={{ r: 4, fill: '#2572B0' }}
+                                />
+                                <Line
+                                    type="monotone"
+                                    yAxisId="students"
+                                    dataKey="trainingStudents"
+                                    name="Inscrits en formation"
+                                    stroke="#8B5CF6"
+                                    strokeWidth={3}
+                                    dot={{ r: 4, fill: '#8B5CF6' }}
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -736,8 +785,8 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* --- PIE CHARTS SECTION --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* --- ANALYTICS CHARTS: 3 columns on large screens, 2 rows for all six charts --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 {/* Age Distribution */}
                 <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card p-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
                     <div className="flex items-center gap-3 mb-8">
@@ -827,10 +876,7 @@ export default function AdminDashboard() {
                         </ResponsiveContainer>
                     </div>
                 </div>
-            </div>
-            
-            {/* --- OPERATIONAL DETAILS --- */}
-            <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+                {/* --- OPERATIONAL DETAILS --- */}
                 <div onClick={() => router.push('/admin/courses')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/courses')} className="premium-card cursor-pointer p-8 focus:outline-none focus:ring-2 focus:ring-brand-green">
                     <div className="mb-6 flex items-center justify-between">
                         <div><h3 className="text-lg font-black uppercase text-white">Étudiants par formation</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Inscriptions validées par formation</p></div>

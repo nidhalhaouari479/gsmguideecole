@@ -173,6 +173,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
     };
 
+    const getNotificationHref = (type: string) => {
+        if (type === 'new_student') return '/admin/students';
+        if (type.includes('payment') || type.includes('reservation')) return '/admin/payments';
+        return '/admin/notifications';
+    };
+
     const fetchNotificationsList = async () => {
         setFetchingNotifs(true);
         const { data } = await supabase
@@ -205,6 +211,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             .update({ is_read: true })
             .eq('id', id);
         fetchNotificationsList();
+    };
+
+    const openNotification = (notif: { id: string; type: string }) => {
+        void markAsRead(notif.id);
+        setIsNotifOpen(false);
+        router.push(getNotificationHref(notif.type));
     };
 
     return (
@@ -461,7 +473,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                                     notifications.map((notif) => (
                                                         <div 
                                                             key={notif.id}
-                                                            onClick={() => markAsRead(notif.id)}
+                                                            onClick={() => openNotification(notif)}
                                                             className={`p-4 border-b border-white/5 cursor-pointer transition-all hover:bg-white/[0.02] flex gap-4 ${!notif.is_read ? 'bg-brand-green/5' : ''}`}
                                                         >
                                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${getNotifColor(notif.type, notif.is_read)}`}>

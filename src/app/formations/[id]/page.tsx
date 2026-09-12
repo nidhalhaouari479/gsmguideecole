@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { sanitizeCourseHtml } from '@/lib/rich-text';
 
 export default function FormationDetail() {
     const params = useParams();
@@ -340,12 +341,11 @@ export default function FormationDetail() {
                                 <span className="w-1.5 h-8 bg-brand-blue rounded-full"></span>
                                 Aperçu du cours
                             </h2>
-                            <p
+                            <div
                                 dir="auto"
-                                className="text-lg text-start text-slate-600 dark:text-slate-400 leading-loose max-w-3xl whitespace-pre-wrap break-words [unicode-bidi:plaintext]"
-                            >
-                                {formation.longDesc[language]}
-                            </p>
+                                className="course-rich-text text-lg text-start text-slate-600 dark:text-slate-400 leading-loose max-w-3xl break-words [unicode-bidi:plaintext] [&_a]:text-brand-blue [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-brand-green [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-black [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-bold [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-7 [&_p]:mb-4 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-7"
+                                dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(formation.longDesc[language]) }}
+                            />
                         </section>
 
                         {formation.learning.length > 0 && (
