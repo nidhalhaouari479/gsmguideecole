@@ -90,7 +90,7 @@ export default function SessionsAdminPage() {
     const [isProfessor, setIsProfessor] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [sessionFilter, setSessionFilter] = useState<'all' | 'open' | 'closed'>('all');
+    const [sessionFilter, setSessionFilter] = useState<'all' | 'open' | 'ongoing' | 'closed'>('all');
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -125,6 +125,16 @@ export default function SessionsAdminPage() {
     const [loadingStudents, setLoadingStudents] = useState(false);
     const [enrollingStudentId, setEnrollingStudentId] = useState<string | null>(null);
     const [removingStudentId, setRemovingStudentId] = useState<string | null>(null);
+    const [studentAddMode, setStudentAddMode] = useState<'existing' | 'new'>('existing');
+    const [creatingStudent, setCreatingStudent] = useState(false);
+    const [newStudentForm, setNewStudentForm] = useState({
+        email: '',
+        password: '',
+        full_name: '',
+        phone: '',
+        cin_number: '',
+        amountPaid: '0'
+    });
 
     useEffect(() => {
         fetchSessions();
@@ -302,6 +312,24 @@ export default function SessionsAdminPage() {
         setManifestStudents(data);
     };
 
+    const resetNewStudentForm = () => {
+        setNewStudentForm({
+            email: '',
+            password: '',
+            full_name: '',
+            phone: '',
+            cin_number: '',
+            amountPaid: '0'
+        });
+    };
+
+    const closeStudentPicker = () => {
+        setStudentSearchQuery('');
+        setStudentAddMode('existing');
+        resetNewStudentForm();
+        setIsAddingStudent(false);
+    };
+
     const handleAddStudent = async (studentId: string) => {
         if (!selectedSessionId) return;
         setEnrollingStudentId(studentId);
@@ -320,6 +348,45 @@ export default function SessionsAdminPage() {
             alert(error.message);
         } finally {
             setEnrollingStudentId(null);
+        }
+    };
+
+    const handleCreateAndEnrollStudent = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!selectedSessionId) return;
+
+        const amountPaid = Number(newStudentForm.amountPaid);
+        if (!Number.isFinite(amountPaid) || amountPaid < 0) {
+            alert('Le montant payé doit être zéro ou plus.');
+            return;
+        }
+
+        setCreatingStudent(true);
+        try {
+            const response = await fetch('/api/admin/enrollments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: selectedSessionId,
+                    amountPaid,
+                    newStudent: {
+                        email: newStudentForm.email,
+                        password: newStudentForm.password,
+                        full_name: newStudentForm.full_name,
+                        phone: newStudentForm.phone,
+                        cin_number: newStudentForm.cin_number
+                    }
+                })
+            });
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || 'Impossible de créer cet étudiant.');
+
+            await Promise.all([refreshManifest(), fetchSessions(), fetchAllStudents()]);
+            closeStudentPicker();
+        } catch (error: unknown) {
+            alert(error instanceof Error ? error.message : 'Impossible de créer cet étudiant.');
+        } finally {
+            setCreatingStudent(false);
         }
     };
 
@@ -435,6 +502,15 @@ export default function SessionsAdminPage() {
         return new Date() > endOfSession;
     };
 
+    const isSessionOngoing = (session: Session) => {
+        const startOfSession = new Date(session.start_date);
+        startOfSession.setHours(0, 0, 0, 0);
+        const endOfSession = new Date(session.end_date);
+        endOfSession.setHours(23, 59, 59, 999);
+        const now = new Date();
+        return now >= startOfSession && now <= endOfSession;
+    };
+
     const searchedSessions = sessions.filter(s =>
         s.courses?.title_fr?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.instructor?.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -443,10 +519,12 @@ export default function SessionsAdminPage() {
     const filteredSessions = searchedSessions.filter(session =>
         sessionFilter === 'all'
         || (sessionFilter === 'open' && !isSessionClosed(session))
+        || (sessionFilter === 'ongoing' && isSessionOngoing(session))
         || (sessionFilter === 'closed' && isSessionClosed(session))
     );
 
     const openSessionCount = sessions.filter(session => !isSessionClosed(session)).length;
+    const ongoingSessionCount = sessions.filter(isSessionOngoing).length;
     const closedSessionCount = sessions.length - openSessionCount;
 
     const normalizedStudentSearch = studentSearchQuery.trim().toLowerCase();
@@ -460,6 +538,8 @@ export default function SessionsAdminPage() {
 
         return !isAlreadyEnrolled && (matchesIdentity || matchesPhone);
     });
+    const newStudentPaidAmount = Number(newStudentForm.amountPaid);
+    const newStudentIsUnpaid = newStudentForm.amountPaid === '' || (Number.isFinite(newStudentPaidAmount) && newStudentPaidAmount === 0);
 
     if (loading) {
         return (
@@ -573,6 +653,7 @@ export default function SessionsAdminPage() {
                 {[
                     { key: 'all' as const, label: 'Toutes les sessions', count: sessions.length },
                     { key: 'open' as const, label: 'Sessions ouvertes', count: openSessionCount },
+                    { key: 'ongoing' as const, label: 'Sessions en cours', count: ongoingSessionCount },
                     { key: 'closed' as const, label: 'Sessions fermées', count: closedSessionCount }
                 ].map(filter => (
                     <button
@@ -985,6 +1066,8 @@ export default function SessionsAdminPage() {
                                         onClick={() => {
                                             fetchAllStudents();
                                             setStudentSearchQuery('');
+                                            setStudentAddMode('existing');
+                                            resetNewStudentForm();
                                             setIsAddingStudent(true);
                                         }}
                                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-green/20 text-brand-green border border-brand-green/20 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-brand-green hover:text-black"
@@ -994,7 +1077,7 @@ export default function SessionsAdminPage() {
                                     </button>
                                     <button
                                         onClick={() => {
-                                            setIsAddingStudent(false);
+                                            closeStudentPicker();
                                             setIsManifestOpen(false);
                                         }}
                                         className="p-2 text-slate-500 hover:text-slate-900 bg-slate-100 rounded-xl transition-all"
@@ -1271,21 +1354,48 @@ export default function SessionsAdminPage() {
                                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-1">
                                         <Plus size={13} /> Nouvelle inscription
                                     </div>
-                                    <h2 className="text-2xl font-black text-slate-900">Ajouter un étudiant</h2>
+                                    <h2 className="text-2xl font-black text-slate-900">
+                                        {studentAddMode === 'existing' ? 'Ajouter un étudiant' : 'Recruter un nouvel étudiant'}
+                                    </h2>
                                     <p className="mt-1 text-xs font-medium text-slate-500">{selectedSessionLabel}</p>
                                 </div>
                                 <button
-                                    onClick={() => {
-                                        setStudentSearchQuery('');
-                                        setIsAddingStudent(false);
-                                    }}
-                                    className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
+                                    onClick={closeStudentPicker}
+                                    disabled={creatingStudent}
+                                    className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-50"
                                     title="Fermer"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
 
+                            <div className="px-6 pt-5 bg-slate-50">
+                                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white border border-slate-200 p-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setStudentAddMode('existing')}
+                                        disabled={creatingStudent}
+                                        className={`rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${studentAddMode === 'existing'
+                                            ? 'bg-brand-green text-black shadow-sm'
+                                            : 'text-slate-500 hover:bg-slate-50'}`}
+                                    >
+                                        Étudiant existant
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setStudentAddMode('new')}
+                                        disabled={creatingStudent}
+                                        className={`rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${studentAddMode === 'new'
+                                            ? 'bg-brand-green text-black shadow-sm'
+                                            : 'text-slate-500 hover:bg-slate-50'}`}
+                                    >
+                                        Nouvel étudiant
+                                    </button>
+                                </div>
+                            </div>
+
+                            {studentAddMode === 'existing' ? (
+                                <>
                             <div className="p-6 border-b border-slate-100 bg-slate-50">
                                 <div className="relative">
                                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
@@ -1353,15 +1463,126 @@ export default function SessionsAdminPage() {
                                     {availableStudents.length} étudiant(s) disponible(s)
                                 </p>
                                 <button
-                                    onClick={() => {
-                                        setStudentSearchQuery('');
-                                        setIsAddingStudent(false);
-                                    }}
+                                    onClick={closeStudentPicker}
                                     className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all"
                                 >
                                     Fermer
                                 </button>
                             </div>
+                                </>
+                            ) : (
+                                <form onSubmit={handleCreateAndEnrollStudent} className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">E-mail (identifiant)</label>
+                                            <div className="relative">
+                                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                                <input
+                                                    type="email"
+                                                    required
+                                                    autoFocus
+                                                    value={newStudentForm.email}
+                                                    onChange={(e) => setNewStudentForm(prev => ({ ...prev, email: e.target.value }))}
+                                                    placeholder="exemple@email.com"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Mot de passe</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                minLength={6}
+                                                value={newStudentForm.password}
+                                                onChange={(e) => setNewStudentForm(prev => ({ ...prev, password: e.target.value }))}
+                                                placeholder="••••••••"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                            />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Nom complet</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={newStudentForm.full_name}
+                                                onChange={(e) => setNewStudentForm(prev => ({ ...prev, full_name: e.target.value }))}
+                                                placeholder="Nom & Prénom"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Téléphone</label>
+                                            <div className="relative">
+                                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                                <input
+                                                    type="tel"
+                                                    value={newStudentForm.phone}
+                                                    onChange={(e) => setNewStudentForm(prev => ({ ...prev, phone: e.target.value }))}
+                                                    placeholder="55 123 456"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Numéro CIN</label>
+                                            <input
+                                                type="text"
+                                                value={newStudentForm.cin_number}
+                                                onChange={(e) => setNewStudentForm(prev => ({ ...prev, cin_number: e.target.value }))}
+                                                placeholder="00123456"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                            />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Montant payé dans cette session</label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+                                                <div className="relative">
+                                                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        required
+                                                        value={newStudentForm.amountPaid}
+                                                        onChange={(e) => setNewStudentForm(prev => ({ ...prev, amountPaid: e.target.value }))}
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-14 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                                    />
+                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">DT</span>
+                                                </div>
+                                                <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newStudentIsUnpaid}
+                                                        onChange={() => setNewStudentForm(prev => ({ ...prev, amountPaid: '0' }))}
+                                                        className="h-4 w-4 accent-brand-green"
+                                                    />
+                                                    Non payé
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-3 border-t border-slate-100 pt-5">
+                                        <button
+                                            type="button"
+                                            onClick={closeStudentPicker}
+                                            disabled={creatingStudent}
+                                            className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all disabled:opacity-50"
+                                        >
+                                            Annuler
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={creatingStudent}
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {creatingStudent ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                                            Créer et inscrire
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
                         </motion.div>
                     </div>
                 )}

@@ -5,15 +5,28 @@ import { canAccessSession } from '@/lib/staff-session-access';
 import { notifyUserBySms } from '@/lib/winsms';
 
 export async function POST(req: Request) {
+    let createdUserId: string | null = null;
+    let enrollmentSaved = false;
     try {
         const auth = await verifyStaff();
         if ('error' in auth) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
 
-        const { userId, sessionId } = await req.json();
+        const { userId: existingUserId, sessionId, newStudent, amountPaid = 0 } = await req.json();
+        let userId = existingUserId;
+        const paid = Number(amountPaid);
+        if (!Number.isFinite(paid) || paid < 0 || amountPaid === '' || amountPaid === null) {
+            return NextResponse.json({ error: 'Le montant payé doit être un nombre positif ou zéro.' }, { status: 400 });
+        }
+        if ((newStudent || paid > 0) && auth.role !== 'admin') {
+            return NextResponse.json({ error: 'Action réservée aux administrateurs.' }, { status: 403 });
+        }
+        if (newStudent && (userId || typeof newStudent.email !== 'string' || !newStudent.email.trim() || typeof newStudent.password !== 'string' || newStudent.password.length < 6 || typeof newStudent.full_name !== 'string' || !newStudent.full_name.trim())) {
+            return NextResponse.json({ error: 'Nom, e-mail et mot de passe (6 caractères minimum) requis.' }, { status: 400 });
+        }
 
-        if (!userId || !sessionId) {
+        if ((!userId && !newStudent) || !sessionId) {
             return NextResponse.json({ error: 'Étudiant et session requis.' }, { status: 400 });
         }
 
@@ -24,12 +37,14 @@ export async function POST(req: Request) {
         const supabaseAdmin = createAdminClient();
 
         // 1. Check if enrollment already exists
-        const { data: existingEnrollment } = await supabaseAdmin
+        const { data: existingEnrollment, error: existingError } = userId ? await supabaseAdmin
             .from('enrollments')
             .select('id')
             .eq('user_id', userId)
             .eq('session_id', sessionId)
-            .maybeSingle();
+            .maybeSingle() : { data: null, error: null };
+
+        if (existingError) throw existingError;
 
         if (existingEnrollment) {
             return NextResponse.json({ error: 'Cet étudiant est déjà inscrit à cette session.' }, { status: 400 });
@@ -68,6 +83,24 @@ export async function POST(req: Request) {
         }
 
         const totalPrice = course.sold_price || course.base_price;
+        if (paid > Number(totalPrice)) {
+            return NextResponse.json({ error: `Le montant payé dépasse le prix de la session (${totalPrice} DT).` }, { status: 400 });
+        }
+
+        if (newStudent) {
+            const { email, password, full_name, phone, cin_number } = newStudent;
+            const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+                email: email.trim(), password, email_confirm: true,
+                user_metadata: { full_name: full_name.trim(), phone },
+            });
+            if (createError) throw createError;
+            createdUserId = created.user.id;
+            userId = createdUserId;
+            const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
+                id: userId, full_name: full_name.trim(), phone, cin_number, role: 'student',
+            });
+            if (profileError) throw profileError;
+        }
 
         // 3. Create enrollment
         const { data, error: enrollError } = await supabaseAdmin
@@ -76,7 +109,10 @@ export async function POST(req: Request) {
                 user_id: userId,
                 session_id: sessionId,
                 status: 'approved',
-                amount_paid: 0,
+                amount_paid: paid,
+                receipt_url: paid > 0 ? JSON.stringify([{
+                    url: null, amount: paid, status: 'approved', source: 'admin', date: new Date().toISOString(),
+                }]) : null,
                 total_price: totalPrice,
                 created_at: new Date().toISOString()
             }])
@@ -84,6 +120,17 @@ export async function POST(req: Request) {
             .single();
 
         if (enrollError) throw enrollError;
+        enrollmentSaved = true;
+
+        if (newStudent) {
+            await notifyUserBySms({
+                userId,
+                eventType: 'student_account_created',
+                eventKey: `student-account-created:${userId}`,
+                message: `Bienvenue ${newStudent.full_name.trim() || ''} chez GSM Guide Academy. Votre compte étudiant a été créé. Identifiant: ${newStudent.email.trim()}`,
+                metadata: { source: 'admin-session' },
+            });
+        }
 
         await notifyUserBySms({
             userId,
@@ -94,9 +141,13 @@ export async function POST(req: Request) {
         });
 
         return NextResponse.json({ success: true, data });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (createdUserId && !enrollmentSaved) {
+            const { error: cleanupError } = await createAdminClient().auth.admin.deleteUser(createdUserId);
+            if (cleanupError) console.error('New student cleanup failed:', cleanupError);
+        }
         console.error('Manual Enrollment Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur lors de l’inscription.' }, { status: 500 });
     }
 }
 
