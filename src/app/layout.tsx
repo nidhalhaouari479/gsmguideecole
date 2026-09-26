@@ -4,19 +4,27 @@ import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
 import MainLayoutWrapper from "@/components/layout/MainLayoutWrapper";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
+import PwaRegistration from "@/components/PwaRegistration";
+import WhatsAppButton from "@/components/layout/WhatsAppButton";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "GSM Guide Academy - Expert en réparation de smartphones",
-  description: "Devenez expert en réparation de smartphones avec GSM Guide Academy grâce à des formations pratiques de haute qualité.",
+  description:
+    "Devenez expert en réparation de smartphones avec GSM Guide Academy grâce à des formations pratiques de haute qualité.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "GSM Guide Academy Admin",
+  appleWebApp: {
+    capable: true,
+    title: "GSM Admin",
+    statusBarStyle: "default",
+  },
   icons: {
     icon: "/gsmlogo.png",
-    apple: "/gsmlogo.png",
+    apple: "/icon-192.png",
   },
 };
-
-import WhatsAppButton from "@/components/layout/WhatsAppButton";
 
 export default function RootLayout({
   children,
@@ -28,9 +36,8 @@ export default function RootLayout({
       <body className={inter.className}>
         <LanguageProvider>
           <AnalyticsProvider>
-            <MainLayoutWrapper>
-              {children}
-            </MainLayoutWrapper>
+            <PwaRegistration />
+            <MainLayoutWrapper>{children}</MainLayoutWrapper>
             <WhatsAppButton />
           </AnalyticsProvider>
         </LanguageProvider>
