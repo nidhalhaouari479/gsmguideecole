@@ -1,4 +1,4 @@
-const CACHE_NAME = "gsm-guide-admin-v1";
+const CACHE_NAME = "gsm-guide-admin-v2";
 const STATIC_ASSETS = [
   "/",
   "/admin",

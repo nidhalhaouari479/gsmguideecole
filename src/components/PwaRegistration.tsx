@@ -8,9 +8,20 @@ export default function PwaRegistration() {
       return;
     }
 
-    window.addEventListener("load", () => {
-      void navigator.serviceWorker.register("/sw.js");
-    });
+    const register = () => {
+      void navigator.serviceWorker
+        .register("/sw.js", { scope: "/" })
+        .then((registration) => registration.update())
+        .catch(() => undefined);
+    };
+
+    if (document.readyState === "complete") {
+      register();
+      return;
+    }
+
+    window.addEventListener("load", register, { once: true });
+    return () => window.removeEventListener("load", register);
   }, []);
 
   return null;

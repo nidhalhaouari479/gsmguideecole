@@ -2,9 +2,11 @@
   "name": "GSM Guide Academy Admin",
   "short_name": "GSM Admin",
   "description": "Application d'administration GSM Guide Academy.",
+  "id": "/admin",
   "start_url": "/admin",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone"],
   "orientation": "portrait-primary",
   "background_color": "#f0f4f8",
   "theme_color": "#16a34a",
@@ -22,6 +24,18 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
