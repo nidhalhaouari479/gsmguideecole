@@ -81,6 +81,19 @@ const translateCategory = (category?: string) => {
         .join(', ');
 };
 
+const parseSessionPlanning = (schedule: string) => {
+    let planning = schedule;
+    let seanceCount = 0;
+    try {
+        const parsed = JSON.parse(schedule);
+        planning = translateScheduleLabel(parsed.label);
+        seanceCount = parsed.seances?.length || 0;
+    } catch {
+        planning = translateScheduleLabel(schedule);
+    }
+    return { planning, seanceCount };
+};
+
 export default function SessionsAdminPage() {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [courses, setCourses] = useState<any[]>([]);
@@ -553,9 +566,61 @@ export default function SessionsAdminPage() {
     const openSessions = sessions.filter(s => new Date(s.start_date) > new Date()).length;
     const totalStudents = sessions.reduce((sum, s) => sum + s.stats.confirmed, 0);
 
+    const renderStudentStatusBadge = (student: any) => (
+        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+            student.status === 'approved'
+            ? 'bg-brand-green/10 text-brand-green border-brand-green/20'
+            : 'bg-amber-400/10 text-amber-400 border-amber-400/20'
+        }`}>
+            {student.status === 'approved' ? 'VALIDÉ' : student.status === 'rejected' ? 'REFUSÉ' : 'EN ATTENTE'}
+        </span>
+    );
+
+    const renderStudentPaymentButton = (student: any, extraClassName = '') => (
+        <button
+            type="button"
+            onClick={() => {
+                setPaymentAmount('');
+                setPaymentNote('');
+                setPaymentReceipt(null);
+                setPaymentStudent(student);
+            }}
+            disabled={Number(student.total_price || 0) > 0 && Number(student.amount_paid || 0) >= Number(student.total_price || 0)}
+            className={`min-w-36 rounded-xl border border-brand-green/30 bg-brand-green/10 px-3 py-2 text-left transition-all hover:border-brand-green hover:bg-brand-green/20 disabled:cursor-default disabled:border-emerald-200 disabled:bg-emerald-50 ${extraClassName}`}
+            title="Cliquer pour ajouter un paiement"
+        >
+            <span className="block text-xs font-black text-slate-900 tabular-nums">
+                {Number(student.amount_paid || 0).toLocaleString('fr-FR')} / {Number(student.total_price || 0).toLocaleString('fr-FR')} DT
+            </span>
+            <span className={`mt-0.5 block text-[9px] font-bold uppercase tracking-wider ${Number(student.total_price || 0) > Number(student.amount_paid || 0) ? 'text-rose-500' : 'text-emerald-600'}`}>
+                {Number(student.total_price || 0) > Number(student.amount_paid || 0)
+                    ? `Reste : ${Math.max(Number(student.total_price || 0) - Number(student.amount_paid || 0), 0).toLocaleString('fr-FR')} DT`
+                    : 'Soldé'}
+            </span>
+        </button>
+    );
+
+    const renderStudentRemoveButton = (student: any, extraClassName = '') => (
+        <button
+            onClick={() => handleRemoveStudent(student)}
+            disabled={removingStudentId === student.id || student.has_financial_history}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white font-black text-[9px] uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-rose-50 disabled:hover:text-rose-600 ${extraClassName}`}
+            title={student.has_financial_history
+                ? 'Cette inscription contient un paiement ou un justificatif.'
+                : 'Retirer de la session'}
+        >
+            {removingStudentId === student.id
+                ? <Loader2 size={13} className="animate-spin" />
+                : student.has_financial_history
+                    ? <AlertCircle size={13} />
+                    : <Trash2 size={13} />}
+            {student.has_financial_history ? 'Paiement lié' : 'Retirer'}
+        </button>
+    );
+
     return (
-        <div className="space-y-10 pb-20">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-6 md:space-y-10 pb-6 md:pb-20">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
                         <CalendarIcon size={14} /> Planification des formations
@@ -563,7 +628,7 @@ export default function SessionsAdminPage() {
                     <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Sessions <span className="text-slate-600">et calendrier</span></h1>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap md:flex-nowrap items-center gap-3 md:gap-4">
                     <div className="relative max-w-md w-full">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
@@ -571,13 +636,13 @@ export default function SessionsAdminPage() {
                             placeholder="Rechercher une session..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
                     <div className="flex bg-white border border-slate-200 p-1 rounded-xl">
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-slate-900'}`}
+                            className={`p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-slate-900'}`}
                             title="Afficher en cartes"
                             aria-label="Afficher les sessions en cartes"
                         >
@@ -585,7 +650,7 @@ export default function SessionsAdminPage() {
                         </button>
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-slate-900'}`}
+                            className={`p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-slate-900'}`}
                             title="Afficher en tableau"
                             aria-label="Afficher les sessions en tableau"
                         >
@@ -606,50 +671,50 @@ export default function SessionsAdminPage() {
                             setCurrentStep(1);
                             setIsModalOpen(true);
                         }}
-                        className={`${isProfessor ? 'hidden' : 'flex'} btn-primary py-3 px-6 h-auto shadow-none items-center gap-2`}
+                        className={`${isProfessor ? 'hidden' : 'flex'} btn-primary py-3 px-6 h-auto shadow-none items-center gap-2 max-md:flex-1 max-md:justify-center max-md:min-h-12`}
                     >
                         <Plus size={18} /> NOUVELLE SESSION
                     </button>
                 </div>
             </header>
 
-            <div className={`${isProfessor ? 'hidden' : 'grid'} grid-cols-1 md:grid-cols-3 gap-6`}>
-                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="premium-card p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-2xl bg-brand-blue/10 text-brand-blue">
+            <div className={`${isProfessor ? 'hidden' : 'grid'} grid-cols-2 md:grid-cols-3 gap-3 md:gap-6`}>
+                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="premium-card p-4 md:p-6">
+                    <div className="flex items-center gap-3 md:gap-4">
+                        <div className="p-2.5 md:p-3 shrink-0 rounded-2xl bg-brand-blue/10 text-brand-blue">
                             <Clock size={24} />
                         </div>
                         <div>
-                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{openSessions}</h3>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Sessions actives</p>
+                            <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{openSessions}</h3>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider md:tracking-widest mt-1 max-md:leading-tight">Sessions actives</p>
                         </div>
                     </div>
                 </motion.div>
-                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="premium-card p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-2xl bg-brand-green/10 text-brand-green">
+                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="premium-card p-4 md:p-6">
+                    <div className="flex items-center gap-3 md:gap-4">
+                        <div className="p-2.5 md:p-3 shrink-0 rounded-2xl bg-brand-green/10 text-brand-green">
                             <Users size={24} />
                         </div>
                         <div>
-                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{totalStudents}</h3>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Étudiants inscrits</p>
+                            <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{totalStudents}</h3>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider md:tracking-widest mt-1 max-md:leading-tight">Étudiants inscrits</p>
                         </div>
                     </div>
                 </motion.div>
-                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="premium-card p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-2xl bg-amber-400/10 text-amber-400">
+                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="premium-card p-4 md:p-6 col-span-2 md:col-span-1">
+                    <div className="flex items-center gap-3 md:gap-4">
+                        <div className="p-2.5 md:p-3 shrink-0 rounded-2xl bg-amber-400/10 text-amber-400">
                             <Briefcase size={24} />
                         </div>
                         <div>
-                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">92%</h3>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Taux d'Occupation</p>
+                            <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter tabular-nums">92%</h3>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider md:tracking-widest mt-1 max-md:leading-tight">Taux d'Occupation</p>
                         </div>
                     </div>
                 </motion.div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+            <div className="flex flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
                 {[
                     { key: 'all' as const, label: 'Toutes les sessions', count: sessions.length },
                     { key: 'open' as const, label: 'Sessions ouvertes', count: openSessionCount },
@@ -660,7 +725,7 @@ export default function SessionsAdminPage() {
                         key={filter.key}
                         type="button"
                         onClick={() => setSessionFilter(filter.key)}
-                        className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-all ${sessionFilter === filter.key ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                        className={`flex shrink-0 whitespace-nowrap items-center gap-2 rounded-xl px-4 py-2.5 max-md:min-h-10 text-xs font-black uppercase tracking-wider transition-all ${sessionFilter === filter.key ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
                     >
                         {filter.label}
                         <span className={`rounded-md px-2 py-0.5 text-[10px] ${sessionFilter === filter.key ? 'bg-black/10' : 'bg-slate-100 text-slate-500'}`}>{filter.count}</span>
@@ -668,7 +733,48 @@ export default function SessionsAdminPage() {
                 ))}
             </div>
 
-            <div className={`${viewMode === 'list' ? 'block' : 'hidden'} premium-card overflow-hidden`}>
+            <div className={`${viewMode === 'list' ? 'block' : 'hidden'}`}>
+                <div className="md:hidden space-y-3">
+                    {filteredSessions.map((session, idx) => {
+                        const { planning, seanceCount } = parseSessionPlanning(session.schedule);
+                        const occupancy = Math.round((session.stats.confirmed / session.seats_available) * 100) || 0;
+                        return (
+                            <motion.div key={session.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="rounded-2xl bg-white border border-slate-200 p-4">
+                                <div className="flex items-start gap-3">
+                                    <img src={session.courses?.image_url || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=400&auto=format&fit=crop'} alt={session.courses?.title_fr} className="h-14 w-16 shrink-0 rounded-xl bg-slate-100 object-cover" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-black leading-snug text-slate-900">{session.courses?.title_fr}</p>
+                                        <span className="mt-1 inline-flex rounded-md bg-brand-blue/10 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-brand-blue">{translateCategory(session.courses?.category)}</span>
+                                    </div>
+                                </div>
+                                <div className="mt-4 space-y-2">
+                                    <div className="flex items-center justify-between gap-3 text-sm">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Instructeur</span>
+                                        <span className="truncate font-bold text-slate-900">{session.instructor?.full_name || 'Non assigné'}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3 text-sm">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date de début</span>
+                                        <span className="font-black text-slate-900">{new Date(session.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3 text-sm">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Calendrier</span>
+                                        <span className="text-right font-bold text-slate-900">{planning}{seanceCount > 0 && <span className="ml-2 text-[10px] font-bold uppercase text-slate-600">{seanceCount} séances</span>}</span>
+                                    </div>
+                                    <div className="pt-1">
+                                        <div className="mb-2 flex justify-between text-[10px] font-black"><span className="text-slate-600">Inscriptions : {session.stats.confirmed}/{session.seats_available}</span><span className="text-brand-blue">{occupancy}%</span></div>
+                                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-green" style={{ width: `${Math.min(occupancy, 100)}%` }} /></div>
+                                    </div>
+                                </div>
+                                <div className="mt-4 flex gap-2">
+                                    <button onClick={() => handleViewManifest(session)} className="flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 px-3 text-[10px] font-black uppercase tracking-wider text-brand-green">Inscrits</button>
+                                    <button onClick={() => handleEditClick(session)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500" title="Modifier" aria-label="Modifier"><Edit2 size={16} /></button>
+                                    <button onClick={() => handleDeleteSession(session.id)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 active:bg-rose-50 active:text-rose-500" title="Supprimer" aria-label="Supprimer"><Trash2 size={16} /></button>
+                                </div>
+                            </motion.div>
+                        );
+                    })}
+                </div>
+                <div className="hidden md:block premium-card overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[1100px] border-collapse text-left">
                         <thead className="border-b border-slate-200 bg-slate-50/80">
@@ -683,15 +789,7 @@ export default function SessionsAdminPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredSessions.map((session, idx) => {
-                                let planning = session.schedule;
-                                let seanceCount = 0;
-                                try {
-                                    const parsed = JSON.parse(session.schedule);
-                                    planning = translateScheduleLabel(parsed.label);
-                                    seanceCount = parsed.seances?.length || 0;
-                                } catch {
-                                    planning = translateScheduleLabel(session.schedule);
-                                }
+                                const { planning, seanceCount } = parseSessionPlanning(session.schedule);
                                 const occupancy = Math.round((session.stats.confirmed / session.seats_available) * 100) || 0;
                                 return (
                                     <motion.tr key={session.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="group hover:bg-brand-green/[0.04] transition-colors">
@@ -707,9 +805,10 @@ export default function SessionsAdminPage() {
                         </tbody>
                     </table>
                 </div>
+                </div>
             </div>
 
-            <div className={`${viewMode === 'grid' ? 'grid' : 'hidden'} grid-cols-1 lg:grid-cols-2 gap-8`}>
+            <div className={`${viewMode === 'grid' ? 'grid' : 'hidden'} grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8`}>
                 {filteredSessions.map((session, idx) => (
                     <motion.div
                         key={session.id}
@@ -718,11 +817,11 @@ export default function SessionsAdminPage() {
                         transition={{ delay: idx * 0.05 }}
                         className="premium-card group hover:border-brand-green/40 transition-all flex flex-col md:flex-row overflow-hidden"
                     >
-                        <div className="w-full md:w-48 h-48 md:h-auto relative overflow-hidden shrink-0">
+                        <div className="w-full md:w-48 h-36 md:h-auto relative overflow-hidden shrink-0">
                             <img
                                 src={session.courses?.image_url || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=2070&auto=format&fit=crop'}
                                 alt={session.courses?.title_fr}
-                                className="w-full h-full object-cover grayscale brightness-50 group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-700"
+                                className="w-full h-full object-cover grayscale brightness-50 group-hover:grayscale-0 group-hover:brightness-100 max-md:grayscale-0 max-md:brightness-90 transition-all duration-700"
                             />
                             <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/20 to-transparent" />
                             <div className="absolute top-4 left-4">
@@ -732,11 +831,11 @@ export default function SessionsAdminPage() {
                             </div>
                         </div>
 
-                        <div className="p-6 flex-grow flex flex-col justify-between">
+                        <div className="p-4 md:p-6 flex-grow flex flex-col justify-between">
                             <div className="space-y-4">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                        <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">
+                                <div className="flex items-start justify-between gap-3 md:gap-4">
+                                    <div className="min-w-0">
+                                        <h2 className="text-lg md:text-xl font-black text-slate-900 tracking-tight leading-tight">
                                             {session.courses?.title_fr}
                                         </h2>
                                         <div className="flex items-center gap-2 mt-2">
@@ -748,17 +847,17 @@ export default function SessionsAdminPage() {
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex max-md:shrink-0 items-center gap-1">
                                         <button 
                                             onClick={() => handleEditClick(session)}
-                                            className={`${isProfessor ? 'hidden' : ''} p-2 text-slate-500 hover:text-brand-green transition-colors bg-white/5 rounded-lg`}
+                                            className={`${isProfessor ? 'hidden' : 'max-md:flex'} p-2 max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center text-slate-500 hover:text-brand-green transition-colors bg-white/5 rounded-lg`}
                                             title="Modifier"
                                         >
                                             <Edit2 size={16} />
                                         </button>
                                         <button 
                                             onClick={() => handleDeleteSession(session.id)}
-                                            className={`${isProfessor ? 'hidden' : ''} p-2 text-slate-500 hover:text-red-500 transition-colors bg-white/5 rounded-lg`}
+                                            className={`${isProfessor ? 'hidden' : 'max-md:flex'} p-2 max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center text-slate-500 hover:text-red-500 transition-colors bg-white/5 rounded-lg`}
                                             title="Supprimer"
                                         >
                                             <Trash2 size={16} />
@@ -802,7 +901,7 @@ export default function SessionsAdminPage() {
                                 </div>
                             </div>
 
-                            <div className="mt-8 pt-6 border-t border-white/5 flex items-end justify-between">
+                            <div className="mt-5 md:mt-8 pt-4 md:pt-6 border-t border-white/5 flex items-end justify-between max-md:gap-4">
                                 <div className="space-y-2 flex-grow max-w-[180px]">
                                     <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-1">
                                         <span className="text-slate-900 text-[8px]">Inscriptions : <span className="text-slate-900">{session.stats.confirmed}/{session.seats_available}</span></span>
@@ -820,7 +919,7 @@ export default function SessionsAdminPage() {
 
                                 <button 
                                     onClick={() => handleViewManifest(session)}
-                                    className="flex items-center gap-2 text-brand-green font-black uppercase tracking-widest text-[10px] hover:gap-3 transition-all"
+                                    className="flex max-md:shrink-0 max-md:min-h-10 items-center gap-2 text-brand-green font-black uppercase tracking-widest text-[10px] hover:gap-3 transition-all"
                                 >
                                     VOIR LES INSCRITS <ChevronRight size={14} />
                                 </button>
@@ -831,7 +930,7 @@ export default function SessionsAdminPage() {
             </div>
 
             {filteredSessions.length === 0 && (
-                <div className="py-32 text-center">
+                <div className="py-16 md:py-32 text-center">
                     <div className="flex flex-col items-center gap-4">
                         <CalendarIcon size={48} className="text-slate-800" />
                         <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucune session correspondante</p>
@@ -850,43 +949,43 @@ export default function SessionsAdminPage() {
                             className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
                         >
                             {/* Header */}
-                            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
-                                <div>
-                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                            <div className="p-4 md:p-8 border-b border-slate-100 flex justify-between items-start md:items-center gap-3 md:gap-0 bg-white">
+                                <div className="max-md:min-w-0">
+                                    <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
                                         {editingSessionId ? 'Modifier la' : 'Nouvelle'} <span className="text-brand-green">session de formation</span>
                                     </h2>
-                                    <div className="flex items-center gap-4 mt-2">
-                                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 1 ? 'text-brand-green' : 'text-slate-500'}`}>
+                                    <div className="flex items-center gap-2 md:gap-4 mt-2 max-md:overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                        <div className={`flex shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 1 ? 'text-brand-green' : 'text-slate-500'}`}>
                                             <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 1 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>1</span> {editingSessionId ? 'MODIFIER' : 'INFORMATIONS'}
                                         </div>
-                                        <div className="w-8 h-[1px] bg-slate-800" />
-                                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 2 ? 'text-brand-green' : 'text-slate-500'}`}>
+                                        <div className="w-4 md:w-8 shrink-0 h-[1px] bg-slate-800" />
+                                        <div className={`flex shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 2 ? 'text-brand-green' : 'text-slate-500'}`}>
                                             <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 2 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>2</span> NOMBRE
                                         </div>
-                                        <div className="w-8 h-[1px] bg-slate-800" />
-                                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 3 ? 'text-brand-green' : 'text-slate-500'}`}>
+                                        <div className="w-4 md:w-8 shrink-0 h-[1px] bg-slate-800" />
+                                        <div className={`flex shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 3 ? 'text-brand-green' : 'text-slate-500'}`}>
                                             <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 3 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>3</span> CALENDRIER
                                         </div>
                                     </div>
                                 </div>
-                                <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-500 hover:text-white bg-white/5 rounded-xl transition-all">
+                                <button onClick={() => setIsModalOpen(false)} className="p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:shrink-0 max-md:items-center max-md:justify-center text-slate-500 hover:text-white bg-white/5 rounded-xl transition-all">
                                     <X size={20} />
                                 </button>
                             </div>
 
                             {/* Content */}
-                            <div className="p-8 overflow-y-auto custom-scrollbar flex-grow">
-                                <form onSubmit={handleSubmit} className="space-y-8">
+                            <div className="p-4 md:p-8 overflow-y-auto custom-scrollbar flex-grow">
+                                <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
                                     {currentStep === 1 && (
                                         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                                                 <div className="space-y-2">
                                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Formation *</label>
                                                     <select
                                                         required
                                                         value={formData.course_id}
                                                         onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-sm"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-base md:text-sm"
                                                     >
                                                         <option value="">Sélectionner une formation</option>
                                                         {courses.map(c => (
@@ -899,7 +998,7 @@ export default function SessionsAdminPage() {
                                                     <select
                                                         value={formData.instructor_id}
                                                         onChange={(e) => setFormData({ ...formData, instructor_id: e.target.value })}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-sm"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-base md:text-sm"
                                                     >
                                                         <option value="">Non assigné</option>
                                                         {instructors.map(i => (
@@ -914,7 +1013,7 @@ export default function SessionsAdminPage() {
                                                         required
                                                         value={formData.seats_available}
                                                         onChange={(e) => setFormData({ ...formData, seats_available: parseInt(e.target.value) })}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
                                                         placeholder="Ex: 12"
                                                     />
                                                 </div>
@@ -924,7 +1023,7 @@ export default function SessionsAdminPage() {
                                                         type="text"
                                                         value={formData.schedule}
                                                         onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
                                                         placeholder="Ex. : Temps plein / Week-end"
                                                     />
                                                 </div>
@@ -933,7 +1032,7 @@ export default function SessionsAdminPage() {
                                     )}
 
                                     {currentStep === 2 && (
-                                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 text-center py-10">
+                                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 text-center py-6 md:py-10">
                                             <div className="max-w-xs mx-auto space-y-4">
                                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombre de séances à planifier</label>
                                                 <div className="flex items-center justify-center gap-6">
@@ -959,23 +1058,23 @@ export default function SessionsAdminPage() {
                                     )}
 
                                     {currentStep === 3 && (
-                                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 pb-10">
+                                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 pb-4 md:pb-10">
                                             <div className="grid grid-cols-1 gap-4">
                                                 {formData.seances.map((seance, index) => (
-                                                    <div key={index} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4 group hover:border-brand-green/30 transition-all">
+                                                    <div key={index} className="bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-200 space-y-4 group hover:border-brand-green/30 transition-all">
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-[10px] font-black text-brand-green uppercase tracking-[0.2em]">Séance #{index + 1}</span>
                                                             <CalendarIcon size={14} className="text-slate-700 group-hover:text-brand-green transition-colors" />
                                                         </div>
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                            <div className="space-y-2">
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                                                            <div className="space-y-2 col-span-2 md:col-span-1">
                                                                 <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Date Precise</label>
                                                                 <input
                                                                     type="date"
                                                                     required
                                                                     value={seance.date}
                                                                     onChange={(e) => handleSeanceChange(index, 'date', e.target.value)}
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-xs font-bold"
+                                                                    className="w-full max-md:min-w-0 bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-base md:text-xs font-bold"
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
@@ -985,7 +1084,7 @@ export default function SessionsAdminPage() {
                                                                     required
                                                                     value={seance.start_time}
                                                                     onChange={(e) => handleSeanceChange(index, 'start_time', e.target.value)}
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-xs font-bold"
+                                                                    className="w-full max-md:min-w-0 bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-base md:text-xs font-bold"
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
@@ -995,7 +1094,7 @@ export default function SessionsAdminPage() {
                                                                     required
                                                                     value={seance.end_time}
                                                                     onChange={(e) => handleSeanceChange(index, 'end_time', e.target.value)}
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-xs font-bold"
+                                                                    className="w-full max-md:min-w-0 bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-base md:text-xs font-bold"
                                                                 />
                                                             </div>
                                                         </div>
@@ -1008,11 +1107,11 @@ export default function SessionsAdminPage() {
                             </div>
 
                             {/* Footer */}
-                            <div className="p-8 border-t border-slate-100 bg-white flex justify-between items-center">
+                            <div className="p-4 md:p-8 border-t border-slate-100 bg-white flex flex-col-reverse gap-3 md:flex-row md:gap-0 justify-between md:items-center">
                                 <button
                                     type="button"
                                     onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : setIsModalOpen(false)}
-                                    className="px-8 py-4 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-xs uppercase tracking-widest transition-all"
+                                    className="w-full md:w-auto px-8 py-3 md:py-4 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-xs uppercase tracking-widest transition-all"
                                 >
                                     {currentStep === 1 ? 'Annuler' : 'Précédent'}
                                 </button>
@@ -1022,7 +1121,7 @@ export default function SessionsAdminPage() {
                                         type="button"
                                         onClick={() => setCurrentStep(currentStep + 1)}
                                         disabled={currentStep === 1 && !formData.course_id}
-                                        className="btn-primary py-4 px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center gap-2 group"
+                                        className="btn-primary w-full md:w-auto py-4 px-6 md:px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center gap-2 group"
                                     >
                                         ÉTAPE SUIVANTE <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                                     </button>
@@ -1030,7 +1129,7 @@ export default function SessionsAdminPage() {
                                     <button
                                         onClick={handleSubmit}
                                         disabled={isSubmitting}
-                                        className="btn-primary py-4 px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center gap-2"
+                                        className="btn-primary w-full md:w-auto py-4 px-6 md:px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center gap-2"
                                     >
                                         {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : (editingSessionId ? <Check size={18} /> : <Plus size={18} />)}
                                         {isSubmitting ? 'ENREGISTREMENT...' : (editingSessionId ? 'ENREGISTRER LES MODIFICATIONS' : 'CRÉER LA SESSION')}
@@ -1052,16 +1151,16 @@ export default function SessionsAdminPage() {
                             className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col"
                         >
                             {/* Header */}
-                            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
-                                <div>
+                            <div className="p-4 md:p-8 border-b border-slate-100 flex justify-between items-start md:items-center gap-3 md:gap-0 bg-white">
+                                <div className="max-md:min-w-0">
                                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-1">
                                         <Users size={12} /> Liste des Étudiants
                                     </div>
-                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                                    <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tight">
                                         Étudiants Inscrits <span className="text-slate-500">dans</span> {selectedSessionLabel}
                                     </h2>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex max-md:shrink-0 items-center gap-2 md:gap-3">
                                     <button 
                                         onClick={() => {
                                             fetchAllStudents();
@@ -1070,17 +1169,20 @@ export default function SessionsAdminPage() {
                                             resetNewStudentForm();
                                             setIsAddingStudent(true);
                                         }}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-green/20 text-brand-green border border-brand-green/20 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-brand-green hover:text-black"
+                                        className="flex max-md:h-10 items-center gap-2 px-4 py-2 rounded-xl bg-brand-green/20 text-brand-green border border-brand-green/20 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-brand-green hover:text-black"
+                                        aria-label="Ajouter un étudiant"
                                     >
                                         <Plus size={14} />
-                                        Ajouter un étudiant
+                                        <span className="hidden md:inline">Ajouter un étudiant</span>
+                                        <span className="md:hidden">Ajouter</span>
                                     </button>
                                     <button
                                         onClick={() => {
                                             closeStudentPicker();
                                             setIsManifestOpen(false);
                                         }}
-                                        className="p-2 text-slate-500 hover:text-slate-900 bg-slate-100 rounded-xl transition-all"
+                                        aria-label="Fermer"
+                                        className="p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center text-slate-500 hover:text-slate-900 bg-slate-100 rounded-xl transition-all"
                                     >
                                         <X size={20} />
                                     </button>
@@ -1090,12 +1192,51 @@ export default function SessionsAdminPage() {
                             {/* Content */}
                             <div className="flex-grow overflow-y-auto custom-scrollbar p-0">
                                 {loadingManifest ? (
-                                    <div className="flex flex-col items-center justify-center py-32 gap-4">
+                                    <div className="flex flex-col items-center justify-center py-16 md:py-32 gap-4">
                                         <Loader2 className="animate-spin text-brand-green" size={32} />
                                         <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Chargement des inscrits...</p>
                                     </div>
                                 ) : manifestStudents.length > 0 ? (
-                                    <table className="w-full text-left border-collapse">
+                                    <>
+                                    <div className="md:hidden space-y-3 p-4">
+                                        {manifestStudents.map((student, idx) => (
+                                            <motion.div
+                                                key={student.id}
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: idx * 0.05 }}
+                                                className="rounded-2xl bg-white border border-slate-200 p-4"
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex min-w-0 items-center gap-3">
+                                                        <div className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 text-xs font-black border border-slate-200">
+                                                            {student.full_name?.charAt(0)}
+                                                        </div>
+                                                        <div className="flex min-w-0 flex-col">
+                                                            <span className="truncate font-bold text-slate-900 text-sm">{student.full_name}</span>
+                                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider mt-0.5">
+                                                                Inscrit le : {new Date(student.enrolled_at).toLocaleDateString('fr-FR')}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="shrink-0">{renderStudentStatusBadge(student)}</div>
+                                                </div>
+                                                <div className="mt-3 flex flex-col gap-1.5">
+                                                    <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600 font-bold">
+                                                        <Mail size={12} className="shrink-0 text-brand-blue" /> <span className="break-all">{student.email}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-xs text-slate-600 font-bold">
+                                                        <Phone size={12} className="shrink-0 text-brand-green" /> {student.phone}
+                                                    </div>
+                                                </div>
+                                                <div className="mt-4 flex flex-col gap-2">
+                                                    {!isProfessor && renderStudentPaymentButton(student, 'w-full min-h-10')}
+                                                    {renderStudentRemoveButton(student, 'w-full h-10 justify-center')}
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                    <table className="hidden md:table w-full text-left border-collapse">
                                         <thead>
                                             <tr className="bg-white/5 border-b border-white/5">
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Étudiant</th>
@@ -1140,62 +1281,23 @@ export default function SessionsAdminPage() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
-                                                            student.status === 'approved' 
-                                                            ? 'bg-brand-green/10 text-brand-green border-brand-green/20' 
-                                                            : 'bg-amber-400/10 text-amber-400 border-amber-400/20'
-                                                        }`}>
-                                                            {student.status === 'approved' ? 'VALIDÉ' : student.status === 'rejected' ? 'REFUSÉ' : 'EN ATTENTE'}
-                                                        </span>
+                                                        {renderStudentStatusBadge(student)}
                                                     </td>
                                                     {!isProfessor && (
                                                         <td className="px-6 py-4">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setPaymentAmount('');
-                                                                    setPaymentNote('');
-                                                                    setPaymentReceipt(null);
-                                                                    setPaymentStudent(student);
-                                                                }}
-                                                                disabled={Number(student.total_price || 0) > 0 && Number(student.amount_paid || 0) >= Number(student.total_price || 0)}
-                                                                className="min-w-36 rounded-xl border border-brand-green/30 bg-brand-green/10 px-3 py-2 text-left transition-all hover:border-brand-green hover:bg-brand-green/20 disabled:cursor-default disabled:border-emerald-200 disabled:bg-emerald-50"
-                                                                title="Cliquer pour ajouter un paiement"
-                                                            >
-                                                                <span className="block text-xs font-black text-slate-900 tabular-nums">
-                                                                    {Number(student.amount_paid || 0).toLocaleString('fr-FR')} / {Number(student.total_price || 0).toLocaleString('fr-FR')} DT
-                                                                </span>
-                                                                <span className={`mt-0.5 block text-[9px] font-bold uppercase tracking-wider ${Number(student.total_price || 0) > Number(student.amount_paid || 0) ? 'text-rose-500' : 'text-emerald-600'}`}>
-                                                                    {Number(student.total_price || 0) > Number(student.amount_paid || 0)
-                                                                        ? `Reste : ${Math.max(Number(student.total_price || 0) - Number(student.amount_paid || 0), 0).toLocaleString('fr-FR')} DT`
-                                                                        : 'Soldé'}
-                                                                </span>
-                                                            </button>
+                                                            {renderStudentPaymentButton(student)}
                                                         </td>
                                                     )}
                                                     <td className="px-8 py-4 text-right">
-                                                        <button
-                                                            onClick={() => handleRemoveStudent(student)}
-                                                            disabled={removingStudentId === student.id || student.has_financial_history}
-                                                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white font-black text-[9px] uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-rose-50 disabled:hover:text-rose-600"
-                                                            title={student.has_financial_history
-                                                                ? 'Cette inscription contient un paiement ou un justificatif.'
-                                                                : 'Retirer de la session'}
-                                                        >
-                                                            {removingStudentId === student.id
-                                                                ? <Loader2 size={13} className="animate-spin" />
-                                                                : student.has_financial_history
-                                                                    ? <AlertCircle size={13} />
-                                                                    : <Trash2 size={13} />}
-                                                            {student.has_financial_history ? 'Paiement lié' : 'Retirer'}
-                                                        </button>
+                                                        {renderStudentRemoveButton(student)}
                                                     </td>
                                                 </motion.tr>
                                             ))}
                                         </tbody>
                                     </table>
+                                    </>
                                 ) : (
-                                    <div className="py-32 text-center">
+                                    <div className="py-16 md:py-32 text-center">
                                         <Users size={48} className="text-slate-800 mx-auto mb-4" />
                                         <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun étudiant inscrit à cette session</p>
                                     </div>
@@ -1203,7 +1305,7 @@ export default function SessionsAdminPage() {
                             </div>
 
                             {/* Footer */}
-                            <div className="p-8 border-t border-slate-100 bg-white flex justify-between items-center">
+                            <div className="p-4 md:p-8 border-t border-slate-100 bg-white flex justify-between items-center gap-3 md:gap-0">
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                     Total Inscrits : <span className="text-slate-900">{manifestStudents.length}</span>
                                 </p>
@@ -1212,7 +1314,7 @@ export default function SessionsAdminPage() {
                                         setIsAddingStudent(false);
                                         setIsManifestOpen(false);
                                     }}
-                                    className="px-8 py-3 rounded-xl bg-white text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all border border-slate-200"
+                                    className="max-md:h-10 px-8 py-3 rounded-xl bg-white text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all border border-slate-200"
                                 >
                                     Fermer
                                 </button>
@@ -1230,40 +1332,40 @@ export default function SessionsAdminPage() {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="w-full max-w-xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                            className="w-full max-w-xl overflow-hidden max-md:flex max-md:flex-col max-md:max-h-[92dvh] rounded-3xl border border-slate-200 bg-white shadow-2xl"
                         >
-                            <div className="flex items-start justify-between border-b border-slate-100 p-7">
+                            <div className="flex items-start justify-between border-b border-slate-100 p-4 md:p-7 max-md:shrink-0 max-md:gap-3">
                                 <div>
                                     <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-green">
                                         <CreditCard size={14} /> Paiement de la session
                                     </div>
-                                    <h2 className="text-2xl font-black text-slate-900">Ajouter un paiement</h2>
+                                    <h2 className="text-xl md:text-2xl font-black text-slate-900">Ajouter un paiement</h2>
                                     <p className="mt-1 text-sm font-semibold text-slate-600">{paymentStudent.full_name}</p>
                                     <p className="mt-0.5 text-xs text-slate-500">{selectedSessionLabel}</p>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={closePaymentModal}
-                                    className="rounded-xl bg-slate-100 p-2 text-slate-500 transition-colors hover:text-slate-900"
+                                    className="rounded-xl bg-slate-100 p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:shrink-0 max-md:items-center max-md:justify-center text-slate-500 transition-colors hover:text-slate-900"
                                     title="Fermer"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSessionPayment} className="space-y-5 p-7">
-                                <div className="grid grid-cols-3 gap-3 rounded-2xl bg-slate-50 p-4 text-center">
+                            <form onSubmit={handleSessionPayment} className="space-y-5 p-4 md:p-7 max-md:flex-1 max-md:overflow-y-auto">
+                                <div className="grid grid-cols-3 gap-2 md:gap-3 rounded-2xl bg-slate-50 p-3 md:p-4 text-center">
                                     <div>
                                         <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Prix total</p>
-                                        <p className="mt-1 text-base font-black text-slate-900">{Number(paymentStudent.total_price || 0).toLocaleString('fr-FR')} DT</p>
+                                        <p className="mt-1 text-sm md:text-base font-black text-slate-900">{Number(paymentStudent.total_price || 0).toLocaleString('fr-FR')} DT</p>
                                     </div>
                                     <div className="border-x border-slate-200">
                                         <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Déjà payé</p>
-                                        <p className="mt-1 text-base font-black text-emerald-600">{Number(paymentStudent.amount_paid || 0).toLocaleString('fr-FR')} DT</p>
+                                        <p className="mt-1 text-sm md:text-base font-black text-emerald-600">{Number(paymentStudent.amount_paid || 0).toLocaleString('fr-FR')} DT</p>
                                     </div>
                                     <div>
                                         <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Reste</p>
-                                        <p className="mt-1 text-base font-black text-rose-500">{Math.max(Number(paymentStudent.total_price || 0) - Number(paymentStudent.amount_paid || 0), 0).toLocaleString('fr-FR')} DT</p>
+                                        <p className="mt-1 text-sm md:text-base font-black text-rose-500">{Math.max(Number(paymentStudent.total_price || 0) - Number(paymentStudent.amount_paid || 0), 0).toLocaleString('fr-FR')} DT</p>
                                     </div>
                                 </div>
 
@@ -1312,22 +1414,22 @@ export default function SessionsAdminPage() {
                                         value={paymentNote}
                                         onChange={(event) => setPaymentNote(event.target.value)}
                                         placeholder="Exemple : paiement en espèces…"
-                                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
                                     />
                                 </div>
 
-                                <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+                                <div className="flex flex-col-reverse md:flex-row justify-end gap-3 border-t border-slate-100 pt-5">
                                     <button
                                         type="button"
                                         onClick={closePaymentModal}
-                                        className="rounded-xl border border-slate-200 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50"
+                                        className="w-full md:w-auto max-md:min-h-11 rounded-xl border border-slate-200 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50"
                                     >
                                         Annuler
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={savingPayment || !paymentAmount}
-                                        className="btn-primary flex h-auto items-center gap-2 px-6 py-3 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="btn-primary flex w-full md:w-auto max-md:min-h-11 h-auto items-center gap-2 px-6 py-3 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         {savingPayment ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                                         Enregistrer le paiement
@@ -1349,12 +1451,12 @@ export default function SessionsAdminPage() {
                             exit={{ opacity: 0, scale: 0.94, y: 20 }}
                             className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl flex flex-col"
                         >
-                            <div className="p-7 border-b border-slate-100 flex items-start justify-between gap-6">
+                            <div className="p-4 md:p-7 border-b border-slate-100 flex items-start justify-between gap-3 md:gap-6">
                                 <div>
                                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-1">
                                         <Plus size={13} /> Nouvelle inscription
                                     </div>
-                                    <h2 className="text-2xl font-black text-slate-900">
+                                    <h2 className="text-xl md:text-2xl font-black text-slate-900">
                                         {studentAddMode === 'existing' ? 'Ajouter un étudiant' : 'Recruter un nouvel étudiant'}
                                     </h2>
                                     <p className="mt-1 text-xs font-medium text-slate-500">{selectedSessionLabel}</p>
@@ -1362,20 +1464,20 @@ export default function SessionsAdminPage() {
                                 <button
                                     onClick={closeStudentPicker}
                                     disabled={creatingStudent}
-                                    className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-50"
+                                    className="p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:shrink-0 max-md:items-center max-md:justify-center rounded-xl bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-50"
                                     title="Fermer"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
 
-                            <div className="px-6 pt-5 bg-slate-50">
+                            <div className="px-4 md:px-6 pt-4 md:pt-5 bg-slate-50">
                                 <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white border border-slate-200 p-1">
                                     <button
                                         type="button"
                                         onClick={() => setStudentAddMode('existing')}
                                         disabled={creatingStudent}
-                                        className={`rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${studentAddMode === 'existing'
+                                        className={`rounded-xl px-4 py-3 max-md:min-h-10 text-[10px] font-black uppercase tracking-widest transition-all ${studentAddMode === 'existing'
                                             ? 'bg-brand-green text-black shadow-sm'
                                             : 'text-slate-500 hover:bg-slate-50'}`}
                                     >
@@ -1385,7 +1487,7 @@ export default function SessionsAdminPage() {
                                         type="button"
                                         onClick={() => setStudentAddMode('new')}
                                         disabled={creatingStudent}
-                                        className={`rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${studentAddMode === 'new'
+                                        className={`rounded-xl px-4 py-3 max-md:min-h-10 text-[10px] font-black uppercase tracking-widest transition-all ${studentAddMode === 'new'
                                             ? 'bg-brand-green text-black shadow-sm'
                                             : 'text-slate-500 hover:bg-slate-50'}`}
                                     >
@@ -1396,7 +1498,7 @@ export default function SessionsAdminPage() {
 
                             {studentAddMode === 'existing' ? (
                                 <>
-                            <div className="p-6 border-b border-slate-100 bg-slate-50">
+                            <div className="p-4 md:p-6 border-b border-slate-100 bg-slate-50">
                                 <div className="relative">
                                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                                     <input
@@ -1405,12 +1507,12 @@ export default function SessionsAdminPage() {
                                         placeholder="Rechercher par nom, e-mail ou téléphone..."
                                         value={studentSearchQuery}
                                         onChange={(e) => setStudentSearchQuery(e.target.value)}
-                                        className="w-full bg-white border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                        className="w-full bg-white border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
                                     />
                                 </div>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
                                 {loadingStudents ? (
                                     <div className="flex flex-col items-center justify-center py-20 gap-3">
                                         <Loader2 className="animate-spin text-brand-green" size={30} />
@@ -1421,7 +1523,7 @@ export default function SessionsAdminPage() {
                                         {availableStudents.map(student => (
                                             <div
                                                 key={student.id}
-                                                className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:border-brand-green/50 hover:bg-slate-50 transition-all"
+                                                className="flex items-center justify-between gap-3 md:gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:border-brand-green/50 hover:bg-slate-50 transition-all"
                                             >
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <div className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center text-xs font-black text-slate-600">
@@ -1439,7 +1541,7 @@ export default function SessionsAdminPage() {
                                                 <button
                                                     onClick={() => handleAddStudent(student.id)}
                                                     disabled={enrollingStudentId !== null}
-                                                    className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-green text-black font-black text-[10px] uppercase tracking-wider hover:brightness-105 transition-all disabled:opacity-50"
+                                                    className="shrink-0 inline-flex max-md:min-h-10 items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-green text-black font-black text-[10px] uppercase tracking-wider hover:brightness-105 transition-all disabled:opacity-50"
                                                 >
                                                     {enrollingStudentId === student.id
                                                         ? <Loader2 size={14} className="animate-spin" />
@@ -1458,20 +1560,20 @@ export default function SessionsAdminPage() {
                                 )}
                             </div>
 
-                            <div className="p-6 border-t border-slate-100 flex items-center justify-between bg-white">
+                            <div className="p-4 md:p-6 border-t border-slate-100 flex items-center justify-between gap-3 md:gap-0 bg-white">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                                     {availableStudents.length} étudiant(s) disponible(s)
                                 </p>
                                 <button
                                     onClick={closeStudentPicker}
-                                    className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all"
+                                    className="max-md:min-h-10 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all"
                                 >
                                     Fermer
                                 </button>
                             </div>
                                 </>
                             ) : (
-                                <form onSubmit={handleCreateAndEnrollStudent} className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                                <form onSubmit={handleCreateAndEnrollStudent} className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">E-mail (identifiant)</label>
@@ -1484,7 +1586,7 @@ export default function SessionsAdminPage() {
                                                     value={newStudentForm.email}
                                                     onChange={(e) => setNewStudentForm(prev => ({ ...prev, email: e.target.value }))}
                                                     placeholder="exemple@email.com"
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
                                                 />
                                             </div>
                                         </div>
@@ -1497,7 +1599,7 @@ export default function SessionsAdminPage() {
                                                 value={newStudentForm.password}
                                                 onChange={(e) => setNewStudentForm(prev => ({ ...prev, password: e.target.value }))}
                                                 placeholder="••••••••"
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
                                             />
                                         </div>
                                         <div className="md:col-span-2">
@@ -1508,7 +1610,7 @@ export default function SessionsAdminPage() {
                                                 value={newStudentForm.full_name}
                                                 onChange={(e) => setNewStudentForm(prev => ({ ...prev, full_name: e.target.value }))}
                                                 placeholder="Nom & Prénom"
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
                                             />
                                         </div>
                                         <div>
@@ -1520,7 +1622,7 @@ export default function SessionsAdminPage() {
                                                     value={newStudentForm.phone}
                                                     onChange={(e) => setNewStudentForm(prev => ({ ...prev, phone: e.target.value }))}
                                                     placeholder="55 123 456"
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
                                                 />
                                             </div>
                                         </div>
@@ -1531,7 +1633,7 @@ export default function SessionsAdminPage() {
                                                 value={newStudentForm.cin_number}
                                                 onChange={(e) => setNewStudentForm(prev => ({ ...prev, cin_number: e.target.value }))}
                                                 placeholder="00123456"
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
                                             />
                                         </div>
                                         <div className="md:col-span-2">
@@ -1546,7 +1648,7 @@ export default function SessionsAdminPage() {
                                                         required
                                                         value={newStudentForm.amountPaid}
                                                         onChange={(e) => setNewStudentForm(prev => ({ ...prev, amountPaid: e.target.value }))}
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-14 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-14 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
                                                     />
                                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">DT</span>
                                                 </div>
@@ -1568,14 +1670,14 @@ export default function SessionsAdminPage() {
                                             type="button"
                                             onClick={closeStudentPicker}
                                             disabled={creatingStudent}
-                                            className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all disabled:opacity-50"
+                                            className="max-md:min-h-11 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all disabled:opacity-50"
                                         >
                                             Annuler
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={creatingStudent}
-                                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="inline-flex max-md:min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {creatingStudent ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                                             Créer et inscrire

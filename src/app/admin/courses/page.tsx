@@ -246,8 +246,8 @@ export default function CoursesAdminPage() {
     ];
 
     return (
-        <div className="space-y-10 pb-20">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-6 md:space-y-10 pb-6 md:pb-20">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
                         <BookOpen size={14} /> Gestion du catalogue
@@ -255,45 +255,45 @@ export default function CoursesAdminPage() {
                     <h1 className="text-4xl font-black text-white tracking-tighter">Catalogue <span className="text-slate-500">Formations</span></h1>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <div className="relative max-w-md w-full">
+                <div className="flex flex-wrap md:flex-nowrap items-center gap-3 md:gap-4">
+                    <div className="relative md:max-w-md w-full">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
                             placeholder="Rechercher une formation..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
-                    <div className="flex rounded-xl border border-slate-200 bg-white p-1">
-                        <button onClick={() => setViewMode('grid')} className={`rounded-lg p-2 transition-all ${viewMode === 'grid' ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:text-slate-900'}`} title="Afficher en cartes" aria-label="Afficher le catalogue en cartes"><LayoutGrid size={18} /></button>
-                        <button onClick={() => setViewMode('list')} className={`rounded-lg p-2 transition-all ${viewMode === 'list' ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:text-slate-900'}`} title="Afficher en tableau" aria-label="Afficher le catalogue en tableau"><List size={18} /></button>
+                    <div className="flex shrink-0 rounded-xl border border-slate-200 bg-white p-1">
+                        <button onClick={() => setViewMode('grid')} className={`flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:block rounded-lg md:p-2 transition-all ${viewMode === 'grid' ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:text-slate-900'}`} title="Afficher en cartes" aria-label="Afficher le catalogue en cartes"><LayoutGrid size={18} /></button>
+                        <button onClick={() => setViewMode('list')} className={`flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:block rounded-lg md:p-2 transition-all ${viewMode === 'list' ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:text-slate-900'}`} title="Afficher en tableau" aria-label="Afficher le catalogue en tableau"><List size={18} /></button>
                     </div>
                     <button
                         onClick={() => handleOpenModal()}
-                        className="btn-primary py-3 px-6 h-auto shadow-none"
+                        className="btn-primary py-3 px-4 md:px-6 h-auto min-h-11 md:min-h-0 flex-1 md:flex-none whitespace-nowrap shadow-none"
                     >
-                        <Plus size={18} strokeWidth={3} /> AJOUTER UNE FORMATION
+                        <Plus size={18} strokeWidth={3} /> AJOUTER<span className="hidden sm:inline"> UNE FORMATION</span>
                     </button>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                 {stats.map((stat, i) => (
                     <motion.div
                         key={stat.label}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="premium-card p-6"
+                        className="premium-card p-4 md:p-6"
                     >
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
+                        <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                            <div className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl ${stat.bg} ${stat.color}`}>
                                 <stat.icon size={22} />
                             </div>
-                            <div>
-                                <h3 className="text-2xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
+                            <div className="min-w-0">
+                                <h3 className="text-xl md:text-2xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{stat.label}</p>
                             </div>
                         </div>
@@ -301,7 +301,51 @@ export default function CoursesAdminPage() {
                 ))}
             </div>
 
-            <div className={`${viewMode === 'list' ? 'block' : 'hidden'} premium-card overflow-hidden`}>
+            {/* Mobile list view (cards) */}
+            <div className={`${viewMode === 'list' ? 'block md:hidden' : 'hidden'} space-y-3`}>
+                {filteredCourses.map((course, idx) => (
+                    <motion.div key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="rounded-2xl bg-white border border-slate-200 p-4">
+                        <div className="flex items-start gap-3">
+                            <img src={course.image_url} alt={course.title_fr} className="h-14 w-20 shrink-0 rounded-xl bg-slate-100 object-cover" />
+                            <div className="min-w-0 flex-1">
+                                <p className="font-black leading-snug text-white line-clamp-2">{course.title_fr}</p>
+                                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{course.level || 'Tous niveaux'}</p>
+                            </div>
+                        </div>
+                        <div className="mt-3">
+                            <span className="inline-flex rounded-lg bg-brand-green/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-brand-green">{course.category === 'Software' ? 'Logiciel' : course.category === 'Hardware' ? 'Matériel' : course.category}</span>
+                        </div>
+                        <div className="mt-3 space-y-1.5">
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-500">Durée</span>
+                                <span className="min-w-0 truncate text-right text-sm font-bold text-slate-600">{course.duration}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-500">Professeur</span>
+                                <span className="min-w-0 truncate text-right text-sm font-bold text-slate-600">{course.professeurs ? `${course.professeurs.nom} ${course.professeurs.prenom}` : 'Non assigné'}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-500">Élèves</span>
+                                <span className="text-sm font-black text-slate-700">{course.student_count || 0}</span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                                <span className="shrink-0 pt-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Prix</span>
+                                <div className="text-right">
+                                    {course.sold_price && <p className="text-[10px] font-bold text-slate-400 line-through">{course.base_price} DT</p>}
+                                    <p className={`text-base font-black ${course.sold_price ? 'text-brand-green' : 'text-white'}`}>{course.sold_price || course.base_price} DT</p>
+                                    <p className="text-[9px] font-bold uppercase text-slate-400">Avance {course.reservation_amount ?? 400} DT</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-2">
+                            <button onClick={() => handleOpenModal(course)} className="min-h-10 rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-slate-600 active:border-brand-green active:text-brand-green transition-all"><Edit2 size={16} /> Modifier</button>
+                            <button onClick={() => handleDelete(course.id)} className="min-h-10 rounded-xl border border-rose-200 bg-rose-50 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-rose-500 transition-all"><Trash2 size={16} /> Supprimer</button>
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+
+            <div className={`${viewMode === 'list' ? 'hidden md:block' : 'hidden'} premium-card overflow-hidden`}>
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[980px] border-collapse text-left">
                         <thead className="border-b border-slate-200 bg-slate-50/80">
@@ -337,7 +381,7 @@ export default function CoursesAdminPage() {
                 </div>
             </div>
 
-            <div className={`${viewMode === 'grid' ? 'grid' : 'hidden'} grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8`}>
+            <div className={`${viewMode === 'grid' ? 'grid' : 'hidden'} grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8`}>
                 {filteredCourses.map((course, idx) => (
                     <motion.div
                         key={course.id}
@@ -362,12 +406,12 @@ export default function CoursesAdminPage() {
                             </div>
                         </div>
 
-                        <div className="p-7 flex flex-col flex-1">
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-xl font-black text-white leading-tight tracking-tight group-hover:text-brand-green transition-colors">
+                        <div className="p-4 md:p-7 flex flex-col flex-1">
+                            <div className="flex justify-between items-start gap-3 md:gap-0 mb-4">
+                                <h3 className="min-w-0 text-lg md:text-xl font-black text-white leading-tight tracking-tight group-hover:text-brand-green transition-colors">
                                     {course.title_fr}
                                 </h3>
-                                <div className="relative">
+                                <div className="relative shrink-0">
                                     <button
                                         onClick={() => setActiveDropdown(activeDropdown === course.id ? null : course.id)}
                                         className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeDropdown === course.id ? 'bg-brand-green text-black' : 'bg-white/5 hover:bg-white/10 text-slate-400'}`}
@@ -390,14 +434,14 @@ export default function CoursesAdminPage() {
                                                             handleOpenModal(course);
                                                             setActiveDropdown(null);
                                                         }}
-                                                        className="w-full px-5 py-2.5 text-left text-xs font-black uppercase tracking-widest hover:bg-white/5 text-slate-300 transition-all flex items-center gap-3"
+                                                        className="w-full px-5 py-3 md:py-2.5 text-left text-xs font-black uppercase tracking-widest hover:bg-white/5 text-slate-300 transition-all flex items-center gap-3"
                                                     >
                                                         <Edit2 size={14} className="text-brand-green" /> Modifier
                                                     </button>
                                                     <div className="h-px bg-white/5 my-2" />
                                                     <button
                                                         onClick={() => handleDelete(course.id)}
-                                                        className="w-full px-5 py-2.5 text-left text-xs font-black uppercase tracking-widest hover:bg-rose-500/10 text-rose-500 transition-all flex items-center gap-3"
+                                                        className="w-full px-5 py-3 md:py-2.5 text-left text-xs font-black uppercase tracking-widest hover:bg-rose-500/10 text-rose-500 transition-all flex items-center gap-3"
                                                     >
                                                         <Trash2 size={14} /> Supprimer
                                                     </button>
@@ -408,7 +452,7 @@ export default function CoursesAdminPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 mb-8">
+                            <div className="grid grid-cols-2 gap-4 mb-4 md:mb-8">
                                 <div className="flex items-center gap-3 text-xs font-bold text-slate-500">
                                     <Clock size={16} className="text-brand-green/50" />
                                     <span>{course.duration}</span>
@@ -426,7 +470,7 @@ export default function CoursesAdminPage() {
                                 </div>
                             )}
 
-                            <div className="mt-auto pt-6 border-t border-white/5 flex items-center justify-between">
+                            <div className="mt-auto pt-4 md:pt-6 border-t border-white/5 flex items-center justify-between">
                                 <div className="flex flex-col">
                                     {course.sold_price ? (
                                         <>
@@ -448,9 +492,9 @@ export default function CoursesAdminPage() {
                 <motion.button
                     onClick={() => handleOpenModal()}
                     whileHover={{ scale: 1.02 }}
-                    className="border-2 border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center gap-6 bg-white/[0.02] hover:bg-white/[0.05] hover:border-brand-green/30 transition-all min-h-[350px] p-8 group"
+                    className="border-2 border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center gap-4 md:gap-6 bg-white/[0.02] hover:bg-white/[0.05] hover:border-brand-green/30 transition-all min-h-[200px] md:min-h-[350px] p-6 md:p-8 group"
                 >
-                    <div className="w-20 h-20 rounded-2xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 group-hover:text-brand-green group-hover:border-brand-green/30 transition-all shadow-xl">
+                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 group-hover:text-brand-green group-hover:border-brand-green/30 transition-all shadow-xl">
                         <Plus size={40} />
                     </div>
                     <div className="text-center">
@@ -461,7 +505,7 @@ export default function CoursesAdminPage() {
             </div>
 
             {filteredCourses.length === 0 && courses.length > 0 && (
-                <div className="py-32 text-center">
+                <div className="py-16 md:py-32 text-center">
                     <div className="flex flex-col items-center gap-4">
                         <Target size={48} className="text-slate-800" />
                         <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucune formation correspondante</p>
@@ -477,19 +521,19 @@ export default function CoursesAdminPage() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white border border-slate-200 p-6 rounded-2xl w-full max-w-2xl shadow-2xl my-8 relative"
+                            className="bg-white border border-slate-200 p-5 pb-0 md:p-6 rounded-2xl w-full max-w-2xl shadow-2xl md:my-8 relative max-h-[92dvh] overflow-y-auto overscroll-contain md:max-h-none md:overflow-visible"
                         >
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-black text-slate-900">
+                            <div className="flex justify-between items-center gap-3 mb-4 md:mb-6">
+                                <h2 className="text-lg md:text-xl font-black text-slate-900">
                                     {editingCourse ? 'Modifier la Formation' : 'Ajouter une Formation'}
                                 </h2>
-                                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white">
+                                <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 -mr-2 shrink-0 flex items-center justify-center rounded-xl md:w-auto md:h-auto md:mr-0 md:block text-slate-400 hover:text-white" aria-label="Fermer">
                                     <X size={20} />
                                 </button>
                             </div>
 
                             <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Titre (FR) *</label>
                                         <input type="text" required value={formData.title_fr} onChange={(e) => setFormData({ ...formData, title_fr: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
@@ -498,7 +542,7 @@ export default function CoursesAdminPage() {
                                         <label className="block text-xs font-bold text-slate-400 mb-2">Catégorie *</label>
                                         <div className="flex gap-4 mt-2">
                                             {['Software', 'Hardware'].map(cat => (
-                                                <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                                                <label key={cat} className="flex items-center gap-2 min-h-10 md:min-h-0 cursor-pointer">
                                                     <input 
                                                         type="checkbox" 
                                                         checked={(formData.category ? formData.category.split(', ') : []).includes(cat)}
@@ -523,7 +567,7 @@ export default function CoursesAdminPage() {
                                     <label className="block text-xs font-bold text-slate-400 mb-2">Niveau *</label>
                                     <div className="flex flex-wrap gap-4 mt-2 mb-4">
                                         {['Débutant', 'Intermédiaire', 'Avancé'].map(lvl => (
-                                            <label key={lvl} className="flex items-center gap-2 cursor-pointer">
+                                            <label key={lvl} className="flex items-center gap-2 min-h-10 md:min-h-0 cursor-pointer">
                                                 <input 
                                                     type="checkbox" 
                                                     checked={(formData.level ? formData.level.split(', ') : []).includes(lvl)}
@@ -641,12 +685,12 @@ export default function CoursesAdminPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/10">
-                                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-all">
+                                <div className="sticky bottom-0 z-10 -mx-5 px-5 pb-[max(env(safe-area-inset-bottom),1rem)] bg-white md:static md:mx-0 md:px-0 md:pb-0 md:bg-transparent flex justify-end gap-3 mt-8 pt-4 border-t border-white/10">
+                                    <button type="button" onClick={() => setIsModalOpen(false)} className="shrink-0 min-h-11 md:min-h-0 px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-all">
                                         Annuler
                                     </button>
 
-                                    <button type="submit" disabled={isSubmitting} className="btn-primary px-5 py-2.5 flex items-center gap-2">
+                                    <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 md:flex-none min-h-11 md:min-h-0 px-5 py-2.5 flex items-center justify-center md:justify-start gap-2 text-center">
                                         {isSubmitting && <Loader2 size={16} className="animate-spin" />}
                                         {editingCourse ? 'Enregistrer les modifications' : 'Créer la formation'}
                                     </button>

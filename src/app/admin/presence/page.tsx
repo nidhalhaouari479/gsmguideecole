@@ -270,19 +270,19 @@ export default function PresenceAdminPage() {
     }
 
     return (
-        <div className="space-y-8 pb-20">
+        <div className="space-y-5 md:space-y-8 pb-20">
             <header>
                 <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-green">
                     <CheckCircle2 size={15} /> Suivi pédagogique
                 </div>
                 <h1 className="text-4xl font-black tracking-tight text-slate-900">Gestion des présences</h1>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-xs md:text-sm text-slate-500">
                     Choisissez une formation, une session et une séance pour remplir la feuille de présence.
                 </p>
             </header>
 
-            <div className="grid gap-4 lg:grid-cols-3">
-                <section className="premium-card bg-white p-6">
+            <div className="grid gap-3 md:gap-4 lg:grid-cols-3">
+                <section className="premium-card bg-white p-4 md:p-6">
                     <div className="mb-4 flex items-center gap-3">
                         <div className="rounded-xl bg-brand-blue/10 p-2 text-brand-blue"><School size={20} /></div>
                         <div>
@@ -293,7 +293,7 @@ export default function PresenceAdminPage() {
                     <select
                         value={selectedCourseId}
                         onChange={(event) => selectCourse(event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold text-slate-800 outline-none focus:border-brand-blue"
+                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-base md:text-sm font-bold text-slate-800 outline-none focus:border-brand-blue"
                     >
                         <option value="">Choisir une formation</option>
                         {courses.map((course) => (
@@ -302,7 +302,7 @@ export default function PresenceAdminPage() {
                     </select>
                 </section>
 
-                <section className="premium-card bg-white p-6">
+                <section className="premium-card bg-white p-4 md:p-6">
                     <div className="mb-4 flex items-center gap-3">
                         <div className="rounded-xl bg-brand-green/10 p-2 text-brand-green"><CalendarDays size={20} /></div>
                         <div>
@@ -314,7 +314,7 @@ export default function PresenceAdminPage() {
                         value={selectedSessionId}
                         onChange={(event) => selectSession(event.target.value)}
                         disabled={!selectedCourseId}
-                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold text-slate-800 outline-none disabled:cursor-not-allowed disabled:bg-slate-100 focus:border-brand-green"
+                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-base md:text-sm font-bold text-slate-800 outline-none disabled:cursor-not-allowed disabled:bg-slate-100 focus:border-brand-green"
                     >
                         <option value="">Choisir une session</option>
                         {availableSessions.map((session) => (
@@ -325,7 +325,7 @@ export default function PresenceAdminPage() {
                     </select>
                 </section>
 
-                <section className="premium-card bg-white p-6">
+                <section className="premium-card bg-white p-4 md:p-6">
                     <div className="mb-4 flex items-center gap-3">
                         <div className="rounded-xl bg-amber-50 p-2 text-amber-600"><Clock3 size={20} /></div>
                         <div>
@@ -344,8 +344,8 @@ export default function PresenceAdminPage() {
             </div>
 
             {selectedSessionId && (
-                <section className="premium-card bg-white p-6">
-                    <h2 className="mb-5 text-xl font-black text-slate-900">Liste des séances</h2>
+                <section className="premium-card bg-white p-4 md:p-6">
+                    <h2 className="mb-4 md:mb-5 text-lg md:text-xl font-black text-slate-900">Liste des séances</h2>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         {seances.map((seance, index) => {
                             const key = makeSeanceKey(seance);
@@ -389,7 +389,7 @@ export default function PresenceAdminPage() {
             )}
 
             {loadingStudents && (
-                <div className="flex items-center justify-center gap-3 rounded-3xl bg-white p-16 text-slate-500">
+                <div className="flex items-center justify-center gap-3 rounded-3xl bg-white p-10 md:p-16 text-slate-500">
                     <Loader2 className="animate-spin text-brand-blue" size={28} />
                     Chargement des étudiants…
                 </div>
@@ -397,13 +397,13 @@ export default function PresenceAdminPage() {
 
             {selectedSeance && !loadingStudents && !error && (
                 <section className="premium-card overflow-hidden bg-white">
-                    <div className="flex flex-col gap-5 border-b border-slate-200 p-6 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-4 md:gap-5 border-b border-slate-200 p-4 md:p-6 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <div className="flex items-center gap-2 text-brand-blue">
                                 <Users size={19} />
                                 <span className="text-xs font-black uppercase tracking-widest">{students.length} étudiants</span>
                             </div>
-                            <h2 className="mt-2 text-2xl font-black text-slate-900">Feuille de présence</h2>
+                            <h2 className="mt-2 text-xl md:text-2xl font-black text-slate-900">Feuille de présence</h2>
                         </div>
                         <div className="relative w-full lg:w-80">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
@@ -411,19 +411,19 @@ export default function PresenceAdminPage() {
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
                                 placeholder="Rechercher un étudiant"
-                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none focus:border-brand-blue"
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-base md:text-sm outline-none focus:border-brand-blue"
                             />
                         </div>
                     </div>
 
                     {students.length === 0 ? (
-                        <div className="p-16 text-center">
+                        <div className="p-10 md:p-16 text-center">
                             <Users className="mx-auto mb-3 text-slate-300" size={38} />
                             <p className="font-bold text-slate-500">Aucun étudiant validé dans cette session.</p>
                         </div>
                     ) : (
                         <>
-                            <div className="grid grid-cols-2 gap-3 border-b border-slate-100 bg-slate-50 p-5 md:grid-cols-4">
+                            <div className="grid grid-cols-2 gap-2 md:gap-3 border-b border-slate-100 bg-slate-50 p-4 md:p-5 md:grid-cols-4">
                                 {summary.map((item) => (
                                     <div key={item.value} className={`rounded-xl border px-4 py-3 ${statusClasses[item.value]}`}>
                                         <p className="text-[10px] font-black uppercase tracking-widest">{item.label}</p>
@@ -432,7 +432,7 @@ export default function PresenceAdminPage() {
                                 ))}
                             </div>
 
-                            <div className="overflow-x-auto">
+                            <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full min-w-[950px]">
                                     <thead>
                                         <tr className="border-b border-slate-200 bg-slate-50 text-left">
@@ -483,7 +483,63 @@ export default function PresenceAdminPage() {
                                 </table>
                             </div>
 
-                            <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 bg-slate-50 p-6 sm:flex-row">
+                            <div className="md:hidden space-y-3 p-3">
+                                {filteredStudents.length === 0 && (
+                                    <p className="py-8 text-center text-sm font-bold text-slate-400">Aucun étudiant ne correspond à la recherche.</p>
+                                )}
+                                {filteredStudents.map((student) => (
+                                    <div key={student.user_id} className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="font-black text-slate-900 truncate">{student.full_name}</p>
+                                                <p className="mt-0.5 text-xs text-slate-500 truncate">{student.email}</p>
+                                            </div>
+                                            <span className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusClasses[student.status]}`}>
+                                                {statusOptions.find((option) => option.value === student.status)?.label}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {statusOptions.map((option) => {
+                                                const isActive = student.status === option.value;
+                                                return (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        onClick={() => updateStudent(student.user_id, 'status', option.value)}
+                                                        aria-pressed={isActive}
+                                                        className={`h-12 rounded-xl border-2 text-xs font-black transition-all active:scale-95 ${isActive
+                                                            ? statusClasses[option.value]
+                                                            : 'border-slate-200 bg-white text-slate-500'
+                                                            }`}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+                                            <input
+                                                type="time"
+                                                value={student.arrival_time}
+                                                disabled={student.status === 'absent'}
+                                                onChange={(event) => updateStudent(student.user_id, 'arrival_time', event.target.value)}
+                                                aria-label="Heure d’arrivée"
+                                                className="h-11 w-28 rounded-xl border border-slate-200 bg-white px-3 text-base font-bold text-slate-800 outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus:border-brand-blue"
+                                            />
+                                            <input
+                                                value={student.note}
+                                                onChange={(event) => updateStudent(student.user_id, 'note', event.target.value)}
+                                                placeholder="Ajouter une remarque…"
+                                                className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-base outline-none focus:border-brand-blue"
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 bg-slate-50 p-4 md:p-6 sm:flex-row">
                                 <div>
                                     {success && <p className="font-bold text-emerald-600">{success}</p>}
                                     <p className="text-xs text-slate-500">L’heure par défaut est 09:00 et peut être modifiée individuellement.</p>
@@ -492,7 +548,7 @@ export default function PresenceAdminPage() {
                                     type="button"
                                     onClick={saveAttendance}
                                     disabled={saving}
-                                    className="btn-primary min-w-56 py-3"
+                                    className="btn-primary w-full sm:w-auto min-w-56 py-3"
                                 >
                                     {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
                                     {saving ? 'Enregistrement…' : 'Enregistrer les présences'}

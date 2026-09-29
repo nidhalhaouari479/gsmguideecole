@@ -605,8 +605,8 @@ export default function StudentsAdminPage() {
     ];
 
     return (
-        <div className="space-y-10 pb-10">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-6 md:space-y-10 pb-10">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
                         <Users size={14} /> Gestion des étudiants
@@ -614,15 +614,15 @@ export default function StudentsAdminPage() {
                     <h1 className="text-4xl font-black text-white tracking-tighter">Registre <span className="text-slate-500">Étudiants</span></h1>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <div className="relative max-w-md w-full">
+                <div className="flex flex-wrap md:flex-nowrap items-center gap-3 md:gap-4">
+                    <div className="relative flex-1 min-w-0 md:flex-initial md:max-w-md w-full">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
                             placeholder="Rechercher un étudiant..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
                     <div className="relative">
@@ -641,7 +641,7 @@ export default function StudentsAdminPage() {
                                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        className="absolute right-0 mt-4 w-64 bg-slate-900 border border-white/10 rounded-3xl shadow-2xl p-6 z-50 space-y-6"
+                                        className="absolute right-0 mt-4 w-64 max-h-[70dvh] overflow-y-auto md:max-h-none md:overflow-visible bg-slate-900 border border-white/10 rounded-3xl shadow-2xl p-6 z-50 space-y-6"
                                     >
                                         {!isProfessor && <div>
                                             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Statut Compte</p>
@@ -694,7 +694,7 @@ export default function StudentsAdminPage() {
                                                 <select
                                                     value={filterConfig.dateType}
                                                     onChange={(e) => setFilterConfig(prev => ({ ...prev, dateType: e.target.value as any, dateValue: '' }))}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:outline-none focus:border-brand-green/50"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none focus:border-brand-green/50"
                                                 >
                                                     <option value="all">Toutes les dates</option>
                                                     <option value="year">Par Année</option>
@@ -708,7 +708,7 @@ export default function StudentsAdminPage() {
                                                         placeholder="Ex: 2024"
                                                         value={filterConfig.dateValue}
                                                         onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:outline-none"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
                                                     />
                                                 )}
 
@@ -717,7 +717,7 @@ export default function StudentsAdminPage() {
                                                         type="month"
                                                         value={filterConfig.dateValue}
                                                         onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:outline-none"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
                                                     />
                                                 )}
 
@@ -726,7 +726,7 @@ export default function StudentsAdminPage() {
                                                         type="date"
                                                         value={filterConfig.dateValue}
                                                         onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:outline-none"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
                                                     />
                                                 )}
                                             </div>
@@ -748,20 +748,20 @@ export default function StudentsAdminPage() {
                     </div>
                     <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="btn-primary py-3 px-6 h-auto shadow-none bg-brand-green text-slate-950 hover:bg-brand-green/90 flex items-center gap-2"
+                        className="btn-primary w-full md:w-auto py-3 px-6 h-auto shadow-none bg-brand-green text-slate-950 hover:bg-brand-green/90 flex items-center gap-2"
                     >
                         <UserPlus size={18} /> Ajouter Étudiant
                     </button>
                     <button
                         onClick={handleExportList}
-                        className={`${isProfessor ? 'hidden' : 'flex'} btn-primary py-3 px-6 h-auto shadow-none bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white items-center gap-2`}
+                        className={`${isProfessor ? 'hidden' : 'flex'} flex-1 md:flex-initial btn-primary py-3 px-6 h-auto shadow-none bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white items-center gap-2`}
                         title="Exporter en CSV"
                     >
                         <Download size={18} /> CSV
                     </button>
                     <button
                         onClick={handleExportPDFList}
-                        className={`${isProfessor ? 'hidden' : 'flex'} btn-primary py-3 px-6 h-auto shadow-none bg-brand-blue/20 text-brand-blue hover:bg-brand-blue hover:text-white items-center gap-2`}
+                        className={`${isProfessor ? 'hidden' : 'flex'} flex-1 md:flex-initial btn-primary py-3 px-6 h-auto shadow-none bg-brand-blue/20 text-brand-blue hover:bg-brand-blue hover:text-white items-center gap-2`}
                         title="Exporter en PDF"
                     >
                         <FileDown size={18} /> PDF
@@ -769,21 +769,21 @@ export default function StudentsAdminPage() {
                 </div>
             </header>
 
-            <div className={`${isProfessor ? 'hidden' : 'grid'} grid-cols-1 md:grid-cols-3 gap-6`}>
+            <div className={`${isProfessor ? 'hidden' : 'grid'} grid-cols-2 md:grid-cols-3 gap-3 md:gap-6`}>
                 {statsCards.map((stat, i) => (
                     <motion.div
                         key={stat.label}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="premium-card p-6"
+                        className={`premium-card p-4 md:p-6 ${i === statsCards.length - 1 ? 'col-span-2 md:col-span-1' : ''}`}
                     >
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
+                        <div className="flex flex-col items-start md:flex-row md:items-center gap-3 md:gap-4">
+                            <div className={`p-2.5 md:p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
                                 <stat.icon size={24} />
                             </div>
-                            <div>
-                                <h3 className="text-3xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
+                            <div className="min-w-0">
+                                <h3 className="text-xl md:text-3xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{stat.label}</p>
                             </div>
                         </div>
@@ -792,7 +792,99 @@ export default function StudentsAdminPage() {
             </div>
 
             <div className="premium-card overflow-hidden">
-                <div className="overflow-x-auto custom-scrollbar">
+                {/* Mobile card list */}
+                <div className="md:hidden p-3 space-y-3">
+                    {sortedStudents.length > 0 ? (
+                        sortedStudents.map((student) => (
+                            <div key={student.id} className="rounded-2xl bg-white border border-slate-200 p-4">
+                                <button
+                                    type="button"
+                                    onClick={() => fetchStudentProfile(student.id)}
+                                    className="w-full flex items-start justify-between gap-3 text-left"
+                                >
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="font-black text-base text-white truncate">{student.full_name?.replace(/^(M|Mme)\s+/i, '') || student.full_name}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ID-{student.id.slice(0, 8)}</span>
+                                    </div>
+                                    {!isProfessor && (
+                                        <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${student.is_blocked ? 'bg-amber-500/20 text-amber-500' : 'bg-emerald-500/20 text-emerald-500'}`}>
+                                            {student.is_blocked ? 'Restreint' : 'Actif'}
+                                        </span>
+                                    )}
+                                </button>
+
+                                <div className="mt-3 space-y-2">
+                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 min-w-0">
+                                        <Mail size={14} className="text-slate-600 shrink-0" />
+                                        <span className="truncate">{student.email}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                                        <Phone size={14} className="text-slate-600 shrink-0" />
+                                        {student.phone}
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Enregistré le</span>
+                                        <span className="text-xs font-bold text-white">
+                                            {new Date(student.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })} · {new Date(student.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    {!isProfessor && (
+                                        <div className="flex items-center justify-between gap-3 tabular-nums">
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Finances</span>
+                                            <span className="text-right">
+                                                <span className="text-sm font-black text-brand-green">+{student.total_paid} DT</span>
+                                                <span className={`block text-[10px] font-bold ${student.total_remaining > 0 ? 'text-rose-400' : 'text-slate-600'}`}>
+                                                    {student.total_remaining > 0 ? `-${student.total_remaining} DT restant` : 'Totalité réglée'}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="mt-4 flex items-center gap-2">
+                                    <button
+                                        onClick={() => fetchStudentProfile(student.id)}
+                                        className="flex-1 min-h-10 px-3 rounded-xl bg-brand-green/10 text-brand-green border border-brand-green/20 flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider"
+                                    >
+                                        Profil <ChevronRight size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleAction(student.id, student.is_blocked ? 'unblock' : 'block')}
+                                        title={student.is_blocked ? "Autoriser" : "Restreindre"}
+                                        disabled={actionLoading === student.id}
+                                        className={`${isProfessor ? 'hidden' : 'flex'} w-10 h-10 items-center justify-center rounded-xl border border-white/5 transition-all ${student.is_blocked
+                                            ? 'bg-emerald-500/10 text-emerald-400'
+                                            : 'bg-amber-500/10 text-amber-500'
+                                            }`}
+                                    >
+                                        {actionLoading === student.id ? (
+                                            <Loader2 size={18} className="animate-spin" />
+                                        ) : student.is_blocked ? (
+                                            <UserCheck size={18} />
+                                        ) : (
+                                            <UserX size={18} />
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={() => handleAction(student.id, 'delete')}
+                                        title="Supprimer"
+                                        disabled={actionLoading === student.id}
+                                        className={`${isProfessor ? 'hidden' : 'flex'} w-10 h-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 transition-all`}
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="py-16 flex flex-col items-center gap-4 text-center">
+                            <Users size={48} className="text-slate-800" />
+                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun étudiant correspondant</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="hidden md:block overflow-x-auto custom-scrollbar">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-white/5 border-b border-white/5">
@@ -917,14 +1009,14 @@ export default function StudentsAdminPage() {
                     </table>
                 </div>
 
-                <div className="p-6 bg-white/5 border-t border-white/5 flex items-center justify-between">
+                <div className="p-4 md:p-6 bg-white/5 border-t border-white/5 flex flex-col items-start gap-3 md:flex-row md:items-center justify-between">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                         Couverture du registre : <span className="text-white">{(sortedStudents.length / (students.length || 1) * 100).toFixed(0)} %</span>
                     </p>
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-slate-400 mr-4">{sortedStudents.length} enregistrement(s) sur {students.length}</span>
-                        <button className="p-2 rounded-lg bg-slate-900 border border-white/5 text-slate-500 cursor-not-allowed"><ChevronRight size={16} className="rotate-180" /></button>
-                        <button className="p-2 rounded-lg bg-slate-900 border border-white/5 text-slate-500 cursor-not-allowed"><ChevronRight size={16} /></button>
+                        <button className="p-2 w-10 h-10 md:w-auto md:h-auto flex items-center justify-center md:block rounded-lg bg-slate-900 border border-white/5 text-slate-500 cursor-not-allowed"><ChevronRight size={16} className="rotate-180" /></button>
+                        <button className="p-2 w-10 h-10 md:w-auto md:h-auto flex items-center justify-center md:block rounded-lg bg-slate-900 border border-white/5 text-slate-500 cursor-not-allowed"><ChevronRight size={16} /></button>
                     </div>
                 </div>
             </div>
@@ -948,29 +1040,29 @@ export default function StudentsAdminPage() {
                             className="relative w-full max-w-4xl max-h-[90vh] bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
                         >
                             {/* Modal Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/5">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-blue to-blue-600 flex items-center justify-center text-white text-xl font-black shadow-lg">
+                            <div className="flex items-center justify-between gap-3 p-4 md:p-6 border-b border-white/10 bg-white/5">
+                                <div className="flex items-center gap-3 md:gap-4 min-w-0">
+                                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-brand-blue to-blue-600 flex items-center justify-center text-white text-xl font-black shadow-lg">
                                         {selectedProfile?.full_name?.replace(/^(M|Mme)\s+/i, '').charAt(0) || 'U'}
                                     </div>
-                                    <div>
-                                        <h2 className="text-xl font-black text-white">{selectedProfile?.full_name?.replace(/^(M|Mme)\s+/i, '') || selectedProfile?.full_name}</h2>
+                                    <div className="min-w-0">
+                                        <h2 className="text-lg md:text-xl font-black text-white truncate">{selectedProfile?.full_name?.replace(/^(M|Mme)\s+/i, '') || selectedProfile?.full_name}</h2>
                                         <p className="text-xs text-brand-blue font-bold uppercase tracking-widest">
                                             {selectedProfile?.is_blocked ? 'Compte Restreint' : 'Compte Actif'} • ID: {selectedProfile?.id.slice(0, 8)}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 shrink-0">
                                     <button
                                         onClick={handleDownloadPDF}
                                         title="Télécharger en PDF"
-                                        className="py-2 px-4 rounded-xl bg-brand-blue/10 text-brand-blue hover:text-white hover:bg-brand-blue transition-all flex items-center gap-2 text-xs font-bold"
+                                        className="min-h-10 md:min-h-0 py-2 px-3 md:px-4 rounded-xl bg-brand-blue/10 text-brand-blue hover:text-white hover:bg-brand-blue transition-all flex items-center gap-2 text-xs font-bold"
                                     >
                                         <FileDown size={16} /> PDF
                                     </button>
                                     <button
                                         onClick={() => setIsProfileModalOpen(false)}
-                                        className="p-2 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                                        className="p-2 w-10 h-10 md:w-auto md:h-auto flex items-center justify-center md:block rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
                                     >
                                         <X size={20} />
                                     </button>
@@ -978,7 +1070,7 @@ export default function StudentsAdminPage() {
                             </div>
 
                             {/* Modal Body */}
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8 bg-slate-900">
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6 md:space-y-8 bg-slate-900">
                                 {profileLoading ? (
                                     <div className="flex flex-col items-center justify-center py-20 gap-4">
                                         <Loader2 className="animate-spin text-brand-blue" size={48} />
@@ -991,8 +1083,8 @@ export default function StudentsAdminPage() {
                                             <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <UserCheck size={16} className="text-brand-green" /> Informations Personnelles
                                             </h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                                <div className="col-span-2 md:col-span-1 p-4 rounded-2xl bg-white/5 border border-white/5">
                                                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Email</p>
                                                     <p className="text-sm font-bold text-white truncate" title={selectedProfile.email}>{selectedProfile.email}</p>
                                                 </div>
@@ -1018,19 +1110,19 @@ export default function StudentsAdminPage() {
                                             <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <Send size={16} className="text-brand-green" /> Communication SMS
                                             </h3>
-                                            <div className="rounded-2xl border border-brand-green/20 bg-brand-green/5 p-5">
+                                            <div className="rounded-2xl border border-brand-green/20 bg-brand-green/5 p-4 md:p-5">
                                                 <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                                     <p className="text-xs font-bold text-slate-300">
                                                         Destinataire : <span className="text-white">{selectedProfile.phone || 'Aucun numéro'}</span>
                                                     </p>
                                                 </div>
                                                 <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Choisissez un modèle ou rédigez un message</p>
-                                                <div className="flex flex-wrap gap-2">
+                                                <div className="flex flex-nowrap overflow-x-auto md:flex-wrap md:overflow-visible gap-2 -mx-4 px-4 md:mx-0 md:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                                                     <button
                                                         type="button"
                                                         onClick={() => sendPaymentReminder(true)}
                                                         disabled={smsSending || !selectedProfile.phone || selectedProfile.phone === 'N/A' || Number(selectedProfile.total_remaining) <= 0}
-                                                        className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-rose-300 transition-colors hover:bg-rose-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                        className="shrink-0 min-h-10 md:min-h-0 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-rose-300 transition-colors hover:bg-rose-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                                                     >
                                                         Avis de retard ({selectedProfile.total_remaining} DT)
                                                     </button>
@@ -1038,7 +1130,7 @@ export default function StudentsAdminPage() {
                                                         type="button"
                                                         onClick={() => sendPaymentReminder(false)}
                                                         disabled={smsSending || !selectedProfile.phone || selectedProfile.phone === 'N/A' || Number(selectedProfile.total_remaining) <= 0}
-                                                        className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-amber-300 transition-colors hover:bg-amber-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                        className="shrink-0 min-h-10 md:min-h-0 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-amber-300 transition-colors hover:bg-amber-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                                                     >
                                                         Rappel de paiement
                                                     </button>
@@ -1048,7 +1140,7 @@ export default function StudentsAdminPage() {
                                                             setIsCustomSms(true);
                                                             setSmsFeedback(null);
                                                         }}
-                                                        className="rounded-xl border border-brand-green/30 bg-brand-green/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-brand-green transition-colors hover:bg-brand-green hover:text-white"
+                                                        className="shrink-0 min-h-10 md:min-h-0 rounded-xl border border-brand-green/30 bg-brand-green/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-brand-green transition-colors hover:bg-brand-green hover:text-white"
                                                     >
                                                         Message personnalisé
                                                     </button>
@@ -1069,7 +1161,7 @@ export default function StudentsAdminPage() {
                                                                 setSmsFeedback(null);
                                                             }}
                                                             placeholder="Saisissez le SMS à envoyer à cet étudiant…"
-                                                            className="w-full resize-none rounded-xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-900 outline-none focus:border-brand-green"
+                                                            className="w-full resize-none rounded-xl border border-slate-200 bg-white p-4 text-base md:text-sm leading-relaxed text-slate-900 outline-none focus:border-brand-green"
                                                         />
                                                     </div>
                                                 )}
@@ -1106,7 +1198,7 @@ export default function StudentsAdminPage() {
                                             <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <MessageSquare size={16} className="text-brand-blue" /> Remarque interne
                                             </h3>
-                                            <div className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-5">
+                                            <div className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-4 md:p-5">
                                                 <textarea
                                                     rows={5}
                                                     maxLength={3000}
@@ -1116,7 +1208,7 @@ export default function StudentsAdminPage() {
                                                         setStudentNoteSaved(false);
                                                     }}
                                                     placeholder="Ajouter une remarque générale sur cet étudiant…"
-                                                    className="w-full resize-y rounded-xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-900 outline-none focus:border-brand-blue"
+                                                    className="w-full resize-y rounded-xl border border-slate-200 bg-white p-4 text-base md:text-sm leading-relaxed text-slate-900 outline-none focus:border-brand-blue"
                                                 />
                                                 <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                                     <div>
@@ -1154,18 +1246,18 @@ export default function StudentsAdminPage() {
                                             <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <CreditCard size={16} className="text-amber-400" /> Bilan Financier
                                             </h3>
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                                                <div className="p-4 md:p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
                                                     <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1">Total Payé</p>
-                                                    <p className="text-2xl font-black text-emerald-400 tabular-nums">{selectedProfile.total_paid} DT</p>
+                                                    <p className="text-xl md:text-2xl font-black text-emerald-400 tabular-nums">{selectedProfile.total_paid} DT</p>
                                                 </div>
-                                                <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
+                                                <div className="p-4 md:p-5 rounded-2xl bg-white/5 border border-white/10">
                                                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Montant Total des Formations</p>
-                                                    <p className="text-2xl font-black text-white tabular-nums">{selectedProfile.total_price} DT</p>
+                                                    <p className="text-xl md:text-2xl font-black text-white tabular-nums">{selectedProfile.total_price} DT</p>
                                                 </div>
-                                                <div className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                                                <div className="col-span-2 md:col-span-1 p-4 md:p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
                                                     <p className="text-[10px] text-rose-500 font-black uppercase tracking-widest mb-1">Reste à Payer (Créances)</p>
-                                                    <p className="text-2xl font-black text-rose-400 tabular-nums">{selectedProfile.total_remaining} DT</p>
+                                                    <p className="text-xl md:text-2xl font-black text-rose-400 tabular-nums">{selectedProfile.total_remaining} DT</p>
                                                 </div>
                                             </div>
                                         </section>
@@ -1179,7 +1271,7 @@ export default function StudentsAdminPage() {
                                             {selectedProfile.enrollments?.length > 0 ? (
                                                 <div className="space-y-4">
                                                     {selectedProfile.enrollments.map((enrollment) => (
-                                                        <div key={enrollment.id} className="p-5 rounded-3xl bg-white/5 border border-white/10 flex flex-col md:flex-row gap-6 md:items-center justify-between">
+                                                        <div key={enrollment.id} className="p-4 md:p-5 rounded-3xl bg-white/5 border border-white/10 flex flex-col md:flex-row gap-4 md:gap-6 md:items-center justify-between">
                                                             {/* Course Info */}
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center overflow-hidden border border-white/10 shrink-0">
@@ -1190,7 +1282,7 @@ export default function StudentsAdminPage() {
                                                                     )}
                                                                 </div>
                                                                 <div>
-                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
                                                                         <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-brand-blue/20 text-brand-blue">
                                                                             {enrollment.course?.category || 'Formation'}
                                                                         </span>
@@ -1211,7 +1303,7 @@ export default function StudentsAdminPage() {
                                                             </div>
 
                                                             {/* Payment for this specific enrollment */}
-                                                            <div className={`${isProfessor ? 'hidden' : 'flex'} items-center gap-6 md:border-l border-white/10 md:pl-6`}>
+                                                            <div className={`${isProfessor ? 'hidden' : 'flex'} items-center justify-between md:justify-start gap-6 pt-4 md:pt-0 border-t md:border-t-0 md:border-l border-white/10 md:pl-6`}>
                                                                 <div className="flex flex-col items-end">
                                                                     <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Paiement Partiel</span>
                                                                     <span className="text-sm font-black text-emerald-400">+{enrollment.amount_paid} / {enrollment.total_price} DT</span>
@@ -1234,7 +1326,7 @@ export default function StudentsAdminPage() {
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <div className="p-10 rounded-3xl border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
+                                                <div className="p-6 md:p-10 rounded-3xl border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
                                                     <BookOpen size={48} className="text-slate-700 mb-4" />
                                                     <p className="text-sm font-black text-white mb-1">Aucune inscription</p>
                                                     <p className="text-xs text-slate-500 font-bold">Cet étudiant ne s'est encore inscrit à aucune formation.</p>
@@ -1268,7 +1360,7 @@ export default function StudentsAdminPage() {
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
                             className="relative w-full max-w-md bg-slate-900 border border-rose-500/20 rounded-3xl shadow-2xl overflow-hidden"
                         >
-                            <div className="p-8 text-center">
+                            <div className="p-6 md:p-8 text-center">
                                 <div className="w-20 h-20 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto mb-6">
                                     <Trash2 size={40} className="text-rose-500" />
                                 </div>
@@ -1308,27 +1400,27 @@ export default function StudentsAdminPage() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white border border-slate-200 p-8 rounded-3xl w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]"
+                            className="bg-white border border-slate-200 p-5 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]"
                         >
-                            <div className="flex justify-between items-center mb-8">
+                            <div className="flex justify-between items-center gap-3 mb-6 md:mb-8">
                                 <div>
-                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Recruter un <span className="text-brand-green">Nouvel Étudiant</span></h2>
+                                    <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Recruter un <span className="text-brand-green">Nouvel Étudiant</span></h2>
                                     <p className="text-slate-500 text-xs mt-1 uppercase font-bold tracking-widest">Enregistrement manuel sans vérification e-mail</p>
                                 </div>
-                                <button onClick={() => setIsAddModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
+                                <button onClick={() => setIsAddModalOpen(false)} className="p-2 w-10 h-10 md:w-auto md:h-auto shrink-0 flex items-center justify-center md:block text-slate-400 hover:text-slate-900 transition-colors">
                                     <X size={24} />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleCreateStudent} className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <form onSubmit={handleCreateStudent} className="space-y-4 md:space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail (Identifiant)</label>
                                         <input
                                             type="email"
                                             value={addFormData.email}
                                             onChange={(e) => setAddFormData({ ...addFormData, email: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
                                             placeholder="exemple@email.com"
                                             required
                                         />
@@ -1339,7 +1431,7 @@ export default function StudentsAdminPage() {
                                             type="text"
                                             value={addFormData.password}
                                             onChange={(e) => setAddFormData({ ...addFormData, password: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
                                             placeholder="••••••••"
                                             required
                                         />
@@ -1354,19 +1446,19 @@ export default function StudentsAdminPage() {
                                         type="text"
                                         value={addFormData.full_name}
                                         onChange={(e) => setAddFormData({ ...addFormData, full_name: e.target.value })}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
                                         placeholder="Nom & Prénom"
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Téléphone</label>
                                         <input
                                             type="text"
                                             value={addFormData.phone}
                                             onChange={(e) => setAddFormData({ ...addFormData, phone: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
                                             placeholder="55 123 456"
                                         />
                                     </div>
@@ -1376,13 +1468,13 @@ export default function StudentsAdminPage() {
                                             type="text"
                                             value={addFormData.cin_number}
                                             onChange={(e) => setAddFormData({ ...addFormData, cin_number: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-sm"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
                                             placeholder="00123456"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="pt-4 flex gap-4">
+                                <div className="pt-4 flex flex-col-reverse md:flex-row gap-3 md:gap-4 sticky -bottom-5 -mx-5 px-5 -mb-5 pb-5 bg-white md:static md:mx-0 md:px-0 md:mb-0 md:pb-0 md:bg-transparent">
                                     <button
                                         type="button"
                                         onClick={() => setIsAddModalOpen(false)}

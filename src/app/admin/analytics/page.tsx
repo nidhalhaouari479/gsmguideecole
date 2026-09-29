@@ -80,10 +80,10 @@ export default function AnalyticsAdminPage() {
     }
 
     return (
-        <div className="space-y-10 pb-20 max-w-[1600px] mx-auto">
+        <div className="space-y-5 md:space-y-10 pb-4 md:pb-20 max-w-[1600px] mx-auto">
             {/* Header */}
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
+            <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
+                <div className="min-w-0">
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.3em] text-[10px] mb-2">
                         <Activity size={14} /> Analyse réelle du site
                     </div>
@@ -91,26 +91,26 @@ export default function AnalyticsAdminPage() {
                         ANALYSE <span className="text-brand-green">DU SITE</span>
                     </h1>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
                     {['7J', '30J'].map(t => (
                         <button
                             key={t}
                             onClick={() => setTimeRange(t)}
-                            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${timeRange === t ? 'bg-brand-green text-slate-950 shadow-[0_0_15px_rgba(161,184,62,0.5)]' : 'bg-slate-900 border border-white/5 text-slate-400 hover:text-white hover:border-brand-green/50'}`}
+                            className={`shrink-0 flex-1 md:flex-none min-h-10 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${timeRange === t ? 'bg-brand-green text-slate-950 shadow-[0_0_15px_rgba(161,184,62,0.5)]' : 'bg-slate-900 border border-white/5 text-slate-400 hover:text-white hover:border-brand-green/50'}`}
                         >
                             {t}
                         </button>
                     ))}
-                    <button onClick={fetchData} className="p-2 ml-2 bg-slate-900 border border-white/5 rounded-xl text-slate-400 hover:text-white hover:border-brand-green/50 transition-all" title="Rafraîchir">
+                    <button onClick={fetchData} className="shrink-0 w-10 h-10 md:w-auto md:h-auto flex items-center justify-center p-2 ml-2 bg-slate-900 border border-white/5 rounded-xl text-slate-400 hover:text-white hover:border-brand-green/50 transition-all" title="Rafraîchir">
                         <RefreshCw size={18} />
                     </button>
                 </div>
             </header>
 
             {!hasData && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="premium-card p-10 flex flex-col items-center gap-3 text-center">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="premium-card p-6 md:p-10 flex flex-col items-center gap-3 text-center">
                     <Activity size={48} className="text-slate-700" />
-                    <h3 className="text-xl font-black text-white">Aucune donnée de trafic pour l'instant</h3>
+                    <h3 className="text-lg md:text-xl font-black text-white">Aucune donnée de trafic pour l'instant</h3>
                     <p className="text-slate-500 text-sm max-w-md">
                         Le système de tracking est actif. Les données vont commencer à apparaître ici dès que les visiteurs navigueront sur votre site.
                     </p>
@@ -118,22 +118,22 @@ export default function AnalyticsAdminPage() {
             )}
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                 {cards.map((card, i) => (
                     <motion.div
                         key={card.label}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="premium-card p-6 overflow-hidden relative group cursor-default"
+                        className="premium-card p-4 md:p-6 overflow-hidden relative group cursor-default min-w-0"
                     >
-                        <div className="flex items-center justify-between mb-6">
-                            <div className={`w-12 h-12 rounded-2xl ${card.bg} ${card.color} flex items-center justify-center shadow-lg group-hover:-rotate-12 transition-transform duration-300`}>
-                                <card.icon size={24} />
+                        <div className="flex items-center justify-between mb-3 md:mb-6">
+                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl ${card.bg} ${card.color} flex items-center justify-center shadow-lg group-hover:-rotate-12 transition-transform duration-300`}>
+                                <card.icon size={24} className="w-5 h-5 md:w-6 md:h-6" />
                             </div>
                         </div>
-                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">{card.label}</h3>
-                        <p className="text-4xl font-black text-white tracking-tighter tabular-nums">{card.value}</p>
+                        <h3 className="text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest mb-1 truncate">{card.label}</h3>
+                        <p className="text-2xl md:text-4xl truncate font-black text-white tracking-tighter tabular-nums">{card.value}</p>
                     </motion.div>
                 ))}
             </div>
@@ -141,22 +141,22 @@ export default function AnalyticsAdminPage() {
             {hasData && (
                 <>
                     {/* Charts Row 1 */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
                         {/* Traffic Area Chart */}
-                        <div className="lg:col-span-2 premium-card p-8 bg-[#0a0f19]">
-                            <div className="flex items-center justify-between mb-8">
-                                <div>
-                                    <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
+                        <div className="lg:col-span-2 premium-card p-4 md:p-8 bg-[#0a0f19] min-w-0">
+                            <div className="flex items-center justify-between gap-3 mb-4 md:mb-8">
+                                <div className="min-w-0">
+                                    <h3 className="text-base md:text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
                                         <TrendingUp className="text-brand-green" /> Trafic par jour
                                     </h3>
                                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Visites des 7 derniers jours</p>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 shrink-0">
                                     <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse"></span>
                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">En direct</span>
                                 </div>
                             </div>
-                            <div className="h-[280px] w-full">
+                            <div className="h-56 md:h-[280px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={data.trafficChart}>
                                         <defs>
@@ -176,13 +176,13 @@ export default function AnalyticsAdminPage() {
                         </div>
 
                         {/* Clicks Pie Chart */}
-                        <div className="premium-card p-8">
-                            <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
+                        <div className="premium-card p-4 md:p-8 min-w-0">
+                            <h3 className="text-base md:text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
                                 <PieIcon className="text-brand-blue" /> Clics par bouton
                             </h3>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 mb-4">Répartition des interactions</p>
                             {data.clicksChart.length > 0 ? (
-                                <div className="h-[280px] w-full">
+                                <div className="h-56 md:h-[280px] w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie data={data.clicksChart} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value" stroke="none">
@@ -196,21 +196,21 @@ export default function AnalyticsAdminPage() {
                                     </ResponsiveContainer>
                                 </div>
                             ) : (
-                                <div className="h-[280px] flex items-center justify-center text-slate-600 text-sm font-bold">Aucun clic enregistré</div>
+                                <div className="h-40 md:h-[280px] flex items-center justify-center text-slate-600 text-sm font-bold">Aucun clic enregistré</div>
                             )}
                         </div>
                     </div>
 
                     {/* Charts Row 2 & Table */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
                         {/* Time per page Bar Chart */}
-                        <div className="premium-card p-8">
-                            <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
+                        <div className="premium-card p-4 md:p-8 min-w-0">
+                            <h3 className="text-base md:text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
                                 <Clock className="text-amber-500" /> Temps moyen par page
                             </h3>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 mb-6">Durée moyenne d'engagement (sec)</p>
                             {data.timePerPage.length > 0 ? (
-                                <div className="h-[280px] w-full">
+                                <div className="h-56 md:h-[280px] w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={data.timePerPage} layout="vertical" margin={{ left: -10, right: 20 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
@@ -226,19 +226,32 @@ export default function AnalyticsAdminPage() {
                                     </ResponsiveContainer>
                                 </div>
                             ) : (
-                                <div className="h-[280px] flex items-center justify-center text-slate-600 text-sm font-bold">Données insuffisantes</div>
+                                <div className="h-40 md:h-[280px] flex items-center justify-center text-slate-600 text-sm font-bold">Données insuffisantes</div>
                             )}
                         </div>
 
                         {/* Page Table */}
-                        <div className="premium-card flex flex-col overflow-hidden">
-                            <div className="p-8 border-b border-white/5">
-                                <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
+                        <div className="premium-card flex flex-col overflow-hidden min-w-0">
+                            <div className="p-4 md:p-8 border-b border-white/5">
+                                <h3 className="text-base md:text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-3">
                                     <FileText className="text-rose-500" /> Pages les plus visitées
                                 </h3>
                                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Pages principales et performances</p>
                             </div>
-                            <div className="overflow-x-auto overflow-y-auto flex-grow">
+                            <div className="md:hidden divide-y divide-white/5">
+                                {data.pageTable.length > 0 ? data.pageTable.map((row, i) => (
+                                    <div key={i} className="flex items-center justify-between gap-3 px-4 py-3">
+                                        <p className="min-w-0 truncate text-sm font-black text-white font-mono">{row.page}</p>
+                                        <div className="shrink-0 text-right">
+                                            <p className="text-sm font-bold text-slate-300 tabular-nums">{row.views.toLocaleString()} vues</p>
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest tabular-nums">{row.time}</p>
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <p className="px-4 py-12 text-center text-slate-600 text-sm font-bold">Aucune donnée disponible</p>
+                                )}
+                            </div>
+                            <div className="hidden md:block overflow-x-auto overflow-y-auto flex-grow">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-white/[0.02]">

@@ -50,15 +50,15 @@ export default function AdminLogin() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 font-sans">
+        <div className="min-h-[100dvh] md:min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),1rem)] md:py-0 font-sans">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-[400px]"
             >
-                <div className="premium-card bg-white p-10 shadow-xl overflow-hidden relative">
+                <div className="premium-card bg-white p-6 sm:p-8 md:p-10 shadow-xl overflow-hidden relative">
                     <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-brand-green/10 text-brand-green rounded-2xl flex items-center justify-center mx-auto mb-6">
+                        <div className="w-16 h-16 bg-brand-green/10 text-brand-green rounded-2xl flex items-center justify-center mx-auto mb-4 md:mb-6">
                             <Lock size={32} />
                         </div>
                         <h1 className="text-2xl font-bold text-slate-900">Administration</h1>
@@ -67,7 +67,7 @@ export default function AdminLogin() {
 
                     {error && (
                         <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl flex items-center gap-3 text-sm font-medium">
-                            <AlertCircle size={18} />
+                            <AlertCircle size={18} className="shrink-0" />
                             {error}
                         </div>
                     )}
@@ -82,7 +82,7 @@ export default function AdminLogin() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
-                                    className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all text-slate-900"
+                                    className="w-full h-12 md:h-auto text-base pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all text-slate-900"
                                     placeholder="admin@gsmguide.com"
                                 />
                             </div>
@@ -97,7 +97,7 @@ export default function AdminLogin() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all text-slate-900"
+                                    className="w-full h-12 md:h-auto text-base pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all text-slate-900"
                                     placeholder="••••••••"
                                 />
                             </div>
@@ -106,7 +106,7 @@ export default function AdminLogin() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="btn-primary w-full py-3.5 mt-2"
+                            className="btn-primary w-full min-h-12 md:min-h-0 py-3.5 mt-2"
                         >
                             {loading ? (
                                 <Loader2 className="animate-spin" size={20} />
@@ -118,7 +118,7 @@ export default function AdminLogin() {
                 </div>
 
                 <div className="text-center mt-8">
-                    <Link href="/" className="text-sm text-slate-500 hover:text-brand-green font-medium transition-colors">
+                    <Link href="/" className="inline-flex items-center min-h-10 md:min-h-0 text-sm text-slate-500 hover:text-brand-green font-medium transition-colors">
                         ← Retour au site
                     </Link>
                 </div>

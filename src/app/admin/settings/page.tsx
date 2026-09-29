@@ -47,31 +47,31 @@ export default function SettingsAdminPage() {
     ];
 
     return (
-        <div className="max-w-[1600px] mx-auto space-y-12 pb-32 font-sans">
+        <div className="max-w-[1600px] mx-auto space-y-6 md:space-y-12 pb-6 md:pb-32 font-sans">
             {/* Command Header */}
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-8 border-b border-white/5">
+            <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-8 pb-4 md:pb-8 border-b border-white/5">
                 <div>
-                    <div className="flex items-center gap-3 text-brand-green text-[10px] font-black uppercase tracking-[0.4em] mb-4">
+                    <div className="flex items-center gap-3 text-brand-green text-[10px] font-black uppercase tracking-[0.4em] mb-2 md:mb-4">
                         <div className="w-10 h-[1px] bg-gradient-to-r from-brand-green to-transparent" />
                         CONFIGURATION DU SYSTÈME
                     </div>
-                    <h1 className="text-5xl font-black text-white tracking-tighter">Paramètres <span className="text-slate-500">du système</span></h1>
-                    <p className="text-slate-500 text-sm font-bold mt-2 uppercase tracking-widest">Variables générales et directives de sécurité</p>
+                    <h1 className="text-3xl md:text-5xl font-black text-white tracking-tighter">Paramètres <span className="text-slate-500">du système</span></h1>
+                    <p className="text-slate-500 text-xs md:text-sm font-bold mt-2 uppercase tracking-widest">Variables générales et directives de sécurité</p>
                 </div>
 
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="btn-command flex items-center justify-center gap-3 w-full md:w-auto"
+                    className="btn-command flex items-center justify-center gap-3 w-full md:w-auto min-h-12 md:min-h-0"
                 >
                     {saving ? <Loader2 className="animate-spin" size={18} strokeWidth={3} /> : success ? <CheckCircle size={18} strokeWidth={3} className="text-brand-green" /> : <Save size={18} strokeWidth={3} />}
                     {success ? 'DONNÉES ENREGISTRÉES' : 'ENREGISTRER'}
                 </button>
             </header>
 
-            <div className="flex flex-col lg:flex-row gap-12">
+            <div className="flex flex-col lg:flex-row gap-4 md:gap-12">
                 {/* Navigation Tabs - Command Matrix Style */}
-                <aside className="lg:w-80 space-y-3">
+                <aside className="lg:w-80 flex flex-nowrap gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:block md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:space-y-3">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
@@ -79,7 +79,7 @@ export default function SettingsAdminPage() {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`w-full flex items-center gap-4 px-6 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all relative overflow-hidden ${isActive
+                                className={`shrink-0 whitespace-nowrap md:whitespace-normal md:w-full flex items-center gap-3 md:gap-4 px-4 py-3 min-h-11 md:min-h-0 md:px-6 md:py-5 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.2em] transition-all relative overflow-hidden ${isActive
                                     ? 'bg-slate-900 border border-brand-green/30 text-white shadow-[0_0_30px_rgba(161,184,62,0.1)]'
                                     : 'bg-slate-950/50 border border-white/5 text-slate-500 hover:text-slate-300 hover:bg-slate-900 group'
                                     }`}
@@ -96,7 +96,7 @@ export default function SettingsAdminPage() {
                         );
                     })}
 
-                    <div className="mt-8 p-6 glass-effect-dark border border-brand-blue/20 rounded-2xl relative overflow-hidden">
+                    <div className="hidden md:block mt-8 p-6 glass-effect-dark border border-brand-blue/20 rounded-2xl relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <Cpu size={80} />
                         </div>
@@ -127,22 +127,22 @@ export default function SettingsAdminPage() {
                         key={activeTab}
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="command-card bg-slate-900/40 border border-white/5 p-8 md:p-12 min-h-[600px]"
+                        className="command-card bg-slate-900/40 border border-white/5 p-4 sm:p-6 md:p-12 md:min-h-[600px] rounded-2xl md:rounded-none"
                     >
                         {activeTab === 'general' && (
-                            <div className="space-y-10">
-                                <div className="border-b border-white/5 pb-8 mb-10">
-                                    <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Identité de l’académie</h3>
+                            <div className="space-y-6 md:space-y-10">
+                                <div className="border-b border-white/5 pb-4 md:pb-8 mb-6 md:mb-10">
+                                    <h3 className="text-xl md:text-2xl font-black text-white mb-2 tracking-tight">Identité de l’académie</h3>
                                     <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Informations publiques de l’établissement.</p>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
                                             <Building size={12} className="text-brand-green" /> Nom de l’établissement
                                         </label>
                                         <div className="relative group">
-                                            <input type="text" defaultValue="GSM Guide Academy" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
+                                            <input type="text" defaultValue="GSM Guide Academy" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
                                         </div>
                                     </div>
                                     <div className="space-y-3">
@@ -150,7 +150,7 @@ export default function SettingsAdminPage() {
                                             <Mail size={12} className="text-brand-green" /> Adresse e-mail principale
                                         </label>
                                         <div className="relative group">
-                                            <input type="email" defaultValue="Gsmguideacademy@gmail.com" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-brand-blue focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
+                                            <input type="email" defaultValue="Gsmguideacademy@gmail.com" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-brand-blue focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
                                         </div>
                                     </div>
                                     <div className="space-y-3">
@@ -158,7 +158,7 @@ export default function SettingsAdminPage() {
                                             <Phone size={12} className="text-brand-blue" /> Numéro de téléphone
                                         </label>
                                         <div className="relative group">
-                                            <input type="tel" defaultValue="+216 71 000 000" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-blue/50 focus:ring-4 focus:ring-brand-blue/10 transition-all uppercase tracking-wider" />
+                                            <input type="tel" defaultValue="+216 71 000 000" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-blue/50 focus:ring-4 focus:ring-brand-blue/10 transition-all uppercase tracking-wider" />
                                         </div>
                                     </div>
                                     <div className="space-y-3">
@@ -166,7 +166,7 @@ export default function SettingsAdminPage() {
                                             <MapPin size={12} className="text-brand-green" /> Adresse physique
                                         </label>
                                         <div className="relative group">
-                                            <input type="text" defaultValue="Tunis, Tunisie" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
+                                            <input type="text" defaultValue="Tunis, Tunisie" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
                                         </div>
                                     </div>
                                 </div>
@@ -174,13 +174,13 @@ export default function SettingsAdminPage() {
                         )}
 
                         {activeTab === 'payments' && (
-                            <div className="space-y-10">
-                                <div className="border-b border-white/5 pb-8 mb-10">
-                                    <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Coordonnées financières</h3>
+                            <div className="space-y-6 md:space-y-10">
+                                <div className="border-b border-white/5 pb-4 md:pb-8 mb-6 md:mb-10">
+                                    <h3 className="text-xl md:text-2xl font-black text-white mb-2 tracking-tight">Coordonnées financières</h3>
                                     <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Paramètres utilisés pour les virements.</p>
                                 </div>
 
-                                <div className="p-6 bg-brand-neon/5 border border-brand-neon/20 rounded-2xl flex gap-6 text-brand-neon mb-10 items-start shadow-[0_0_20px_rgba(244,63,94,0.05)]">
+                                <div className="p-4 md:p-6 bg-brand-neon/5 border border-brand-neon/20 rounded-2xl flex gap-4 md:gap-6 text-brand-neon mb-6 md:mb-10 items-start shadow-[0_0_20px_rgba(244,63,94,0.05)]">
                                     <AlertTriangle className="shrink-0 mt-1" size={24} />
                                     <div>
                                         <h4 className="text-sm font-black uppercase tracking-widest mb-1">Paramètre sensible</h4>
@@ -190,43 +190,43 @@ export default function SettingsAdminPage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-8 max-w-2xl">
+                                <div className="space-y-6 md:space-y-8 max-w-2xl">
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Établissement bancaire</label>
-                                        <input type="text" defaultValue="BIAT Tunisie" className="w-full px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
+                                        <input type="text" defaultValue="BIAT Tunisie" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
                                     </div>
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Numéro de compte (RIB)</label>
-                                        <input type="text" defaultValue="08 000 00000000000 00" className="w-full px-6 py-5 bg-slate-950/80 border border-brand-green/20 rounded-2xl font-black text-xl tracking-[0.3em] text-brand-green focus:outline-none focus:border-brand-green focus:ring-4 focus:ring-brand-green/20 transition-all placeholder:tracking-normal shadow-inner" />
+                                        <input type="text" defaultValue="08 000 00000000000 00" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-brand-green/20 rounded-2xl font-black text-lg md:text-xl tracking-[0.15em] md:tracking-[0.3em] text-brand-green focus:outline-none focus:border-brand-green focus:ring-4 focus:ring-brand-green/20 transition-all placeholder:tracking-normal shadow-inner" />
                                     </div>
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Montant minimal autorisé (DT)</label>
-                                        <input type="number" defaultValue="200" className="w-48 px-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all tabular-nums text-xl" />
+                                        <input type="number" defaultValue="200" className="w-48 px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all tabular-nums text-xl" />
                                     </div>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'security' && (
-                            <div className="space-y-10">
-                                <div className="border-b border-white/5 pb-8 mb-10">
-                                    <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Paramètres de sécurité</h3>
+                            <div className="space-y-6 md:space-y-10">
+                                <div className="border-b border-white/5 pb-4 md:pb-8 mb-6 md:mb-10">
+                                    <h3 className="text-xl md:text-2xl font-black text-white mb-2 tracking-tight">Paramètres de sécurité</h3>
                                     <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Gérer les identifiants d’accès principaux.</p>
                                 </div>
 
-                                <div className="space-y-8 max-w-lg">
+                                <div className="space-y-6 md:space-y-8 max-w-lg">
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Mot de passe actuel</label>
                                         <div className="relative group">
-                                            <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-blue transition-colors" size={18} />
-                                            <input type="password" placeholder="••••••••••••" className="w-full pl-16 pr-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-blue/50 focus:ring-4 focus:ring-brand-blue/10 transition-all tracking-[0.3em]" />
+                                            <Lock className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-blue transition-colors" size={18} />
+                                            <input type="password" placeholder="••••••••••••" className="w-full pl-12 pr-4 py-4 md:pl-16 md:pr-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-blue/50 focus:ring-4 focus:ring-brand-blue/10 transition-all tracking-[0.3em]" />
                                         </div>
                                     </div>
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Nouveau mot de passe</label>
                                         <div className="relative group">
-                                            <Shield className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-green transition-colors" size={18} />
-                                            <input type="password" placeholder="12 CARACTÈRES MINIMUM" className="w-full pl-16 pr-6 py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-widest text-xs" />
+                                            <Shield className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-green transition-colors" size={18} />
+                                            <input type="password" placeholder="12 CARACTÈRES MINIMUM" className="w-full pl-12 pr-4 py-4 md:pl-16 md:pr-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-widest text-base md:text-xs" />
                                         </div>
                                     </div>
                                     <div className="pt-6 flex flex-col sm:flex-row gap-4 border-t border-white/5">

@@ -120,24 +120,24 @@ export default function NotificationsPage() {
     });
 
     return (
-        <div className="space-y-8 pb-10">
+        <div className="space-y-5 md:space-y-8 pb-4 md:pb-10">
             {/* Header Area */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
+                <div className="min-w-0">
                     <div className="flex items-center gap-2 text-brand-green mb-2">
-                        <Link href="/admin" className="p-2 rounded-lg bg-brand-green/10 hover:bg-brand-green/20 transition-all flex items-center justify-center">
+                        <Link href="/admin" className="w-10 h-10 md:w-auto md:h-auto shrink-0 p-2 rounded-lg bg-brand-green/10 hover:bg-brand-green/20 transition-all flex items-center justify-center">
                             <ChevronLeft size={16} />
                         </Link>
                         <span className="text-[10px] font-black uppercase tracking-[0.3em]">Centre de Commandement</span>
                     </div>
                     <h1 className="text-4xl font-black text-white tracking-tighter">Archives des <span className="text-brand-green">Notifications</span></h1>
-                    <p className="text-slate-500 text-xs font-bold mt-2 uppercase tracking-widest">Historique complet des alertes système et inscriptions</p>
+                    <p className="text-slate-500 text-[10px] md:text-xs font-bold mt-2 uppercase tracking-widest">Historique complet des alertes système et inscriptions</p>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <button 
                         onClick={markAllAsRead}
-                        className="px-6 py-3 rounded-2xl bg-brand-green/10 text-brand-green border border-brand-green/20 text-xs font-black uppercase tracking-widest hover:bg-brand-green hover:text-white transition-all flex items-center gap-2"
+                        className="w-full md:w-auto justify-center px-6 py-3 rounded-2xl bg-brand-green/10 text-brand-green border border-brand-green/20 text-xs font-black uppercase tracking-widest hover:bg-brand-green hover:text-white transition-all flex items-center gap-2"
                     >
                         <CheckCircle2 size={16} /> Tout marquer comme lu
                     </button>
@@ -153,15 +153,15 @@ export default function NotificationsPage() {
                         placeholder="Rechercher dans les archives..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-slate-900 focus:outline-none focus:border-brand-green/30 transition-all"
+                        className="w-full bg-white border border-slate-200 rounded-2xl py-3 md:py-4 pl-12 pr-4 text-base md:text-sm font-bold text-slate-900 focus:outline-none focus:border-brand-green/30 transition-all"
                     />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-nowrap gap-2 overflow-x-auto">
                     {(['all', 'unread', 'read'] as const).map((f) => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
-                            className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${filter === f ? 'bg-white/10 border-white/20 text-white shadow-xl' : 'bg-transparent border-white/5 text-slate-500 hover:text-white hover:border-white/10'}`}
+                            className={`shrink-0 flex-1 px-4 py-3 md:py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${filter === f ? 'bg-white/10 border-white/20 text-white shadow-xl' : 'bg-transparent border-white/5 text-slate-500 hover:text-white hover:border-white/10'}`}
                         >
                             {f === 'all' ? 'Toutes' : f === 'unread' ? 'Non lues' : 'Déjà lues'}
                         </button>
@@ -195,23 +195,23 @@ export default function NotificationsPage() {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.05 }}
                             onClick={() => openNotification(notif)}
-                            className={`group relative cursor-pointer p-6 rounded-3xl border transition-all ${!notif.is_read ? 'bg-brand-green/5 border-brand-green/20' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                            className={`group relative cursor-pointer p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all ${!notif.is_read ? 'bg-brand-green/5 border-brand-green/20' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
                         >
-                            <div className="flex gap-6 items-start">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${getNotifColor(notif.type, notif.is_read)}`}>
+                            <div className="flex gap-3 md:gap-6 items-start">
+                                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${getNotifColor(notif.type, notif.is_read)}`}>
                                     {getNotifIcon(notif.type)}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <h3 className={`text-lg font-black truncate ${!notif.is_read ? 'text-white' : 'text-slate-300'}`}>{notif.title}</h3>
-                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex items-start md:items-center justify-between gap-2 mb-1">
+                                        <h3 className={`min-w-0 text-base md:text-lg font-black truncate ${!notif.is_read ? 'text-white' : 'text-slate-300'}`}>{notif.title}</h3>
+                                        <div className="flex items-center gap-1 md:gap-2 shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                             {!notif.is_read && (
                                                 <button 
                                                     onClick={(event) => {
                                                         event.stopPropagation();
                                                         markAsRead(notif.id);
                                                     }}
-                                                    className="p-2 rounded-xl bg-brand-green/10 text-brand-green hover:bg-brand-green hover:text-white transition-all"
+                                                    className="w-10 h-10 md:w-auto md:h-auto flex items-center justify-center p-2 rounded-xl bg-brand-green/10 text-brand-green hover:bg-brand-green hover:text-white transition-all"
                                                     title="Marquer comme lu"
                                                 >
                                                     <CheckCircle2 size={16} />
@@ -222,15 +222,15 @@ export default function NotificationsPage() {
                                                     event.stopPropagation();
                                                     deleteNotification(notif.id);
                                                 }}
-                                                className="p-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                                                className="w-10 h-10 md:w-auto md:h-auto flex items-center justify-center p-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
                                                 title="Supprimer définitivement"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
                                         </div>
                                     </div>
-                                    <p className="text-sm font-medium text-slate-400 leading-relaxed mb-4">{notif.message}</p>
-                                    <div className="flex items-center gap-4">
+                                    <p className="text-sm font-medium text-slate-400 leading-relaxed mb-3 md:mb-4 break-words">{notif.message}</p>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                                         <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                             <Clock size={12} className="text-brand-green" />
                                             {new Date(notif.created_at).toLocaleDateString('fr-FR', { 
@@ -250,7 +250,7 @@ export default function NotificationsPage() {
                         </motion.div>
                     ))
                 ) : (
-                    <div className="py-32 flex flex-col items-center justify-center text-center opacity-50">
+                    <div className="py-16 md:py-32 flex flex-col items-center justify-center text-center opacity-50">
                         <div className="w-20 h-20 rounded-full bg-slate-900 flex items-center justify-center mb-6">
                             <Bell size={40} className="text-slate-700" />
                         </div>

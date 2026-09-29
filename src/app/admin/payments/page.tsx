@@ -63,6 +63,32 @@ const getPaymentStatusLabel = (status: string) => {
     return 'En attente';
 };
 
+const getLatestReceiptUrl = (en: Enrollment) => {
+    let latestUrl = en.receipt_url;
+    if (latestUrl && latestUrl.startsWith('[')) {
+        try {
+            const history = JSON.parse(latestUrl);
+            if (Array.isArray(history)) {
+                const pending = [...history].reverse().find((item: any) => item.status === 'pending');
+                const latestWithReceipt = [...history].reverse().find((item: any) => item.url);
+                latestUrl = pending?.url || latestWithReceipt?.url || null;
+            }
+        } catch (e) {
+            // Ignore parse error
+        }
+    }
+    return latestUrl;
+};
+
+const renderPaymentStatusBadge = (status: string) => (
+    <span className={`status-badge ${status?.toLowerCase() === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+        status?.toLowerCase() === 'rejected' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+            'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+        }`}>
+        {status?.toLowerCase() === 'approved' ? 'VALIDÉ' : status?.toLowerCase() === 'rejected' ? 'REFUSÉ' : 'EN ATTENTE'}
+    </span>
+);
+
 export default function PaymentsAdminPage() {
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -457,8 +483,8 @@ export default function PaymentsAdminPage() {
     };
 
     return (
-        <div className="space-y-10 pb-20">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-6 md:space-y-10 pb-20">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
                         <CreditCard size={14} /> Gestion financière
@@ -466,26 +492,26 @@ export default function PaymentsAdminPage() {
                     <h1 className="text-4xl font-black text-white tracking-tighter">Flux <span className="text-slate-500">Financiers</span></h1>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap md:flex-nowrap items-center gap-3 md:gap-4">
                     <button
                         type="button"
                         onClick={() => setIsAddPaymentOpen(true)}
-                        className="btn-primary flex h-auto items-center gap-2 px-5 py-3 shadow-none"
+                        className="btn-primary flex h-auto w-full md:w-auto items-center justify-center gap-2 px-5 py-3 shadow-none"
                     >
                         <Plus size={18} /> Ajouter un paiement
                     </button>
-                    <div className="relative max-w-md w-full">
+                    <div className="relative max-w-none md:max-w-md w-full">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
                             placeholder="Rechercher une opération..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
 
-                    <div className="relative">
+                    <div className="relative shrink-0">
                         <button
                             onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
                             className={`p-3 rounded-2xl border transition-all ${isFilterMenuOpen ? 'bg-brand-green/20 border-brand-green text-brand-green' : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white'}`}
@@ -501,7 +527,7 @@ export default function PaymentsAdminPage() {
                                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        className="absolute right-0 mt-4 w-64 bg-slate-900 border border-white/10 rounded-3xl shadow-2xl p-6 z-50 space-y-6"
+                                        className="absolute left-0 md:left-auto md:right-0 mt-4 w-64 bg-slate-900 border border-white/10 rounded-3xl shadow-2xl p-6 z-50 space-y-6"
                                     >
                                         <div>
                                             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Statut Paiement</p>
@@ -515,7 +541,7 @@ export default function PaymentsAdminPage() {
                                                     <button
                                                         key={s.id}
                                                         onClick={() => setFilterConfig(prev => ({ ...prev, status: s.id as any }))}
-                                                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterConfig.status === s.id ? 'bg-brand-green text-slate-950' : 'bg-white/5 text-slate-400 hover:text-white'}`}
+                                                        className={`min-h-10 md:min-h-0 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterConfig.status === s.id ? 'bg-brand-green text-slate-950' : 'bg-white/5 text-slate-400 hover:text-white'}`}
                                                     >
                                                         {s.label}
                                                     </button>
@@ -529,7 +555,7 @@ export default function PaymentsAdminPage() {
                                                 <select
                                                     value={filterConfig.dateType}
                                                     onChange={(e) => setFilterConfig(prev => ({ ...prev, dateType: e.target.value as any, dateValue: '' }))}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:outline-none focus:border-brand-green/50"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none focus:border-brand-green/50"
                                                 >
                                                     <option value="all">Toutes les dates</option>
                                                     <option value="year">Par Année</option>
@@ -543,7 +569,7 @@ export default function PaymentsAdminPage() {
                                                         placeholder="Ex: 2024"
                                                         value={filterConfig.dateValue}
                                                         onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:outline-none"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
                                                     />
                                                 )}
 
@@ -552,7 +578,7 @@ export default function PaymentsAdminPage() {
                                                         type="month"
                                                         value={filterConfig.dateValue}
                                                         onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:outline-none"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
                                                     />
                                                 )}
 
@@ -561,7 +587,7 @@ export default function PaymentsAdminPage() {
                                                         type="date"
                                                         value={filterConfig.dateValue}
                                                         onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold text-white focus:outline-none"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
                                                     />
                                                 )}
                                             </div>
@@ -572,7 +598,7 @@ export default function PaymentsAdminPage() {
                                                 setFilterConfig({ status: 'all', dateType: 'all', dateValue: '' });
                                                 setIsFilterMenuOpen(false);
                                             }}
-                                            className="w-full py-2 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
+                                            className="w-full min-h-10 md:min-h-0 py-2 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
                                         >
                                             Réinitialiser les filtres
                                         </button>
@@ -584,35 +610,35 @@ export default function PaymentsAdminPage() {
 
                     <button
                         onClick={handleExportCSVList}
-                        className="p-3 bg-slate-900 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all shadow-lg"
+                        className="shrink-0 p-3 bg-slate-900 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all shadow-lg"
                         title="Exporter en CSV"
                     >
                         <Download size={20} />
                     </button>
                     <button
                         onClick={handleExportPDFList}
-                        className="btn-primary py-3 px-6 h-auto shadow-none"
+                        className="btn-primary flex-1 md:flex-none py-3 px-6 h-auto shadow-none"
                     >
                         RAPPORT PDF
                     </button>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
                 {statCards.map((stat, i) => (
                     <motion.div
                         key={stat.label}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="premium-card p-6"
+                        className={`premium-card p-4 md:p-6 ${i === statCards.length - 1 && statCards.length % 2 === 1 ? 'col-span-2 md:col-span-1' : ''}`}
                     >
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
+                        <div className="flex flex-col items-start gap-3 md:flex-row md:items-center md:gap-4">
+                            <div className={`p-2.5 md:p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
                                 <stat.icon size={24} />
                             </div>
-                            <div>
-                                <h3 className="text-3xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
+                            <div className="min-w-0">
+                                <h3 className="text-xl md:text-3xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{stat.label}</p>
                             </div>
                         </div>
@@ -624,10 +650,10 @@ export default function PaymentsAdminPage() {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-amber-500/10 border border-amber-500/20 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6"
+                    className="bg-amber-500/10 border border-amber-500/20 rounded-3xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6"
                 >
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500">
+                    <div className="flex w-full md:w-auto items-center gap-4">
+                        <div className="w-12 h-12 shrink-0 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500">
                             <Clock size={24} className="animate-pulse" />
                         </div>
                         <div>
@@ -639,7 +665,7 @@ export default function PaymentsAdminPage() {
                     </div>
                     <button
                         onClick={() => setFilterConfig(prev => ({ ...prev, status: 'pending', date: '' }))}
-                        className="px-6 py-2 bg-amber-500 text-black font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-amber-400 transition-all shadow-lg"
+                        className="w-full md:w-auto min-h-10 md:min-h-0 px-6 py-2 bg-amber-500 text-black font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-amber-400 transition-all shadow-lg"
                     >
                         Filtrer les attentes
                     </button>
@@ -647,7 +673,7 @@ export default function PaymentsAdminPage() {
             )}
 
             <div className="premium-card overflow-hidden">
-                <div className="p-6 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 bg-white/[0.02]">
+                <div className="p-4 md:p-6 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 bg-white/[0.02]">
                     <div className="flex items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                         Opérations financières correspondantes : <span className="text-brand-green ml-2">{filteredEnrollments.length}</span>
                     </div>
@@ -656,7 +682,7 @@ export default function PaymentsAdminPage() {
                         {filterConfig.status !== 'all' || filterConfig.dateType !== 'all' ? (
                             <button
                                 onClick={() => setFilterConfig({ status: 'all', dateType: 'all', dateValue: '' })}
-                                className="px-4 py-2 bg-rose-500/10 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20"
+                                className="min-h-10 md:min-h-0 px-4 py-2 bg-rose-500/10 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20"
                             >
                                 Effacer les filtres actifs
                             </button>
@@ -664,7 +690,7 @@ export default function PaymentsAdminPage() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto custom-scrollbar">
+                <div className="hidden md:block overflow-x-auto custom-scrollbar">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-white/[0.01] border-b border-white/5">
@@ -708,19 +734,7 @@ export default function PaymentsAdminPage() {
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex flex-col items-center gap-2">
                                             {(() => {
-                                                let latestUrl = en.receipt_url;
-                                                if (latestUrl && latestUrl.startsWith('[')) {
-                                                    try {
-                                                        const history = JSON.parse(latestUrl);
-                                                        if (Array.isArray(history)) {
-                                                            const pending = [...history].reverse().find((item: any) => item.status === 'pending');
-                                                            const latestWithReceipt = [...history].reverse().find((item: any) => item.url);
-                                                            latestUrl = pending?.url || latestWithReceipt?.url || null;
-                                                        }
-                                                    } catch (e) {
-                                                        // Ignore parse error
-                                                    }
-                                                }
+                                                const latestUrl = getLatestReceiptUrl(en);
 
                                                 return latestUrl ? (
                                                     <a
@@ -759,12 +773,7 @@ export default function PaymentsAdminPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                        <span className={`status-badge ${en.status?.toLowerCase() === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                            en.status?.toLowerCase() === 'rejected' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
-                                                'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                                            }`}>
-                                            {en.status?.toLowerCase() === 'approved' ? 'VALIDÉ' : en.status?.toLowerCase() === 'rejected' ? 'REFUSÉ' : 'EN ATTENTE'}
-                                        </span>
+                                        {renderPaymentStatusBadge(en.status)}
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex min-w-64 items-start gap-2">
@@ -857,8 +866,159 @@ export default function PaymentsAdminPage() {
                     </table>
                 </div>
 
+                {filteredEnrollments.length > 0 && (
+                    <div className="md:hidden space-y-3 p-3">
+                        {filteredEnrollments.map((en) => {
+                            const latestUrl = getLatestReceiptUrl(en);
+                            const isPending = en.status?.toLowerCase() === 'pending';
+                            return (
+                                <div key={en.id} className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="font-black text-sm text-slate-900 truncate">{en.profiles?.full_name}</p>
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{en.profiles?.phone || 'Téléphone non renseigné'}</p>
+                                        </div>
+                                        <div className="shrink-0">{renderPaymentStatusBadge(en.status)}</div>
+                                    </div>
+
+                                    <div className="space-y-1.5 text-xs">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Formation</span>
+                                            <span className="font-bold text-slate-900 text-right">{en.sessions?.courses?.title_fr || 'Formation inconnue'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Session</span>
+                                            <span className="flex items-center gap-1.5 font-bold text-slate-600">
+                                                <Calendar size={12} className="text-brand-green/50" />
+                                                {en.sessions?.start_date ? new Date(en.sessions.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'N/D'}
+                                                {en.sessions?.courses?.category ? ` · ${en.sessions.courses.category}` : ''}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Montant</span>
+                                            {en.status === 'pending' && en.declared_amount ? (
+                                                <span className="font-black text-amber-500 tabular-nums">+{en.declared_amount.toLocaleString()} DT <span className="text-[10px] font-bold text-slate-500 italic">déclaré</span></span>
+                                            ) : (
+                                                <span className="font-black text-slate-900 tabular-nums">{en.amount_paid.toLocaleString()} DT <span className="text-[10px] font-bold text-slate-500">/ {en.total_price.toLocaleString()} DT</span></span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Justificatif</span>
+                                            <div className="flex items-center gap-2">
+                                                {en.declared_amount && isPending && (
+                                                    <span className="text-[10px] font-black text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
+                                                        {en.declared_amount} DT
+                                                    </span>
+                                                )}
+                                                {latestUrl ? (
+                                                    <a
+                                                        href={latestUrl}
+                                                        target="_blank"
+                                                        className="inline-flex min-h-10 items-center gap-2 px-3 bg-brand-green/10 text-brand-green border border-brand-green/20 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                                                    >
+                                                        <Eye size={12} /> VOIR LE REÇU
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-1">
+                                                        <AlertCircle size={12} /> SANS REÇU
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start gap-2">
+                                        <div className="relative flex-1">
+                                            <MessageSquare className="absolute left-3 top-3.5 text-slate-400" size={14} />
+                                            <textarea
+                                                rows={2}
+                                                maxLength={2000}
+                                                value={financeNotes[en.id] || ''}
+                                                onChange={(event) => {
+                                                    setFinanceNotes((current) => ({
+                                                        ...current,
+                                                        [en.id]: event.target.value,
+                                                    }));
+                                                    setNoteSaved(null);
+                                                }}
+                                                placeholder="Remarque interne…"
+                                                className="w-full resize-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-base text-slate-900 outline-none focus:border-brand-green/50"
+                                            />
+                                            {noteSaved === en.id && (
+                                                <span className="mt-1 block text-[10px] font-bold text-emerald-500">
+                                                    Remarque enregistrée
+                                                </span>
+                                            )}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSaveFinanceNote(en.id)}
+                                            disabled={noteLoading === en.id}
+                                            title="Enregistrer la remarque"
+                                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-brand-blue/20 bg-brand-blue/10 text-brand-blue transition-all disabled:opacity-60"
+                                        >
+                                            {noteLoading === en.id
+                                                ? <Loader2 className="animate-spin" size={16} />
+                                                : <Save size={16} />}
+                                        </button>
+                                    </div>
+
+                                    {isPending && en.receipt_url && (
+                                        <input
+                                            type="number"
+                                            placeholder="Montant Tranche"
+                                            defaultValue={en.declared_amount || ''}
+                                            onChange={(e) => setConfirmAmount(prev => ({ ...prev, [en.id]: e.target.value }))}
+                                            className="w-full h-11 bg-white border border-slate-200 rounded-xl px-3 text-base text-slate-900 focus:outline-none focus:border-brand-green/50"
+                                            title="ENTRER LE MONTANT DE CETTE TRANCHE"
+                                        />
+                                    )}
+
+                                    <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
+                                        {isPending && (
+                                            <>
+                                                <button
+                                                    onClick={() => {
+                                                        const validatedTranche = confirmAmount[en.id] ? parseFloat(confirmAmount[en.id]) : (Number(en.declared_amount) || 0);
+                                                        const currentPaid = Number(en.amount_paid) || 0;
+                                                        const newTotal = currentPaid + validatedTranche;
+                                                        handleUpdateStatus(en.id, 'approved', newTotal);
+                                                    }}
+                                                    disabled={actionLoading === en.id}
+                                                    className="flex-1 min-h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider"
+                                                    title={en.receipt_url ? 'VALIDER LE PAIEMENT' : 'VALIDER LA RÉSERVATION À 0 DT'}
+                                                >
+                                                    {actionLoading === en.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                                                    Valider
+                                                </button>
+                                                <button
+                                                    onClick={() => handleUpdateStatus(en.id, 'rejected')}
+                                                    disabled={actionLoading === en.id}
+                                                    className="flex-1 min-h-10 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider"
+                                                    title="Refuser la demande"
+                                                >
+                                                    {actionLoading === en.id ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
+                                                    Refuser
+                                                </button>
+                                            </>
+                                        )}
+                                        <button
+                                            onClick={() => handleDownloadReceipt(en)}
+                                            className="flex-1 min-h-10 rounded-xl bg-brand-green/10 text-brand-green border border-brand-green/20 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider"
+                                            title="Générer le reçu"
+                                        >
+                                            <Receipt size={16} />
+                                            Reçu
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
                 {filteredEnrollments.length === 0 && (
-                    <div className="py-32 text-center">
+                    <div className="py-16 md:py-32 px-4 text-center">
                         <div className="flex flex-col items-center gap-4">
                             <Target size={48} className="text-slate-800" />
                             <h3 className="text-lg font-black text-white uppercase tracking-widest">Aucun flux détecté</h3>
@@ -884,14 +1044,14 @@ export default function PaymentsAdminPage() {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                            className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl md:block md:max-h-none"
                         >
-                            <div className="flex items-start justify-between border-b border-slate-100 p-7">
+                            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 p-5 md:p-7">
                                 <div>
                                     <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-green">
                                         <CreditCard size={13} /> Opération financière
                                     </div>
-                                    <h2 className="text-2xl font-black text-slate-900">Ajouter un paiement</h2>
+                                    <h2 className="text-xl md:text-2xl font-black text-slate-900">Ajouter un paiement</h2>
                                     <p className="mt-1 text-xs font-medium text-slate-500">Le paiement sera ajouté au montant déjà encaissé.</p>
                                 </div>
                                 <button
@@ -900,14 +1060,14 @@ export default function PaymentsAdminPage() {
                                         setIsAddPaymentOpen(false);
                                         resetPaymentForm();
                                     }}
-                                    className="rounded-xl bg-slate-100 p-2 text-slate-500 transition-colors hover:text-slate-900"
+                                    className="shrink-0 rounded-xl bg-slate-100 p-2.5 md:p-2 text-slate-500 transition-colors hover:text-slate-900"
                                     title="Fermer"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleAddPayment} className="space-y-5 p-7">
+                            <form onSubmit={handleAddPayment} className="flex-1 space-y-5 overflow-y-auto p-5 md:overflow-visible md:p-7">
                                 <div>
                                     <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Étudiant *</label>
                                     <div className="relative mb-3">
@@ -925,7 +1085,7 @@ export default function PaymentsAdminPage() {
                                                 }));
                                             }}
                                             placeholder="Rechercher par nom, téléphone ou e-mail…"
-                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none focus:border-brand-green focus:bg-white"
+                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green focus:bg-white"
                                         />
                                     </div>
                                     <select
@@ -937,7 +1097,7 @@ export default function PaymentsAdminPage() {
                                             courseId: '',
                                             sessionId: '',
                                         }))}
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-brand-green"
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green"
                                     >
                                         <option value="">
                                             {filteredPaymentStudents.length > 0
@@ -964,7 +1124,7 @@ export default function PaymentsAdminPage() {
                                                 courseId: event.target.value,
                                                 sessionId: '',
                                             }))}
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-brand-green disabled:cursor-not-allowed disabled:bg-slate-100"
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green disabled:cursor-not-allowed disabled:bg-slate-100"
                                         >
                                             <option value="">Choisir une formation</option>
                                             {paymentCourses.map(course => (
@@ -980,7 +1140,7 @@ export default function PaymentsAdminPage() {
                                             disabled={!paymentForm.courseId}
                                             value={paymentForm.sessionId}
                                             onChange={(event) => setPaymentForm(current => ({ ...current, sessionId: event.target.value }))}
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-brand-green disabled:cursor-not-allowed disabled:bg-slate-100"
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green disabled:cursor-not-allowed disabled:bg-slate-100"
                                         >
                                             <option value="">Choisir une session</option>
                                             {paymentSessions.map(enrollment => (
@@ -1005,7 +1165,7 @@ export default function PaymentsAdminPage() {
                                         value={paymentForm.amount}
                                         onChange={(event) => setPaymentForm(current => ({ ...current, amount: event.target.value }))}
                                         placeholder="Exemple : 300"
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-brand-green"
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green"
                                     />
                                     {selectedPaymentEnrollment && (
                                         <p className="mt-2 text-xs font-bold text-slate-500">
@@ -1022,25 +1182,25 @@ export default function PaymentsAdminPage() {
                                         value={paymentForm.note}
                                         onChange={(event) => setPaymentForm(current => ({ ...current, note: event.target.value }))}
                                         placeholder="Ajouter une remarque interne sur ce paiement…"
-                                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-green"
+                                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
                                     />
                                 </div>
 
-                                <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+                                <div className="sticky bottom-0 -mx-5 -mb-5 flex flex-col-reverse gap-3 border-t border-slate-100 bg-white p-5 md:static md:mx-0 md:mb-0 md:flex-row md:justify-end md:p-0 md:pt-5">
                                     <button
                                         type="button"
                                         onClick={() => {
                                             setIsAddPaymentOpen(false);
                                             resetPaymentForm();
                                         }}
-                                        className="rounded-xl border border-slate-200 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50"
+                                        className="w-full md:w-auto rounded-xl border border-slate-200 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50"
                                     >
                                         Annuler
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={paymentSubmitting || !paymentForm.userId || !paymentForm.courseId || !paymentForm.sessionId || !paymentForm.amount}
-                                        className="btn-primary flex h-auto items-center gap-2 px-6 py-3 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="btn-primary flex h-auto w-full md:w-auto items-center justify-center gap-2 px-6 py-3 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         {paymentSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                                         Enregistrer le paiement

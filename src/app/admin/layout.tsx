@@ -4,10 +4,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
-    LayoutDashboard, Users, BookOpen, CreditCard, Settings, LogOut, Menu, X,
+    LayoutDashboard, Users, BookOpen, CreditCard, Settings, LogOut, X,
     Loader2, GraduationCap, Calendar, BarChart3, Search, Bell, ChevronLeft,
     ChevronRight, Command, Zap, ArrowRight, ShieldCheck, Sun, Moon,
-    CheckCircle, XCircle, Clock, UserPlus, FileText, ChevronDown, ClipboardCheck
+    CheckCircle, XCircle, Clock, UserPlus, FileText, ChevronDown, ClipboardCheck, MoreHorizontal
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,7 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const [user, setUser] = useState<any>(null);
     const [role, setRole] = useState<'admin' | 'professor'>('admin');
     const [displayName, setDisplayName] = useState('');
-    const [isSidebarOpen, setSidebarOpen] = useState(true);
+    const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +93,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
     }, [router, pathname]);
 
+    useEffect(() => {
+        setSidebarOpen(false);
+        setIsNotifOpen(false);
+    }, [pathname]);
+
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
             e.preventDefault();
@@ -135,6 +140,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const navigation = role === 'professor'
         ? allNavigation.filter(item => ['/admin/students', '/admin/sessions', '/admin/presence'].includes(item.href))
         : allNavigation;
+
+    // Mobile bottom tab bar: first 4 sections, the rest live in the "Plus" sheet
+    const mobileTabs = navigation.slice(0, 4);
+    const isNavActive = (href: string) => href === '/admin' ? pathname === '/admin' : pathname.startsWith(href);
+    const isMoreActive = !mobileTabs.some(item => isNavActive(item.href));
+    const currentSection = allNavigation.find(item => isNavActive(item.href))?.name
+        || (pathname.startsWith('/admin/notifications') ? 'Notifications'
+            : pathname.startsWith('/admin/settings') ? 'Paramètres'
+            : pathname.startsWith('/admin/analytics') ? 'Analytique'
+            : 'Administration');
 
     const searchResults = navigation.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -224,7 +239,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Command Palette Overlay */}
             <AnimatePresence>
                 {isSearchOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4">
+                    <div className="admin-palette fixed inset-0 z-[100] flex items-start justify-center pt-[calc(env(safe-area-inset-top)+1rem)] md:pt-[15vh] px-3 md:px-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -247,9 +262,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     placeholder="Rechercher dans le registre..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="flex-1 bg-transparent border-none text-lg focus:outline-none placeholder:text-slate-600 text-slate-900"
+                                    className="flex-1 min-w-0 bg-transparent border-none text-lg focus:outline-none placeholder:text-slate-600 text-slate-900"
                                 />
-                                <div className="px-2 py-1 rounded bg-slate-800 text-[10px] font-black uppercase text-slate-500 border border-white/5">
+                                <button onClick={() => setIsSearchOpen(false)} className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-500" aria-label="Fermer">
+                                    <X size={18} />
+                                </button>
+                                <div className="hidden md:block px-2 py-1 rounded bg-slate-800 text-[10px] font-black uppercase text-slate-500 border border-white/5">
                                     ESC
                                 </div>
                             </div>
@@ -258,7 +276,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 {searchQuery.length === 0 && (
                                     <div className="p-4">
                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Actions Recommandées</p>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             {navigation.slice(0, 4).map(item => (
                                                 <button
                                                     key={item.href}
@@ -307,7 +325,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 )}
                             </div>
 
-                            <div className="p-3 border-t border-white/5 bg-slate-950 flex items-center justify-between">
+                            <div className="hidden md:flex p-3 border-t border-white/5 bg-slate-950 items-center justify-between">
                                 <div className="flex items-center gap-4 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
                                     <div className="flex items-center gap-1"><ArrowRight size={12} /> Naviguer</div>
                                     <div className="flex items-center gap-1"><Command size={12} /> Sélectionner</div>
@@ -322,21 +340,122 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 )}
             </AnimatePresence>
 
-            {/* Mobile Overlay */}
+            {/* Mobile "Plus" Sheet */}
             <AnimatePresence>
                 {isSidebarOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setSidebarOpen(false)}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
-                    />
+                    <div className="fixed inset-0 z-[80] md:hidden">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setSidebarOpen(false)}
+                            className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ y: '100%' }}
+                            animate={{ y: 0 }}
+                            exit={{ y: '100%' }}
+                            transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+                            drag="y"
+                            dragConstraints={{ top: 0, bottom: 0 }}
+                            dragElastic={{ top: 0, bottom: 0.6 }}
+                            onDragEnd={(_, info) => { if (info.offset.y > 100 || info.velocity.y > 500) setSidebarOpen(false); }}
+                            className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-2xl pb-[calc(1rem+env(safe-area-inset-bottom))]"
+                        >
+                            <div className="flex justify-center pt-3 pb-2">
+                                <div className="w-10 h-1.5 rounded-full bg-slate-200" />
+                            </div>
+                            <div className="px-5 pb-4 flex items-center gap-3 border-b border-slate-100">
+                                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-950 flex items-center justify-center text-white font-black shadow-lg">
+                                    {role === 'professor' ? 'PR' : 'AD'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-slate-900 truncate">{role === 'professor' ? displayName : 'Administrateur'}</p>
+                                    <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                                </div>
+                                <button onClick={() => setSidebarOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-500" aria-label="Fermer">
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3 p-5">
+                                {navigation.map((item) => {
+                                    const Icon = item.icon;
+                                    const isActive = isNavActive(item.href);
+                                    return (
+                                        <Link
+                                            key={item.href}
+                                            href={item.href}
+                                            onClick={() => setSidebarOpen(false)}
+                                            className={`flex flex-col items-center justify-center gap-2 rounded-2xl py-4 px-2 border transition-colors active:scale-95 ${isActive ? 'bg-brand-green/15 border-brand-green/40 text-slate-900' : 'bg-slate-50 border-slate-100 text-slate-600'}`}
+                                        >
+                                            <Icon size={22} className={isActive ? 'text-brand-green' : ''} />
+                                            <span className="text-xs font-semibold text-center leading-tight">{item.name}</span>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="px-5 space-y-2">
+                                <button
+                                    onClick={() => { setSidebarOpen(false); setIsSearchOpen(true); }}
+                                    className="flex items-center gap-3 w-full h-12 px-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-600 font-semibold"
+                                >
+                                    <Search size={18} />
+                                    <span>Rechercher</span>
+                                </button>
+                                <button
+                                    onClick={handleLogout}
+                                    className="flex items-center gap-3 w-full h-12 px-4 rounded-2xl bg-rose-50 border border-rose-100 text-rose-500 font-semibold"
+                                >
+                                    <LogOut size={18} />
+                                    <span>Déconnexion</span>
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
 
+            {/* Mobile Bottom Tab Bar */}
+            <nav className="md:hidden fixed bottom-0 inset-x-0 z-[60] bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
+                <div className="flex items-stretch justify-around h-16">
+                    {mobileTabs.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = isNavActive(item.href);
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`admin-tab relative flex-1 flex flex-col items-center justify-center gap-1 transition-colors active:scale-95 ${isActive ? 'text-slate-900' : 'text-slate-400'}`}
+                            >
+                                {isActive && (
+                                    <motion.span layoutId="admin-tab-indicator" className="absolute top-0 h-1 w-10 rounded-b-full bg-brand-green" />
+                                )}
+                                <span className={`flex items-center justify-center w-12 h-8 rounded-full transition-colors ${isActive ? 'bg-brand-green/15 text-brand-green' : ''}`}>
+                                    <Icon size={20} />
+                                </span>
+                                <span className="admin-tab-label">{item.name === 'Tableau de bord' ? 'Accueil' : item.name}</span>
+                            </Link>
+                        );
+                    })}
+                    <button
+                        onClick={() => setSidebarOpen(true)}
+                        className={`admin-tab relative flex-1 flex flex-col items-center justify-center gap-1 transition-colors active:scale-95 ${isMoreActive ? 'text-slate-900' : 'text-slate-400'}`}
+                    >
+                        {isMoreActive && (
+                            <motion.span layoutId="admin-tab-indicator" className="absolute top-0 h-1 w-10 rounded-b-full bg-brand-green" />
+                        )}
+                        <span className={`flex items-center justify-center w-12 h-8 rounded-full transition-colors ${isMoreActive ? 'bg-brand-green/15 text-brand-green' : ''}`}>
+                            <MoreHorizontal size={20} />
+                        </span>
+                        <span className="admin-tab-label">Plus</span>
+                    </button>
+                </div>
+            </nav>
+
             {/* Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-50 backdrop-blur-xl border-r transition-all duration-300 transform md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isCollapsed ? 'w-20' : 'w-72'} bg-white/95 border-slate-200 shadow-lg`}>
+            <aside className={`hidden md:block fixed inset-y-0 left-0 z-50 backdrop-blur-xl border-r transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-72'} bg-white/95 border-slate-200 shadow-lg`}>
                 <div className="flex flex-col h-full relative">
                     {/* Collapse Button (Desktop Only) */}
                     <button
@@ -360,9 +479,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     <span className="text-xl font-black tracking-tighter whitespace-nowrap leading-tight">GSM GUIDE<br /><span className="text-brand-green text-sm">ACADEMY</span></span>
                                 )}
                             </Link>
-                            <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white transition-colors">
-                                <X size={20} />
-                            </button>
                         </div>
                     </div>
 
@@ -400,11 +516,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Main Content Area */}
             <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isCollapsed ? 'md:ml-20' : 'md:ml-72'}`}>
                 {/* Global Header */}
-                <header className={`h-20 flex items-center justify-between px-6 md:px-10 backdrop-blur-md sticky top-0 z-40 border-b transition-colors duration-300 bg-white/90 border-slate-200 shadow-sm`}>
-                    <div className="flex items-center gap-4 flex-1">
-                        <button onClick={() => setSidebarOpen(true)} className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600">
-                            <Menu size={20} />
-                        </button>
+                <header className={`pt-[env(safe-area-inset-top)] md:pt-0 sticky top-0 z-40 border-b transition-colors duration-300 bg-white/95 md:bg-white/90 md:backdrop-blur-md border-slate-200 shadow-sm`}>
+                    <div className="h-14 md:h-20 flex items-center justify-between gap-3 px-4 md:px-10">
+                    <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+                        {/* Mobile app bar title */}
+                        <Link href="/admin" className="md:hidden shrink-0 w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1 shadow-sm overflow-hidden">
+                            <img src="/gsmlogo.png" alt="GSM Guide Academy" className="w-full h-full object-contain" />
+                        </Link>
+                        <div className="md:hidden min-w-0">
+                            <p className="admin-appbar-title truncate">{currentSection}</p>
+                            <p className="admin-appbar-subtitle truncate">{role === 'professor' ? 'Espace professeur' : 'GSM Guide Academy'}</p>
+                        </div>
 
                         {/* Global Search Input Trigger */}
                         <div
@@ -422,7 +544,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 md:gap-4 shrink-0">
+                        <button
+                            onClick={() => setIsSearchOpen(true)}
+                            className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500"
+                            aria-label="Rechercher"
+                        >
+                            <Search size={19} />
+                        </button>
                         {/* Dark/Light Toggle */}
                         {/* Dark/Light Toggle Removed */}
 
@@ -451,7 +580,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                             animate={{ opacity: 1, y: 0, scale: 1 }}
                                             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            className={`absolute right-0 mt-3 w-80 md:w-96 rounded-2xl shadow-2xl border z-50 overflow-hidden ${isDarkMode ? 'bg-[#0f172a] border-white/10' : 'bg-white border-slate-200'}`}
+                                            className={`fixed left-3 right-3 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)] md:absolute md:left-auto md:top-auto md:right-0 md:mt-3 md:w-96 rounded-2xl shadow-2xl border z-50 overflow-hidden ${isDarkMode ? 'bg-[#0f172a] border-white/10' : 'bg-white border-slate-200'}`}
                                         >
                                             <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
                                                 <h3 className={`font-black uppercase tracking-widest text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Notifications</h3>
@@ -463,7 +592,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                                 </button>
                                             </div>
 
-                                            <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                                            <div className="max-h-[60dvh] md:max-h-[400px] overflow-y-auto custom-scrollbar">
                                                 {fetchingNotifs && notifications.length === 0 ? (
                                                     <div className="p-10 text-center">
                                                         <Loader2 className="animate-spin text-brand-green mx-auto mb-2" size={24} />
@@ -517,7 +646,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             </AnimatePresence>
                         </div>
                         <div className="h-8 w-px bg-white/5 mx-2 hidden md:block"></div>
-                        <div className="flex items-center gap-3">
+                        <div className="hidden md:flex items-center gap-3">
                             <div className={`hidden md:block text-right`}>
                                 <p className={`text-sm font-bold uppercase tracking-tighter text-slate-800`}>{role === 'professor' ? 'PROFESSEUR' : 'ADMINISTRATEUR'}</p>
                                 <p className={`text-[10px] font-bold uppercase tracking-widest text-slate-400`}>{role === 'professor' ? displayName : 'Profil Administrateur'}</p>
@@ -527,10 +656,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             </div>
                         </div>
                     </div>
+                    </div>
                 </header>
 
                 {/* Main Content Scrollable */}
-                <main className={`flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar transition-colors duration-300 bg-[#f0f4f8]`}>
+                <main className={`flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:p-10 custom-scrollbar transition-colors duration-300 bg-[#f0f4f8]`}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={pathname}

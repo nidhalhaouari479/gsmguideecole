@@ -156,8 +156,8 @@ export default function TeachersAdminPage() {
     ];
 
     return (
-        <div className="space-y-10 pb-20">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-6 md:space-y-10 pb-6 md:pb-20">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
                 <div>
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
                         <Briefcase size={14} /> Gestion des professeurs
@@ -165,41 +165,41 @@ export default function TeachersAdminPage() {
                     <h1 className="text-4xl font-black text-white tracking-tighter">Registre <span className="text-slate-500">Professeurs</span></h1>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <div className="relative max-w-md w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4">
+                    <div className="relative md:max-w-md w-full">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
                             placeholder="Rechercher un professeur..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
+                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
                         />
                     </div>
                     <button
                         onClick={() => handleOpenModal()}
-                        className="btn-primary py-3 px-6 h-auto shadow-none"
+                        className="btn-primary py-3 px-6 h-auto min-h-11 md:min-h-0 shadow-none w-full sm:w-auto shrink-0"
                     >
                         AJOUTER
                     </button>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
                 {statsCards.map((stat, i) => (
                     <motion.div
                         key={stat.label}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="premium-card p-6"
+                        className="premium-card p-4 md:p-6"
                     >
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
+                        <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                            <div className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl ${stat.bg} ${stat.color}`}>
                                 <stat.icon size={24} />
                             </div>
-                            <div>
-                                <h3 className="text-3xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
+                            <div className="min-w-0">
+                                <h3 className="text-2xl md:text-3xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{stat.label}</p>
                             </div>
                         </div>
@@ -207,7 +207,66 @@ export default function TeachersAdminPage() {
                 ))}
             </div>
 
-            <div className="premium-card overflow-hidden">
+            {/* Mobile card list */}
+            <div className="md:hidden space-y-3">
+                {filteredTeachers.length > 0 ? (
+                    filteredTeachers.map((teacher, idx) => (
+                        <motion.div
+                            key={teacher.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.03 }}
+                            className="rounded-2xl bg-white border border-slate-200 p-4"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 border border-white/5 flex items-center justify-center text-white text-sm font-black overflow-hidden">
+                                    {teacher.nom.charAt(0)}{teacher.prenom.charAt(0)}
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                    <span className="font-black text-sm text-white truncate">{teacher.nom} {teacher.prenom}</span>
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ID: {teacher.id.slice(0, 8)}</span>
+                                </div>
+                            </div>
+                            <div className="mt-3 space-y-1.5">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="shrink-0 text-[10px] font-black text-slate-500 uppercase tracking-widest">Spécialité</span>
+                                    <span className="min-w-0 truncate text-right text-sm font-bold text-slate-400">
+                                        {teacher.specialite || <span className="text-slate-600 italic">Non renseignée</span>}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="shrink-0 text-[10px] font-black text-slate-500 uppercase tracking-widest">Date d'ajout</span>
+                                    <span className="text-sm font-bold text-slate-400">{new Date(teacher.created_at).toLocaleDateString('fr-FR')}</span>
+                                </div>
+                            </div>
+                            <div className="mt-4 grid grid-cols-2 gap-2">
+                                <button
+                                    onClick={() => handleOpenModal(teacher)}
+                                    className="min-h-10 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider active:scale-[0.98] transition-all"
+                                >
+                                    <Edit2 size={16} /> Modifier
+                                </button>
+                                <button
+                                    onClick={() => handleAction(teacher.id, 'delete')}
+                                    disabled={actionLoading === teacher.id}
+                                    className="min-h-10 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider active:scale-[0.98] transition-all disabled:opacity-50"
+                                >
+                                    {actionLoading === teacher.id ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />} Révoquer
+                                </button>
+                            </div>
+                        </motion.div>
+                    ))
+                ) : (
+                    <div className="rounded-2xl bg-white border border-slate-200 px-4 py-16 text-center">
+                        <div className="flex flex-col items-center gap-4">
+                            <Users size={40} className="text-slate-800" />
+                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun professeur correspondant</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="hidden md:block premium-card overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full border-collapse">
                         <thead>
@@ -296,13 +355,13 @@ export default function TeachersAdminPage() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white border border-slate-200 p-6 rounded-2xl w-full max-w-md shadow-2xl"
+                            className="bg-white border border-slate-200 p-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] md:p-6 rounded-2xl w-full max-w-md shadow-2xl max-h-[92dvh] overflow-y-auto md:max-h-none md:overflow-visible"
                         >
-                            <div className="flex justify-between items-center mb-6">
+                            <div className="flex justify-between items-center gap-3 mb-4 md:mb-6">
                                 <h2 className="text-xl font-black text-slate-900">
                                     {editingTeacher ? 'Modifier le Professeur' : 'Ajouter un Professeur'}
                                 </h2>
-                                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white">
+                                <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 -mr-2 shrink-0 flex items-center justify-center rounded-xl md:w-auto md:h-auto md:mr-0 md:block text-slate-400 hover:text-white" aria-label="Fermer">
                                     <X size={20} />
                                 </button>
                             </div>
@@ -358,18 +417,18 @@ export default function TeachersAdminPage() {
                                     </div>
                                 </>
 
-                                <div className="flex justify-end gap-3 mt-8">
+                                <div className="flex flex-col-reverse md:flex-row md:justify-end gap-3 mt-6 md:mt-8">
                                     <button
                                         type="button"
                                         onClick={() => setIsModalOpen(false)}
-                                        className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-all"
+                                        className="w-full md:w-auto min-h-11 md:min-h-0 px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-all"
                                     >
                                         Annuler
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={isSubmitting}
-                                        className="btn-primary px-5 py-2.5 flex items-center gap-2"
+                                        className="btn-primary w-full md:w-auto min-h-11 md:min-h-0 px-5 py-2.5 flex items-center justify-center md:justify-start gap-2"
                                     >
                                         {isSubmitting && <Loader2 size={16} className="animate-spin" />}
                                         {editingTeacher ? 'Enregistrer' : 'Créer'}

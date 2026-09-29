@@ -90,7 +90,16 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-    
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const query = window.matchMedia('(max-width: 767px)');
+        const update = () => setIsMobile(query.matches);
+        update();
+        query.addEventListener('change', update);
+        return () => query.removeEventListener('change', update);
+    }, []);
+
     // --- DATA STATE ---
     const [stats, setStats] = useState({
         students: 0,
@@ -517,10 +526,10 @@ export default function AdminDashboard() {
     }
 
     return (
-        <div className="admin-home-dashboard space-y-10 pb-20 max-w-[1600px] mx-auto">
+        <div className="admin-home-dashboard space-y-5 md:space-y-10 pb-4 md:pb-20 max-w-[1600px] mx-auto">
             {/* --- HEADER --- */}
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
+            <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
+                <div className="min-w-0">
                     <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.3em] text-[10px] mb-2">
                         <Zap size={14} fill="currentColor" /> Centre de contrôle
                     </div>
@@ -529,15 +538,15 @@ export default function AdminDashboard() {
                     </h1>
                     <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-2">GSM GUIDE ACADEMY • Tableau de contrôle opérationnel</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="px-6 py-2 bg-slate-900 border border-white/5 rounded-2xl flex items-center gap-3 shadow-2xl">
+                <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+                    <div className="px-6 py-2 bg-slate-900 border border-white/5 rounded-2xl flex items-center justify-center md:justify-start gap-3 shadow-2xl">
                         <div className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
                         <span className="text-xs font-black text-white uppercase tracking-widest">DONNÉES EN DIRECT</span>
                     </div>
                     <button 
                         onClick={handleGenerateReport}
                         disabled={isGenerating}
-                        className="btn-primary py-3 px-8 rounded-2xl shadow-xl shadow-brand-green/20 flex items-center gap-2 text-xs font-black uppercase tracking-widest"
+                        className="btn-primary w-full md:w-auto justify-center md:justify-start py-3 px-8 rounded-2xl shadow-xl shadow-brand-green/20 flex items-center gap-2 text-xs font-black uppercase tracking-widest"
                     >
                         {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
                         {isGenerating ? 'GEN...' : 'Exporter Rapport'}
@@ -546,7 +555,7 @@ export default function AdminDashboard() {
             </header>
 
             {/* --- TOP STATS GRID --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-5 gap-3 md:gap-6">
                 {[
                     { label: 'Total Étudiants', value: stats.students, sub: `+${stats.newToday} aujourd'hui`, icon: Users, color: 'text-brand-blue', bg: 'bg-brand-blue/10' },
                     { label: 'Chiffre d\'Affaires', value: `${stats.revenue.toLocaleString()} DT`, sub: 'Revenus confirmés', icon: CreditCard, color: 'text-brand-green', bg: 'bg-brand-green/10' },
@@ -563,18 +572,20 @@ export default function AdminDashboard() {
                         role="link"
                         tabIndex={0}
                         onKeyDown={(event) => event.key === 'Enter' && router.push(['/admin/students', '/admin/payments', '/admin/sessions', '/admin/teachers', '/admin/students'][i])}
-                        className="premium-card p-8 group relative overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green"
+                        className={`premium-card p-4 md:p-8 group relative overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green min-w-0 ${i === 4 ? 'col-span-2 md:col-span-1' : ''}`}
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
-                        <div className="flex items-center justify-between mb-6">
-                            <div className={`w-14 h-14 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center shadow-lg`}>
-                                <stat.icon size={28} />
+                        <div className="flex items-center justify-between mb-3 md:mb-6">
+                            <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center shadow-lg`}>
+                                <stat.icon size={28} className="w-5 h-5 md:w-7 md:h-7" />
                             </div>
-                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{stat.sub}</div>
+                            <div className="hidden md:block text-[10px] font-black text-slate-500 uppercase tracking-widest">{stat.sub}</div>
+                            <ChevronRight size={16} className="md:hidden text-slate-400" />
                         </div>
-                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">{stat.label}</h3>
-                        <p className="text-4xl font-black text-white tracking-tighter tabular-nums">{stat.value}</p>
-                        <span className="mt-4 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-brand-green opacity-0 transition-opacity group-hover:opacity-100">Voir les détails <ChevronRight size={13} /></span>
+                        <h3 className="text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest mb-1 truncate">{stat.label}</h3>
+                        <p className="text-2xl md:text-4xl font-black text-white tracking-tighter tabular-nums truncate">{stat.value}</p>
+                        <p className="md:hidden mt-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider truncate">{stat.sub}</p>
+                        <span className="mt-4 hidden md:inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-brand-green opacity-0 transition-opacity group-hover:opacity-100">Voir les détails <ChevronRight size={13} /></span>
                     </motion.div>
                 ))}
             </div>
@@ -586,15 +597,15 @@ export default function AdminDashboard() {
                 onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/presence')}
                 className="premium-card cursor-pointer overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-green"
             >
-                <div className="flex flex-col gap-4 border-b border-slate-200 p-6 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 className="flex items-center gap-2 text-lg font-black uppercase text-white"><CheckCircle2 size={20} className="text-brand-green" /> Statistiques des présences</h2>
+                <div className="flex flex-col gap-3 md:gap-4 border-b border-slate-200 p-4 md:p-6 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
+                        <h2 className="flex items-center gap-2 text-base md:text-lg font-black uppercase text-white"><CheckCircle2 size={20} className="text-brand-green shrink-0" /> Statistiques des présences</h2>
                         <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Toutes les feuilles de présence enregistrées</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className="text-3xl font-black text-brand-green">{attendanceStats.rate}%</span>
+                        <span className="text-2xl md:text-3xl font-black text-brand-green">{attendanceStats.rate}%</span>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Taux de présence</span>
-                        <ChevronRight className="text-brand-green" size={20} />
+                        <ChevronRight className="text-brand-green ml-auto md:ml-0" size={20} />
                     </div>
                 </div>
                 <div className="grid grid-cols-2 gap-px bg-slate-200 md:grid-cols-5">
@@ -604,9 +615,9 @@ export default function AdminDashboard() {
                         { label: 'Absents', value: attendanceStats.absent, color: 'text-rose-500' },
                         { label: 'Retards', value: attendanceStats.late, color: 'text-amber-500' },
                         { label: 'Excusés', value: attendanceStats.excused, color: 'text-blue-500' }
-                    ].map(item => (
-                        <div key={item.label} className="bg-white p-6 text-center transition-colors hover:bg-slate-50">
-                            <p className={`text-3xl font-black tabular-nums ${item.color}`}>{item.value}</p>
+                    ].map((item, index) => (
+                        <div key={item.label} className={`bg-white p-4 md:p-6 text-center transition-colors hover:bg-slate-50 ${index === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
+                            <p className={`text-2xl md:text-3xl font-black tabular-nums ${item.color}`}>{item.value}</p>
                             <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">{item.label}</p>
                         </div>
                     ))}
@@ -614,14 +625,37 @@ export default function AdminDashboard() {
             </section>
 
             <section className="premium-card overflow-hidden">
-                <div className="flex flex-col gap-3 border-b border-slate-200 p-6 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 className="flex items-center gap-2 text-lg font-black uppercase text-white"><MessageSquare size={20} className="text-brand-green" /> Demandes d’étudiants</h2>
+                <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:p-6 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
+                        <h2 className="flex items-center gap-2 text-base md:text-lg font-black uppercase text-white"><MessageSquare size={20} className="text-brand-green shrink-0" /> Demandes d’étudiants</h2>
                         <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Demandes de création et de prochaine session</p>
                     </div>
                     <span className="w-fit rounded-lg bg-brand-green/15 px-3 py-1.5 text-xs font-black text-brand-green">{sessionRequests.filter(request => request.status === 'pending').length} en attente</span>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="md:hidden divide-y divide-slate-100">
+                    {sessionRequests.map(request => (
+                        <div key={request.id} className="p-4 space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="font-black text-white truncate">{request.full_name}</p>
+                                    <p className="text-sm font-bold text-slate-700 truncate">{request.courses?.title_fr || 'Formation'}</p>
+                                </div>
+                                <span className="shrink-0 rounded-lg bg-brand-blue/10 px-2.5 py-1 text-[10px] font-black uppercase text-brand-blue">{request.request_type === 'create_session' ? 'Créer une session' : 'Prochaine session'}</span>
+                            </div>
+                            <div className="space-y-1 text-xs text-slate-500">
+                                <p className="break-words">{request.email} · {request.phone}</p>
+                                {request.availability && <p className="font-bold text-slate-600 break-words">{request.availability}</p>}
+                                {request.message && <p className="text-slate-400 break-words">{request.message}</p>}
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs font-bold text-slate-500">{new Date(request.created_at).toLocaleDateString('fr-FR')}</span>
+                                <div className="flex gap-2">{request.status === 'pending' ? <><button onClick={() => updateSessionRequest(request.id, 'processed')} className="flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50" title="Marquer comme traitée"><CheckCircle2 size={17} /></button><button onClick={() => updateSessionRequest(request.id, 'rejected')} className="flex h-10 w-10 items-center justify-center rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50" title="Refuser"><X size={17} /></button></> : <span className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase ${request.status === 'processed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>{request.status === 'processed' ? 'Traitée' : 'Refusée'}</span>}</div>
+                            </div>
+                        </div>
+                    ))}
+                    {sessionRequests.length === 0 && <p className="px-4 py-10 text-center text-sm font-bold text-slate-400">Aucune demande d’étudiant.</p>}
+                </div>
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full min-w-[1000px] text-left">
                         <thead className="bg-slate-50"><tr className="text-[10px] font-black uppercase tracking-widest text-slate-500"><th className="px-6 py-4">Étudiant</th><th className="px-5 py-4">Formation</th><th className="px-5 py-4">Demande</th><th className="px-5 py-4">Disponibilité</th><th className="px-5 py-4">Date</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
                         <tbody className="divide-y divide-slate-100">
@@ -642,13 +676,13 @@ export default function AdminDashboard() {
             </section>
 
             {/* --- MAIN CHARTS AREA --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
+
                 {/* Revenue & Growth Trend */}
-                <div onClick={() => router.push('/admin/payments')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/payments')} className="lg:col-span-2 premium-card p-8 flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="flex items-center justify-between mb-10">
-                        <div>
-                            <h3 className="text-xl font-black text-white flex items-center gap-2 uppercase italic tracking-tight">
+                <div onClick={() => router.push('/admin/payments')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/payments')} className="lg:col-span-2 premium-card p-4 md:p-8 flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green min-w-0">
+                    <div className="flex items-center justify-between mb-4 md:mb-10">
+                        <div className="min-w-0">
+                            <h3 className="text-base md:text-xl font-black text-white flex items-center gap-2 uppercase italic tracking-tight">
                                 <TrendingUp size={24} className="text-brand-green" />
                                 Évolution des revenus
                             </h3>
@@ -656,9 +690,9 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                     
-                    <div className="h-[350px] w-full">
+                    <div className="h-64 md:h-[350px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={revenueTimeline}>
+                            <AreaChart data={revenueTimeline} margin={isMobile ? { left: -20, right: -10 } : undefined}>
                                 <defs>
                                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#a1b83e" stopOpacity={0.3}/>
@@ -700,7 +734,7 @@ export default function AdminDashboard() {
                                         name,
                                     ]}
                                 />
-                                <Legend verticalAlign="top" height={34} iconType="circle" />
+                                <Legend verticalAlign="top" height={isMobile ? 48 : 34} iconType="circle" wrapperStyle={isMobile ? { fontSize: 10 } : undefined} />
                                 <Area 
                                     type="monotone" 
                                     yAxisId="revenue"
@@ -735,18 +769,18 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Distribution Overview */}
-                <div className="space-y-8">
+                <div className="space-y-4 md:space-y-8 min-w-0">
                     {/* Course Popularity */}
-                    <div onClick={() => router.push('/admin/courses')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/courses')} className="premium-card p-6 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
+                    <div onClick={() => router.push('/admin/courses')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/courses')} className="premium-card p-4 md:p-6 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
                         <h3 className="text-xs font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
                             <Layers size={16} className="text-brand-blue" /> Formations populaires
                         </h3>
                         <div className="space-y-4">
                             {coursePerformance.map((item, i) => (
                                 <div key={item.name} className="space-y-2">
-                                    <div className="flex justify-between text-[10px] font-black uppercase tracking-wider">
-                                        <span className="text-slate-400 truncate max-w-[150px]">{item.name}</span>
-                                        <span className="text-white">{item.value} inscr.</span>
+                                    <div className="flex justify-between gap-2 text-[10px] font-black uppercase tracking-wider">
+                                        <span className="text-slate-400 truncate min-w-0 max-w-[150px]">{item.name}</span>
+                                        <span className="text-white shrink-0">{item.value} inscr.</span>
                                     </div>
                                     <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
                                         <motion.div 
@@ -761,7 +795,7 @@ export default function AdminDashboard() {
                     </div>
 
                     {/* Upcoming Calendar */}
-                    <div onClick={() => router.push('/admin/sessions')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/sessions')} className="premium-card p-6 bg-gradient-to-br from-slate-900/50 to-brand-green/5 border-l-4 border-l-brand-green cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
+                    <div onClick={() => router.push('/admin/sessions')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/sessions')} className="premium-card p-4 md:p-6 bg-gradient-to-br from-slate-900/50 to-brand-green/5 border-l-4 border-l-brand-green cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
                         <h3 className="text-xs font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
                             <Clock size={16} className="text-brand-green" /> Événements Radar
                         </h3>
@@ -786,28 +820,28 @@ export default function AdminDashboard() {
             </div>
 
             {/* --- ANALYTICS CHARTS: 3 columns on large screens, 2 rows for all six charts --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
                 {/* Age Distribution */}
-                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card p-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="flex items-center gap-3 mb-8">
+                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card p-4 md:p-8 cursor-pointer min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
+                    <div className="flex items-center gap-3 mb-4 md:mb-8">
                         <div className="p-3 rounded-2xl bg-brand-blue/10 text-brand-blue">
                             <Users size={24} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-black text-white uppercase italic tracking-tight">Démographie Étudiante</h3>
+                            <h3 className="text-base md:text-lg font-black text-white uppercase italic tracking-tight">Démographie Étudiante</h3>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Répartition par tranches d'âge</p>
                         </div>
                     </div>
                     
-                    <div className="h-[300px] w-full">
+                    <div className="h-64 md:h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
                                     data={ageDistribution}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={80}
-                                    outerRadius={100}
+                                    innerRadius={isMobile ? 60 : 80}
+                                    outerRadius={isMobile ? 80 : 100}
                                     paddingAngle={8}
                                     dataKey="value"
                                     stroke="none"
@@ -820,9 +854,9 @@ export default function AdminDashboard() {
                                     contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: 'none', color: '#fff' }}
                                 />
                                 <Legend 
-                                    verticalAlign="middle" 
-                                    align="right" 
-                                    layout="vertical"
+                                    verticalAlign={isMobile ? "bottom" : "middle"}
+                                    align={isMobile ? "center" : "right"}
+                                    layout={isMobile ? "horizontal" : "vertical"}
                                     iconType="circle"
                                     formatter={(value) => <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{value}</span>}
                                 />
@@ -832,18 +866,18 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Source Distribution */}
-                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card p-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="flex items-center gap-3 mb-8">
+                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card p-4 md:p-8 cursor-pointer min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
+                    <div className="flex items-center gap-3 mb-4 md:mb-8">
                         <div className="p-3 rounded-2xl bg-amber-400/10 text-amber-400">
                             <Target size={24} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-black text-white uppercase italic tracking-tight">Origine des inscriptions</h3>
+                            <h3 className="text-base md:text-lg font-black text-white uppercase italic tracking-tight">Origine des inscriptions</h3>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Répartition par source</p>
                         </div>
                     </div>
 
-                    <div className="h-[300px] w-full">
+                    <div className="h-64 md:h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={sourceDistribution} layout="vertical">
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
@@ -877,17 +911,17 @@ export default function AdminDashboard() {
                     </div>
                 </div>
                 {/* --- OPERATIONAL DETAILS --- */}
-                <div onClick={() => router.push('/admin/courses')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/courses')} className="premium-card cursor-pointer p-8 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="mb-6 flex items-center justify-between">
-                        <div><h3 className="text-lg font-black uppercase text-white">Étudiants par formation</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Inscriptions validées par formation</p></div>
+                <div onClick={() => router.push('/admin/courses')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/courses')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
+                    <div className="mb-4 md:mb-6 flex items-center justify-between gap-3">
+                        <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Étudiants par formation</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Inscriptions validées par formation</p></div>
                         <BookOpen className="text-brand-blue" size={24} />
                     </div>
-                    <div className="h-[340px]">
+                    <div className="h-[300px] md:h-[340px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={studentsByCourse} layout="vertical" margin={{ left: 25 }}>
+                            <BarChart data={studentsByCourse} layout="vertical" margin={{ left: isMobile ? 0 : 25 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
                                 <XAxis type="number" allowDecimals={false} />
-                                <YAxis dataKey="name" type="category" width={155} tick={{ fontSize: 10, fontWeight: 700 }} />
+                                <YAxis dataKey="name" type="category" width={isMobile ? 100 : 155} tick={{ fontSize: isMobile ? 9 : 10, fontWeight: 700 }} />
                                 <Tooltip formatter={(value) => [value, 'Étudiants']} />
                                 <Bar dataKey="value" fill="#2572B0" radius={[0, 8, 8, 0]} barSize={18} />
                             </BarChart>
@@ -895,15 +929,15 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card cursor-pointer p-8 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="mb-6 flex items-center justify-between">
-                        <div><h3 className="text-lg font-black uppercase text-white">Statut des inscriptions</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Validées, en attente et refusées</p></div>
+                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
+                    <div className="mb-4 md:mb-6 flex items-center justify-between gap-3">
+                        <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Statut des inscriptions</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Validées, en attente et refusées</p></div>
                         <PieIcon className="text-brand-green" size={24} />
                     </div>
-                    <div className="h-[340px]">
+                    <div className="h-[300px] md:h-[340px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
-                                <Pie data={enrollmentStatusData} dataKey="value" nameKey="name" cx="50%" cy="48%" innerRadius={75} outerRadius={115} paddingAngle={5}>
+                                <Pie data={enrollmentStatusData} dataKey="value" nameKey="name" cx="50%" cy="48%" innerRadius={isMobile ? 60 : 75} outerRadius={isMobile ? 90 : 115} paddingAngle={5}>
                                     {enrollmentStatusData.map((entry, index) => <Cell key={entry.name} fill={['#10B981', '#F59E0B', '#F43F5E'][index]} />)}
                                 </Pie>
                                 <Tooltip formatter={(value) => [value, 'Inscriptions']} />
@@ -913,17 +947,17 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                <div onClick={() => router.push('/admin/sessions')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/sessions')} className="premium-card cursor-pointer p-8 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="mb-6 flex items-center justify-between">
-                        <div><h3 className="text-lg font-black uppercase text-white">Remplissage des sessions</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Places occupées et encore disponibles</p></div>
+                <div onClick={() => router.push('/admin/sessions')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/sessions')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
+                    <div className="mb-4 md:mb-6 flex items-center justify-between gap-3">
+                        <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Remplissage des sessions</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Places occupées et encore disponibles</p></div>
                         <Calendar className="text-amber-500" size={24} />
                     </div>
-                    <div className="h-[360px]">
+                    <div className="h-72 md:h-[360px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={sessionOccupancy} layout="vertical" margin={{ left: 25 }}>
+                            <BarChart data={sessionOccupancy} layout="vertical" margin={{ left: isMobile ? 0 : 25 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
                                 <XAxis type="number" allowDecimals={false} />
-                                <YAxis dataKey="name" type="category" width={170} tick={{ fontSize: 9, fontWeight: 700 }} />
+                                <YAxis dataKey="name" type="category" width={isMobile ? 110 : 170} tick={{ fontSize: isMobile ? 8 : 9, fontWeight: 700 }} />
                                 <Tooltip />
                                 <Legend />
                                 <Bar dataKey="occupied" name="Places occupées" stackId="capacity" fill="#A1B83E" barSize={18} />
@@ -933,18 +967,18 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card cursor-pointer p-8 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="mb-6 flex items-center justify-between">
-                        <div><h3 className="text-lg font-black uppercase text-white">Nouvelles inscriptions</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Évolution sur les six derniers mois</p></div>
+                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
+                    <div className="mb-4 md:mb-6 flex items-center justify-between gap-3">
+                        <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Nouvelles inscriptions</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Évolution sur les six derniers mois</p></div>
                         <TrendingUp className="text-brand-green" size={24} />
                     </div>
-                    <div className="h-[360px]">
+                    <div className="h-72 md:h-[360px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={studentTimeline}>
                                 <defs><linearGradient id="studentGrowth" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2572B0" stopOpacity={0.35} /><stop offset="95%" stopColor="#2572B0" stopOpacity={0} /></linearGradient></defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                                <XAxis dataKey="name" />
-                                <YAxis allowDecimals={false} />
+                                <XAxis dataKey="name" tick={isMobile ? { fontSize: 10 } : undefined} />
+                                <YAxis allowDecimals={false} width={isMobile ? 30 : undefined} tick={isMobile ? { fontSize: 10 } : undefined} />
                                 <Tooltip formatter={(value) => [value, 'Nouveaux étudiants']} />
                                 <Area type="monotone" dataKey="value" stroke="#2572B0" strokeWidth={4} fill="url(#studentGrowth)" />
                             </AreaChart>
@@ -953,9 +987,9 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            <div onClick={() => router.push('/admin/presence')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/presence')} className="premium-card cursor-pointer p-8 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                <div className="mb-7 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div><h3 className="text-lg font-black uppercase text-white">Calendrier thermique des absences</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Les 12 dernières semaines · plus la case est foncée, plus les absences sont nombreuses</p></div>
+            <div onClick={() => router.push('/admin/presence')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/presence')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
+                <div className="mb-4 md:mb-7 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Calendrier thermique des absences</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Les 12 dernières semaines · plus la case est foncée, plus les absences sont nombreuses</p></div>
                     <Activity className="text-rose-500" size={26} />
                 </div>
                 <div className="overflow-x-auto pb-2">
@@ -970,22 +1004,22 @@ export default function AdminDashboard() {
             </div>
 
             {/* --- SYSTEM HEALTH --- */}
-            <div onClick={() => router.push('/admin/analytics')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/analytics')} className="premium-card p-10 bg-gradient-to-r from-slate-900 to-[#0a0f19] flex flex-col md:flex-row items-center justify-between gap-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
-                <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-full bg-brand-green/20 flex items-center justify-center text-brand-green shadow-[0_0_30px_rgba(161,184,62,0.1)]">
+            <div onClick={() => router.push('/admin/analytics')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/analytics')} className="premium-card p-5 md:p-10 bg-gradient-to-r from-slate-900 to-[#0a0f19] flex flex-col md:flex-row items-center justify-between gap-5 md:gap-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
+                <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto min-w-0">
+                    <div className="w-12 h-12 md:w-16 md:h-16 shrink-0 rounded-full bg-brand-green/20 flex items-center justify-center text-brand-green shadow-[0_0_30px_rgba(161,184,62,0.1)]">
                         <ShieldCheck size={32} />
                     </div>
-                    <div>
-                        <h4 className="text-xl font-black text-white italic uppercase tracking-tight">Intégrité du système optimisée</h4>
+                    <div className="min-w-0">
+                        <h4 className="text-base md:text-xl font-black text-white italic uppercase tracking-tight">Intégrité du système optimisée</h4>
                         <p className="text-xs text-slate-500 font-bold mt-1 uppercase tracking-widest">Connectivité Supabase stable • Disponibilité de 99,9 %</p>
                     </div>
                 </div>
-                <div className="flex gap-4">
-                    <div className="px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col justify-center">
+                <div className="flex gap-3 md:gap-4 w-full md:w-auto">
+                    <div className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-4 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col justify-center">
                         <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Latence</span>
                         <span className="text-lg font-black text-white tabular-nums">14ms</span>
                     </div>
-                    <div className="px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col justify-center">
+                    <div className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-4 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col justify-center">
                         <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Sauvegarde</span>
                         <span className="text-lg font-black text-green-400 tabular-nums">SÉCURISÉE</span>
                     </div>
