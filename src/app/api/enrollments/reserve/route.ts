@@ -122,8 +122,8 @@ export async function POST(req: Request) {
                 eventType: hasReceipt ? 'payment_submitted' : 'reservation_submitted',
                 eventKey: `admin-notification:reservation:${enrollment.id}`,
                 message: hasReceipt
-                    ? `GSM Guide - Paiement soumis : ${studentName}, ${course.title_fr}, ${amount} DT.`
-                    : `GSM Guide - Réservation reçue : ${studentName}, ${course.title_fr}.`,
+                    ? `GSM Guide Academy - Paiement soumis : ${studentName}, ${course.title_fr}, ${amount} DT.`
+                    : `GSM Guide Academy - Réservation reçue : ${studentName}, ${course.title_fr}.`,
                 metadata: { enrollmentId: enrollment.id, userId: user.id, amount, courseName: course.title_fr },
             });
         }
@@ -133,8 +133,8 @@ export async function POST(req: Request) {
             eventType: hasReceipt ? 'payment_submitted' : 'reservation_submitted',
             eventKey: `reservation-submitted:${enrollment.id}`,
             message: hasReceipt
-                ? `GSM Guide: justificatif de ${amount} DT reçu pour ${course.title_fr}. Validation en cours.`
-                : `GSM Guide: demande de réservation reçue pour ${course.title_fr}. Validation en cours.`,
+                ? `GSM Guide Academy: justificatif de ${amount} DT reçu pour ${course.title_fr}. Validation en cours.`
+                : `GSM Guide Academy: demande de réservation reçue pour ${course.title_fr}. Validation en cours.`,
             metadata: { enrollmentId: enrollment.id, amount, sessionId },
         });
 

@@ -21,7 +21,7 @@ export async function POST(req: Request) {
         if (action === 'delete') {
             const { data: profile } = await supabaseAdmin.from('profiles').select('phone').eq('id', userId).maybeSingle();
             if (profile?.phone) {
-                const result = await sendWinSms(profile.phone, 'GSM Guide: votre compte étudiant a été supprimé. Contactez l’administration pour toute question.');
+                const result = await sendWinSms(profile.phone, 'GSM Guide Academy: votre compte étudiant a été supprimé. Contactez l’administration pour toute question.');
                 if (!result.success) console.error('[Delete account SMS]', result.message);
             }
             // 1. Attempt to delete from enrollments (to avoid FK issues)
@@ -69,8 +69,8 @@ export async function POST(req: Request) {
                 eventType: isBlocked ? 'account_blocked' : 'account_unblocked',
                 eventKey: `account:${userId}:${action}`,
                 message: isBlocked
-                    ? `GSM Guide: votre compte a été temporairement bloqué. Contactez l'administration pour plus d'informations.`
-                    : 'GSM Guide: votre compte a été débloqué. Vous pouvez de nouveau accéder à votre espace étudiant.',
+                    ? `GSM Guide Academy: votre compte a été temporairement bloqué. Contactez l'administration pour plus d'informations.`
+                    : 'GSM Guide Academy: votre compte a été débloqué. Vous pouvez de nouveau accéder à votre espace étudiant.',
                 metadata: { action },
             });
 

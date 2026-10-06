@@ -40,7 +40,7 @@ export async function GET(request: Request) {
                 sessionId: session.id,
                 eventType: 'session_reminder_24h',
                 eventKey: `reminder-24h:${session.id}:${seance.date}:${seance.start_time}`,
-                message: `GSM Guide: rappel ${course?.title_fr || 'formation'} demain à ${seance.start_time}${seance.room ? `, salle ${seance.room}` : ''}. Merci d'arriver 10 min avant.`,
+                message: `GSM Guide Academy: rappel ${course?.title_fr || 'formation'} demain à ${seance.start_time}${seance.room ? `, salle ${seance.room}` : ''}. Merci d'arriver 10 min avant.`,
                 metadata: { sessionId: session.id, date: seance.date, startTime: seance.start_time },
             });
             reminders++;

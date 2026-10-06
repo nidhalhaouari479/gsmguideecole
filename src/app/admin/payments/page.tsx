@@ -57,7 +57,16 @@ interface Enrollment {
     finance_note_updated_at?: string | null;
 }
 
-const getPaymentStatusLabel = (status: string) => {
+interface PaymentSessionOption {
+    id: string;
+    course_id: string;
+    course_title: string;
+    start_date: string;
+    price: number;
+    seats_left: number;
+}
+
+const getPaymentStatusLabel =(status: string) => {
     if (status?.toLowerCase() === 'approved') return 'Validé';
     if (status?.toLowerCase() === 'rejected') return 'Refusé';
     return 'En attente';
@@ -119,10 +128,22 @@ export default function PaymentsAdminPage() {
         amount: '',
         note: '',
     });
+    const [paymentSessionOptions, setPaymentSessionOptions] = useState<PaymentSessionOption[]>([]);
 
     useEffect(() => {
         fetchEnrollments();
     }, []);
+
+    useEffect(() => {
+        if (!isAddPaymentOpen) return;
+        fetch('/api/admin/payments/sessions')
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                setPaymentSessionOptions(data);
+            })
+            .catch(error => console.error('Error fetching payment sessions:', error));
+    }, [isAddPaymentOpen]);
 
     const fetchEnrollments = async () => {
         setLoading(true);
@@ -324,18 +345,51 @@ export default function PaymentsAdminPage() {
     });
 
     const selectedStudentEnrollments = enrollments.filter(enrollment => enrollment.user_id === paymentForm.userId);
-    const paymentCourses = selectedStudentEnrollments.reduce<Array<{ id: string; title: string }>>((items, enrollment) => {
-        const course = enrollment.sessions?.courses;
-        if (course?.id && !items.some(item => item.id === course.id)) {
-            items.push({ id: course.id, title: course.title_fr || 'Formation sans nom' });
+    // Every session of every formation is offered: picking one the student is not
+    // enrolled in creates a new enrollment, with this payment as its first installment.
+    const paymentCourses = [
+        ...selectedStudentEnrollments.map(enrollment => ({
+            id: enrollment.sessions?.courses?.id,
+            title: enrollment.sessions?.courses?.title_fr || 'Formation sans nom',
+        })),
+        ...paymentSessionOptions.map(option => ({ id: option.course_id, title: option.course_title })),
+    ].reduce<Array<{ id: string; title: string; enrolled: boolean }>>((items, course) => {
+        if (course.id && !items.some(item => item.id === course.id)) {
+            items.push({
+                id: course.id,
+                title: course.title,
+                enrolled: selectedStudentEnrollments.some(enrollment => enrollment.sessions?.courses?.id === course.id),
+            });
         }
         return items;
-    }, []).sort((a, b) => a.title.localeCompare(b.title, 'fr'));
+    }, []).sort((a, b) => Number(b.enrolled) - Number(a.enrolled) || a.title.localeCompare(b.title, 'fr'));
 
-    const paymentSessions = selectedStudentEnrollments.filter(enrollment =>
-        enrollment.sessions?.courses?.id === paymentForm.courseId
-    );
-    const selectedPaymentEnrollment = paymentSessions.find(enrollment => enrollment.sessions?.id === paymentForm.sessionId);
+    const paymentSessions = [
+        ...selectedStudentEnrollments
+            .filter(enrollment => enrollment.sessions?.courses?.id === paymentForm.courseId)
+            .map(enrollment => ({ id: enrollment.sessions.id, start_date: enrollment.sessions.start_date })),
+        ...paymentSessionOptions
+            .filter(option => option.course_id === paymentForm.courseId)
+            .map(option => ({ id: option.id, start_date: option.start_date })),
+    ].filter((session, index, all) => all.findIndex(other => other.id === session.id) === index)
+        .map(session => {
+            const enrollment = selectedStudentEnrollments.find(en => en.sessions?.id === session.id);
+            const option = paymentSessionOptions.find(opt => opt.id === session.id);
+            const totalPrice = enrollment ? Number(enrollment.total_price) || 0 : option?.price || 0;
+            const paid = enrollment ? Number(enrollment.amount_paid) || 0 : 0;
+            const remaining = Math.max(totalPrice - paid, 0);
+            const isSettled = Boolean(enrollment) && totalPrice > 0 && remaining === 0;
+            const isFull = !enrollment && (option?.seats_left ?? 0) <= 0;
+            const date = new Date(session.start_date).toLocaleDateString('fr-FR');
+            const label = !enrollment
+                ? `Session du ${date} — nouvelle inscription (${totalPrice.toLocaleString('fr-FR')} DT)${isFull ? ' · complète' : ''}`
+                : isSettled
+                    ? `Session du ${date} — soldée`
+                    : `Session du ${date} — reste ${remaining.toLocaleString('fr-FR')} DT`;
+            return { ...session, enrollment, totalPrice, paid, remaining, isSettled, isFull, label };
+        })
+        .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
+    const selectedPaymentSession = paymentSessions.find(session => session.id === paymentForm.sessionId);
 
     const stats = {
         pendingCount: enrollments.filter(e => e.status?.toLowerCase() === 'pending').length,
@@ -1128,7 +1182,9 @@ export default function PaymentsAdminPage() {
                                         >
                                             <option value="">Choisir une formation</option>
                                             {paymentCourses.map(course => (
-                                                <option key={course.id} value={course.id}>{course.title}</option>
+                                                <option key={course.id} value={course.id}>
+                                                    {course.title}{course.enrolled ? ' (inscrit)' : ''}
+                                                </option>
                                             ))}
                                         </select>
                                     </div>
@@ -1143,9 +1199,9 @@ export default function PaymentsAdminPage() {
                                             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green disabled:cursor-not-allowed disabled:bg-slate-100"
                                         >
                                             <option value="">Choisir une session</option>
-                                            {paymentSessions.map(enrollment => (
-                                                <option key={enrollment.sessions.id} value={enrollment.sessions.id}>
-                                                    Session du {new Date(enrollment.sessions.start_date).toLocaleDateString('fr-FR')}
+                                            {paymentSessions.map(session => (
+                                                <option key={session.id} value={session.id} disabled={session.isSettled || session.isFull}>
+                                                    {session.label}
                                                 </option>
                                             ))}
                                         </select>
@@ -1159,19 +1215,35 @@ export default function PaymentsAdminPage() {
                                         type="number"
                                         min="0.001"
                                         step="0.001"
-                                        max={selectedPaymentEnrollment
-                                            ? Math.max(Number(selectedPaymentEnrollment.total_price) - Number(selectedPaymentEnrollment.amount_paid), 0)
+                                        max={selectedPaymentSession && selectedPaymentSession.totalPrice > 0
+                                            ? selectedPaymentSession.remaining
                                             : undefined}
                                         value={paymentForm.amount}
                                         onChange={(event) => setPaymentForm(current => ({ ...current, amount: event.target.value }))}
                                         placeholder="Exemple : 300"
                                         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green"
                                     />
-                                    {selectedPaymentEnrollment && (
-                                        <p className="mt-2 text-xs font-bold text-slate-500">
-                                            Déjà payé : {Number(selectedPaymentEnrollment.amount_paid).toLocaleString('fr-FR')} DT · Reste : {Math.max(Number(selectedPaymentEnrollment.total_price) - Number(selectedPaymentEnrollment.amount_paid), 0).toLocaleString('fr-FR')} DT
-                                        </p>
-                                    )}
+                                    {selectedPaymentSession && (() => {
+                                        const amount = Number(paymentForm.amount) || 0;
+                                        const remainingAfter = Math.max(selectedPaymentSession.remaining - amount, 0);
+                                        return (
+                                            <div className="mt-2 space-y-1 text-xs font-bold text-slate-500">
+                                                {!selectedPaymentSession.enrollment && (
+                                                    <p className="text-brand-blue">
+                                                        Nouvelle inscription : l’étudiant sera inscrit à cette session ({selectedPaymentSession.totalPrice.toLocaleString('fr-FR')} DT).
+                                                    </p>
+                                                )}
+                                                <p>
+                                                    Prix : {selectedPaymentSession.totalPrice.toLocaleString('fr-FR')} DT · Déjà payé : {selectedPaymentSession.paid.toLocaleString('fr-FR')} DT · Reste : {selectedPaymentSession.remaining.toLocaleString('fr-FR')} DT
+                                                </p>
+                                                {amount > 0 && amount <= selectedPaymentSession.remaining && (
+                                                    <p className="text-emerald-600">
+                                                        Après ce paiement : reste {remainingAfter.toLocaleString('fr-FR')} DT
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 <div>

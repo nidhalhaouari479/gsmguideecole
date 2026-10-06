@@ -122,7 +122,7 @@ export async function POST(req: Request) {
             userId: item.user_id,
             eventType: 'requested_session_available',
             eventKey: `requested-session-available:${data.id}:${item.user_id}`,
-            message: `GSM Guide: une nouvelle session de ${course?.title_fr || 'la formation demandée'} est disponible dès le ${new Date(start_date).toLocaleDateString('fr-FR')}. Réservez votre place.`,
+            message: `GSM Guide Academy: une nouvelle session de ${course?.title_fr || 'la formation demandée'} est disponible dès le ${new Date(start_date).toLocaleDateString('fr-FR')}. Réservez votre place.`,
             metadata: { sessionId: data.id, requestId: item.id },
         })));
 
@@ -179,7 +179,7 @@ export async function PUT(req: Request) {
             sessionId: id,
             eventType: 'session_updated',
             eventKey: `session-updated:${id}:${scheduleWithData}`,
-            message: `GSM Guide: planning de ${course?.title_fr || 'votre formation'} modifié. Prochaine date: ${new Date(start_date).toLocaleDateString('fr-FR')}. Consultez votre espace.`,
+            message: `GSM Guide Academy: planning de ${course?.title_fr || 'votre formation'} modifié. Prochaine date: ${new Date(start_date).toLocaleDateString('fr-FR')}. Consultez votre espace.`,
             metadata: { sessionId: id, startDate: start_date, endDate: end_date },
         });
 
@@ -218,7 +218,7 @@ export async function DELETE(req: Request) {
             sessionId: id,
             eventType: 'session_cancelled',
             eventKey: `session-cancelled:${id}`,
-            message: `GSM Guide: la session ${course?.title_fr || ''} prévue le ${session?.start_date ? new Date(session.start_date).toLocaleDateString('fr-FR') : ''} est annulée. Contactez l'administration.`,
+            message: `GSM Guide Academy: la session ${course?.title_fr || ''} prévue le ${session?.start_date ? new Date(session.start_date).toLocaleDateString('fr-FR') : ''} est annulée. Contactez l'administration.`,
             metadata: { sessionId: id },
         });
 

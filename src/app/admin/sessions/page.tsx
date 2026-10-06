@@ -113,7 +113,7 @@ export default function SessionsAdminPage() {
     const [formData, setFormData] = useState({
         course_id: '',
         instructor_id: '',
-        seats_available: 12,
+        seats_available: '12',
         schedule: 'Temps plein',
         seanceCount: 1,
         seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
@@ -213,7 +213,7 @@ export default function SessionsAdminPage() {
         try {
             const url = '/api/admin/sessions';
             const method = editingSessionId ? 'PUT' : 'POST';
-            const payload = editingSessionId ? { ...formData, id: editingSessionId } : formData;
+            const payload = { ...formData, seats_available: parseInt(formData.seats_available, 10), ...(editingSessionId ? { id: editingSessionId } : {}) };
 
             const response = await fetch(url, {
                 method: method,
@@ -229,7 +229,7 @@ export default function SessionsAdminPage() {
             setFormData({
                 course_id: '',
                 instructor_id: '',
-                seats_available: 12,
+                seats_available: '12',
                 schedule: 'Temps plein',
                 seanceCount: 1,
                 seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
@@ -271,7 +271,7 @@ export default function SessionsAdminPage() {
         setFormData({
             course_id: session.course_id,
             instructor_id: parsedSchedule.instructor_id || session.instructor_id || '',
-            seats_available: session.seats_available,
+            seats_available: String(session.seats_available ?? ''),
             schedule: parsedSchedule.label,
             seanceCount: parsedSchedule.seances.length || 1,
             seances: parsedSchedule.seances.length > 0 
@@ -663,7 +663,7 @@ export default function SessionsAdminPage() {
                             setFormData({
                                 course_id: '',
                                 instructor_id: '',
-                                seats_available: 12,
+                                seats_available: '12',
                                 schedule: 'Temps plein',
                                 seanceCount: 1,
                                 seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
@@ -1012,7 +1012,7 @@ export default function SessionsAdminPage() {
                                                         type="number"
                                                         required
                                                         value={formData.seats_available}
-                                                        onChange={(e) => setFormData({ ...formData, seats_available: parseInt(e.target.value) })}
+                                                        onChange={(e) => setFormData({ ...formData, seats_available: e.target.value })}
                                                         className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
                                                         placeholder="Ex: 12"
                                                     />

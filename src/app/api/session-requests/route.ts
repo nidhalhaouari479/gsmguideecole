@@ -60,8 +60,8 @@ export async function PATCH(req: Request) {
                 eventType: status === 'processed' ? 'session_request_processed' : 'session_request_rejected',
                 eventKey: `session-request:${id}:${status}`,
                 message: status === 'processed'
-                    ? `GSM Guide: votre demande pour ${course?.title_fr || 'la formation'} a été traitée. L'administration vous contactera prochainement.`
-                    : `GSM Guide: votre demande pour ${course?.title_fr || 'la formation'} a été refusée. Contactez l'administration pour plus d'informations.`,
+                    ? `GSM Guide Academy: votre demande pour ${course?.title_fr || 'la formation'} a été traitée. L'administration vous contactera prochainement.`
+                    : `GSM Guide Academy: votre demande pour ${course?.title_fr || 'la formation'} a été refusée. Contactez l'administration pour plus d'informations.`,
                 metadata: { requestId: id, status },
             });
             if (!result.success) console.error('[Session request SMS]', result.message);

@@ -191,7 +191,7 @@ export async function POST(req: Request) {
             userId: row.user_id,
             eventType: `attendance_${row.status}`,
             eventKey: `attendance:${sessionId}:${seanceKey}:${row.user_id}:${row.status}`,
-            message: `GSM Guide: présence du ${new Date(seance.date).toLocaleDateString('fr-FR')} (${course?.title_fr || 'formation'}): ${statusLabels[row.status]}.`,
+            message: `GSM Guide Academy: présence du ${new Date(seance.date).toLocaleDateString('fr-FR')} (${course?.title_fr || 'formation'}): ${statusLabels[row.status]}.`,
             metadata: { sessionId, seanceKey, status: row.status },
         })));
 

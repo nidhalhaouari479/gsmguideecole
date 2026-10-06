@@ -76,7 +76,7 @@ export default function CoursesAdminPage() {
     // Form state
     const [formData, setFormData] = useState({
         title_fr: '', title_en: '', description_fr: '', description_en: '',
-        duration: '', base_price: 0, sold_price: '', reservation_amount: 400, category: '',
+        duration: '', base_price: '', sold_price: '', reservation_amount: '400', category: '',
         image_url: '', level: '', instructor_id: '',
         program_items: ['', '', '', '']
     });
@@ -145,9 +145,9 @@ export default function CoursesAdminPage() {
                 description_fr: course.description_fr || '',
                 description_en: course.description_en || '',
                 duration: course.duration || '',
-                base_price: course.base_price || 0,
+                base_price: course.base_price != null ? course.base_price.toString() : '',
                 sold_price: course.sold_price ? course.sold_price.toString() : '',
-                reservation_amount: course.reservation_amount ?? 400,
+                reservation_amount: (course.reservation_amount ?? 400).toString(),
                 category: course.category || '',
                 image_url: course.image_url || '',
                 level: course.level || '',
@@ -160,7 +160,7 @@ export default function CoursesAdminPage() {
             setEditingCourse(null);
             setFormData({
                 title_fr: '', title_en: '', description_fr: '', description_en: '',
-                duration: '', base_price: 0, sold_price: '', reservation_amount: 400, category: '',
+                duration: '', base_price: '', sold_price: '', reservation_amount: '400', category: '',
                 image_url: '', level: '', instructor_id: '',
                 program_items: ['', '', '', '']
             });
@@ -202,6 +202,7 @@ export default function CoursesAdminPage() {
                 ...formData,
                 image_url: finalImageUrl,
                 id: editingCourse?.id,
+                base_price: Number(formData.base_price),
                 sold_price: formData.sold_price ? parseFloat(formData.sold_price) : null,
                 reservation_amount: Number(formData.reservation_amount)
             };
@@ -516,12 +517,12 @@ export default function CoursesAdminPage() {
             {/* Modal for Add/Edit */}
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+                    <div className="fixed inset-0 z-50 flex p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white border border-slate-200 p-5 pb-0 md:p-6 rounded-2xl w-full max-w-2xl shadow-2xl md:my-8 relative max-h-[92dvh] overflow-y-auto overscroll-contain md:max-h-none md:overflow-visible"
+                            className="bg-white border border-slate-200 p-5 pb-0 md:p-6 md:pb-0 rounded-2xl w-full max-w-2xl shadow-2xl m-auto relative max-h-[92dvh] overflow-y-auto overscroll-contain"
                         >
                             <div className="flex justify-between items-center gap-3 mb-4 md:mb-6">
                                 <h2 className="text-lg md:text-xl font-black text-slate-900">
@@ -589,7 +590,7 @@ export default function CoursesAdminPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Prix de Base (DT) *</label>
-                                        <input type="number" min="0" step="0.01" required value={formData.base_price} onChange={(e) => setFormData({ ...formData, base_price: Number(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
+                                        <input type="number" min="0" step="0.01" required value={formData.base_price} onChange={(e) => setFormData({ ...formData, base_price: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 mb-1">Prix Soldé (DT)</label>
@@ -603,7 +604,7 @@ export default function CoursesAdminPage() {
                                             step="0.01"
                                             required
                                             value={formData.reservation_amount}
-                                            onChange={(e) => setFormData({ ...formData, reservation_amount: Number(e.target.value) })}
+                                            onChange={(e) => setFormData({ ...formData, reservation_amount: e.target.value })}
                                             className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
                                         />
                                         <p className="mt-1 text-[10px] text-slate-500">Montant minimum si l’étudiant paie lors de la réservation.</p>
@@ -685,7 +686,7 @@ export default function CoursesAdminPage() {
                                     </div>
                                 </div>
 
-                                <div className="sticky bottom-0 z-10 -mx-5 px-5 pb-[max(env(safe-area-inset-bottom),1rem)] bg-white md:static md:mx-0 md:px-0 md:pb-0 md:bg-transparent flex justify-end gap-3 mt-8 pt-4 border-t border-white/10">
+                                <div className="sticky bottom-0 z-10 -mx-5 px-5 md:-mx-6 md:px-6 pb-[max(env(safe-area-inset-bottom),1rem)] bg-white flex justify-end gap-3 mt-8 pt-4 border-t border-slate-200">
                                     <button type="button" onClick={() => setIsModalOpen(false)} className="shrink-0 min-h-11 md:min-h-0 px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-all">
                                         Annuler
                                     </button>

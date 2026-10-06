@@ -62,7 +62,7 @@ export async function POST(req: Request) {
                 await notifyAdminBySms({
                     eventType: 'new_student',
                     eventKey: `admin-notification:new-student:${userId}`,
-                    message: `GSM Guide - Nouveau étudiant : ${full_name || email || 'Inscription reçue'}.`,
+                    message: `GSM Guide Academy - Nouveau étudiant : ${full_name || email || 'Inscription reçue'}.`,
                     metadata: { userId, email, phone, source },
                 });
             }

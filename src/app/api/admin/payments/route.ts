@@ -109,18 +109,65 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'La session ne correspond pas à la formation choisie.' }, { status: 400 });
         }
 
-        const { data: enrollment, error: enrollmentError } = await supabaseAdmin
+        const { data: existingEnrollment, error: enrollmentError } = await supabaseAdmin
             .from('enrollments')
             .select('id, amount_paid, total_price, receipt_url')
             .eq('user_id', userId)
             .eq('session_id', sessionId)
-            .single();
+            .maybeSingle();
 
-        if (enrollmentError || !enrollment) {
-            return NextResponse.json(
-                { error: 'Cet étudiant n’est pas inscrit à cette session.' },
-                { status: 404 }
-            );
+        if (enrollmentError) throw enrollmentError;
+
+        let enrollment = existingEnrollment;
+        if (!enrollment) {
+            // Student not yet in this session: enroll them, this payment becomes the first installment.
+            const { data: sessionInfo, error: seatsError } = await supabaseAdmin
+                .from('sessions')
+                .select('seats_available')
+                .eq('id', sessionId)
+                .single();
+            if (seatsError) throw seatsError;
+
+            const { count: reservedCount, error: countError } = await supabaseAdmin
+                .from('enrollments')
+                .select('id', { count: 'exact', head: true })
+                .eq('session_id', sessionId)
+                .in('status', ['pending', 'approved']);
+            if (countError) throw countError;
+            if ((reservedCount || 0) >= Number(sessionInfo.seats_available || 0)) {
+                return NextResponse.json({ error: 'Cette session est complète.' }, { status: 409 });
+            }
+
+            const { data: coursePrice, error: priceError } = await supabaseAdmin
+                .from('courses')
+                .select('base_price, sold_price')
+                .eq('id', session.course_id)
+                .single();
+            if (priceError || !coursePrice) {
+                return NextResponse.json({ error: 'Formation introuvable.' }, { status: 404 });
+            }
+            const sessionPrice = Number(coursePrice.sold_price || coursePrice.base_price || 0);
+            if (sessionPrice > 0 && paymentAmount > sessionPrice) {
+                return NextResponse.json(
+                    { error: `Le montant dépasse le prix de la session (${sessionPrice.toLocaleString('fr-FR')} DT).` },
+                    { status: 400 }
+                );
+            }
+
+            const { data: created, error: createError } = await supabaseAdmin
+                .from('enrollments')
+                .insert({
+                    user_id: userId,
+                    session_id: sessionId,
+                    status: 'approved',
+                    amount_paid: 0,
+                    total_price: sessionPrice,
+                    receipt_url: null,
+                })
+                .select('id, amount_paid, total_price, receipt_url')
+                .single();
+            if (createError) throw createError;
+            enrollment = created;
         }
 
         const currentPaid = Number(enrollment.amount_paid) || 0;
@@ -128,8 +175,13 @@ export async function POST(request: Request) {
         const newTotal = currentPaid + paymentAmount;
 
         if (totalPrice > 0 && newTotal > totalPrice) {
+            const remainingBefore = Math.max(totalPrice - currentPaid, 0);
             return NextResponse.json(
-                { error: `Le montant dépasse le reste à payer (${Math.max(totalPrice - currentPaid, 0).toLocaleString('fr-FR')} DT).` },
+                {
+                    error: remainingBefore === 0
+                        ? `Cette session est déjà soldée (${currentPaid.toLocaleString('fr-FR')} / ${totalPrice.toLocaleString('fr-FR')} DT). Choisissez une autre session pour enregistrer ce paiement.`
+                        : `Le montant dépasse le reste à payer (${remainingBefore.toLocaleString('fr-FR')} DT).`,
+                },
                 { status: 400 }
             );
         }
@@ -207,8 +259,8 @@ export async function POST(request: Request) {
             eventType: remaining === 0 ? 'payment_completed' : 'payment_added',
             eventKey: `manual-payment:${enrollment.id}:${newTotal}`,
             message: remaining === 0
-                ? `GSM Guide: paiement de ${paymentAmount} DT enregistré. ${course?.title_fr || 'Formation'} entièrement payée. Merci!`
-                : `GSM Guide: paiement de ${paymentAmount} DT enregistré pour ${course?.title_fr || 'votre formation'}. Total payé: ${newTotal} DT. Reste: ${remaining} DT.`,
+                ? `GSM Guide Academy: paiement de ${paymentAmount} DT enregistré. ${course?.title_fr || 'Formation'} entièrement payée. Merci!`
+                : `GSM Guide Academy: paiement de ${paymentAmount} DT enregistré pour ${course?.title_fr || 'votre formation'}. Total payé: ${newTotal} DT. Reste: ${remaining} DT.`,
             metadata: { enrollmentId: enrollment.id, paymentAmount, totalPaid: newTotal, remaining },
         });
 

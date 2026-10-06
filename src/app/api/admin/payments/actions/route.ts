@@ -85,8 +85,8 @@ export async function POST(req: Request) {
                     : (isApproved ? 'payment_approved' : 'payment_rejected'),
                 eventKey: `admin-notification:${isReservationWithoutPayment ? 'reservation' : 'payment'}:${enrollmentId}:${status}`,
                 message: isReservationWithoutPayment
-                    ? `GSM Guide - Réservation ${isApproved ? 'validée' : 'refusée'} : ${studentName || 'Étudiant'}, ${displayCourse}.`
-                    : `GSM Guide - Paiement ${isApproved ? 'validé' : 'refusé'} : ${studentName || 'Étudiant'}, ${displayCourse}.`,
+                    ? `GSM Guide Academy - Réservation ${isApproved ? 'validée' : 'refusée'} : ${studentName || 'Étudiant'}, ${displayCourse}.`
+                    : `GSM Guide Academy - Paiement ${isApproved ? 'validé' : 'refusé'} : ${studentName || 'Étudiant'}, ${displayCourse}.`,
                 metadata: { enrollmentId, userId: enrollment.user_id, status, courseName: displayCourse },
             });
         } catch (notifErr) {
@@ -140,11 +140,11 @@ export async function POST(req: Request) {
             eventKey: `${isReservationWithoutPayment ? 'reservation' : 'payment'}:${enrollmentId}:${status}:${paid}`,
             message: isReservationWithoutPayment
                 ? (isApproved
-                    ? `GSM Guide: votre réservation pour ${displayCourse} est confirmée.`
-                    : `GSM Guide: votre réservation pour ${displayCourse} est refusée. Contactez l'administration.`)
+                    ? `GSM Guide Academy: votre réservation pour ${displayCourse} est confirmée.`
+                    : `GSM Guide Academy: votre réservation pour ${displayCourse} est refusée. Contactez l'administration.`)
                 : (isApproved
-                    ? `GSM Guide: paiement validé pour ${displayCourse}. Payé: ${paid} DT. Reste: ${remaining} DT.`
-                    : `GSM Guide: votre paiement pour ${displayCourse} est refusé. Contactez l'administration.`),
+                    ? `GSM Guide Academy: paiement validé pour ${displayCourse}. Payé: ${paid} DT. Reste: ${remaining} DT.`
+                    : `GSM Guide Academy: votre paiement pour ${displayCourse} est refusé. Contactez l'administration.`),
             metadata: { enrollmentId, paid, remaining, status },
         });
 

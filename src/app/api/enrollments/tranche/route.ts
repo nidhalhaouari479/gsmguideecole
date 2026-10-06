@@ -86,7 +86,7 @@ export async function POST(req: Request) {
                 await notifyAdminBySms({
                     eventType: 'payment_installment_submitted',
                     eventKey: `admin-notification:payment-installment:${enrollmentId}:${history.length}:${declaredAmount}`,
-                    message: `GSM Guide - Paiement soumis : ${displayName}, ${displayCourse}, ${declaredAmount} DT.`,
+                    message: `GSM Guide Academy - Paiement soumis : ${displayName}, ${displayCourse}, ${declaredAmount} DT.`,
                     metadata: { enrollmentId, userId: enrollment.user_id, amount: declaredAmount, courseName: displayCourse },
                 });
             }
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
             userId: enrollment.user_id,
             eventType: 'payment_installment_submitted',
             eventKey: `payment-installment:${enrollmentId}:${history.length}:${declaredAmount}`,
-            message: `GSM Guide: justificatif de paiement de ${declaredAmount} DT reçu pour ${displayCourse}. Validation en cours.`,
+            message: `GSM Guide Academy: justificatif de paiement de ${declaredAmount} DT reçu pour ${displayCourse}. Validation en cours.`,
             metadata: { enrollmentId, amount: declaredAmount },
         });
 

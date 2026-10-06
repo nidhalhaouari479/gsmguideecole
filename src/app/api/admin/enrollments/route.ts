@@ -136,7 +136,7 @@ export async function POST(req: Request) {
             userId,
             eventType: 'enrollment_created',
             eventKey: `enrollment-created:${data.id}`,
-            message: `GSM Guide: inscription confirmée à ${course.title_fr}. Début: ${new Date(session.start_date).toLocaleDateString('fr-FR')}. Montant: ${totalPrice} DT.`,
+            message: `GSM Guide Academy: inscription confirmée à ${course.title_fr}. Début: ${new Date(session.start_date).toLocaleDateString('fr-FR')}. Montant: ${totalPrice} DT.`,
             metadata: { enrollmentId: data.id, sessionId, totalPrice },
         });
 
@@ -221,7 +221,7 @@ export async function DELETE(req: Request) {
             userId,
             eventType: 'enrollment_removed',
             eventKey: `enrollment-removed:${enrollment.id}`,
-            message: `GSM Guide: votre inscription à ${courseInfo?.title_fr || 'la session'} a été annulée. Contactez l'administration si nécessaire.`,
+            message: `GSM Guide Academy: votre inscription à ${courseInfo?.title_fr || 'la session'} a été annulée. Contactez l'administration si nécessaire.`,
             metadata: { enrollmentId: enrollment.id, sessionId },
         });
 
