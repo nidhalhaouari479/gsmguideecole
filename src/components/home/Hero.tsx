@@ -2,108 +2,112 @@
 
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '@/context/LanguageContext';
-import { ChevronRight, ArrowRight, Play, X } from 'lucide-react';
+import { ArrowRight, Play, X, GraduationCap, Award, Wrench, Users } from 'lucide-react';
+
+const trustItems = [
+    { icon: Users, value: '+1 200', label: 'Étudiants certifiés & employés' },
+    { icon: Award, value: '10+ ans', label: "D'expérience terrain" },
+    { icon: Wrench, value: '100 %', label: 'Laboratoires pratiques' },
+    { icon: GraduationCap, value: '98 %', label: 'Taux de réussite' },
+];
 
 const Hero = () => {
     const { t } = useLanguage();
     const [isVideoOpen, setIsVideoOpen] = React.useState(false);
 
-    return (
-        <section className="relative overflow-hidden pt-12 pb-24 md:pt-24 md:pb-40 bg-white dark:bg-slate-950">
-            {/* Background elements */}
-            <div className="absolute top-0 right-0 -z-10 w-1/2 h-full bg-gradient-to-l from-brand-blue/5 to-transparent dark:from-brand-blue/10" />
-            <div className="absolute -top-24 -right-24 -z-10 w-96 h-96 bg-brand-blue/10 blur-3xl rounded-full" />
+    // UI only: close the video modal with Escape
+    React.useEffect(() => {
+        if (!isVideoOpen) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsVideoOpen(false); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [isVideoOpen]);
 
-            <div className="container mx-auto px-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+    return (
+        <section className="relative overflow-hidden bg-white pt-10 pb-14 md:pt-16 md:pb-20 lg:pt-20 lg:pb-24">
+            {/* Background elements */}
+            <div aria-hidden="true" className="pointer-events-none absolute top-0 right-0 -z-0 h-full w-1/2 bg-gradient-to-l from-brand-blue/5 to-transparent" />
+            <div aria-hidden="true" className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-brand-blue/10 blur-3xl" />
+
+            <div className="container relative mx-auto px-4 sm:px-6">
+                <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
                     <motion.div
-                        initial={{ opacity: 0, x: -50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.8 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
                     >
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-blue/10 dark:bg-brand-blue/20 text-brand-blue font-bold text-sm mb-8">
-                            <span className="flex h-2 w-2 rounded-full bg-brand-green animate-pulse" />
-                            ACADÉMIE N°1 EN TUNISIE
+                        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-blue/20 bg-brand-blue/5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-brand-blue">
+                            <span className="h-2 w-2 rounded-full bg-brand-green" />
+                            Académie n°1 en Tunisie
                         </div>
 
-                        <h1 className="text-4xl xs:text-5xl md:text-7xl font-black mb-8 leading-tight tracking-tight text-slate-900 dark:text-white">
-                            {t.hero.title} <br />
-                            <span className="text-gradient">Carrière Professionnelle</span>
+                        <h1 className="mb-5 text-4xl font-black leading-[1.1] tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+                            {t.hero.title}{' '}
+                            <span className="text-brand-blue">{t.hero.subtitle}</span>
                         </h1>
 
-                        <p className="text-xl text-slate-600 dark:text-slate-400 mb-10 max-w-xl leading-relaxed font-medium">
-                            {t.hero.description}
+                        <p className="mb-8 max-w-xl text-base leading-relaxed text-slate-600 md:text-lg">
+                            {t.hero.description}{' '}
+                            <span className="font-semibold text-slate-900">Lancez votre carrière professionnelle en quelques semaines.</span>
                         </p>
 
-                        <div className="flex flex-wrap items-center gap-6">
-                            <Link href="/formations" className="btn-primary flex items-center gap-2 group px-8 py-4 text-lg">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+                            <Link
+                                href="/formations"
+                                className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-brand-green px-6 text-base font-bold text-black shadow-lg shadow-brand-green/25 transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+                            >
                                 {t.hero.cta}
-                                <ArrowRight className="group-hover:translate-x-1 transition-transform" size={20} />
+                                <ArrowRight className="transition-transform group-hover:translate-x-1" size={20} />
                             </Link>
 
                             <button
                                 onClick={() => setIsVideoOpen(true)}
-                                className="flex items-center gap-4 group hover:text-brand-blue transition-colors"
+                                className="group inline-flex h-12 items-center justify-center gap-3 rounded-xl px-2 text-base font-bold text-slate-900 transition-colors hover:text-brand-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
                             >
-                                <div className="w-14 h-14 rounded-full border-2 border-brand-blue flex items-center justify-center text-brand-blue group-hover:bg-brand-blue group-hover:text-white transition-all shadow-lg shadow-brand-blue/20">
-                                    <Play size={24} fill="currentColor" />
-                                </div>
-                                <span className="font-bold text-lg">Regarder la Vidéo</span>
+                                <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-brand-blue text-brand-blue transition-colors group-hover:bg-brand-blue group-hover:text-[#fff]">
+                                    <Play size={16} fill="currentColor" />
+                                </span>
+                                Regarder la vidéo
                             </button>
                         </div>
 
-                        <div className="mt-16 flex flex-col sm:flex-row items-center sm:items-start gap-6 p-6 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-border w-full sm:w-fit">
-                            <div className="flex -space-x-4">
-                                {[1, 2, 3, 4].map((i) => (
-                                    <div key={i} className="w-14 h-14 rounded-full border-4 border-white dark:border-slate-800 bg-slate-200 overflow-hidden relative shadow-md">
-                                        <Image 
-                                            src={`https://i.pravatar.cc/150?u=${i + 10}`} 
-                                            alt="Étudiant"
-                                            fill 
-                                            sizes="56px"
-                                            className="object-cover" 
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="pr-4">
-                                <div className="font-black text-xl text-slate-900 dark:text-white">+1 200 Étudiants</div>
-                                <div className="text-sm font-bold text-slate-500 uppercase tracking-widest">Certifiés &amp; Employés</div>
-                            </div>
-                        </div>
+                        {/* Trust signals */}
+                        <dl className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            {trustItems.map(({ icon: Icon, value, label }) => (
+                                <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                    <Icon size={18} className="mb-2 text-brand-blue" aria-hidden="true" />
+                                    <dt className="sr-only">{label}</dt>
+                                    <dd className="text-xl font-black tabular-nums text-slate-900">{value}</dd>
+                                    <dd className="text-xs leading-snug text-slate-600">{label}</dd>
+                                </div>
+                            ))}
+                        </dl>
                     </motion.div>
 
-                    <div className="relative hidden lg:block h-[550px]">
+                    <div className="relative">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
+                            initial={{ opacity: 0, scale: 0.98 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 1 }}
-                            className="relative z-10 w-full h-full rounded-[48px] overflow-hidden shadow-2xl border-2 border-slate-200 dark:border-slate-800"
+                            transition={{ duration: 0.3 }}
+                            className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl border border-slate-200 shadow-2xl lg:aspect-auto lg:h-[540px]"
                         >
-                            <img src="/603807524_122162202128668326_405473167361075168_n.jpg" className="w-full h-full object-cover" alt="Atelier GSM Guide Academy" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent" />
+                            <img src="/603807524_122162202128668326_405473167361075168_n.jpg" className="h-full w-full object-cover" alt="Atelier GSM Guide Academy" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                         </motion.div>
 
-                        {/* More professional floating badge */}
-                        <motion.div
-                            animate={{ y: [0, -15, 0] }}
-                            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                            className="absolute -bottom-6 -left-6 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-[220px]"
-                        >
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-full bg-brand-green/20 flex items-center justify-center text-brand-green">
-                                    <Play size={20} fill="currentColor" />
+                        {/* Floating badge */}
+                        <div className="absolute -bottom-5 left-4 z-20 hidden max-w-[240px] rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-2xl backdrop-blur-xl sm:block lg:-left-6">
+                            <div className="mb-2 flex items-center gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-green/20 text-slate-900">
+                                    <Award size={18} />
                                 </div>
-                                <div className="text-xs font-black uppercase tracking-widest text-slate-500">Démo en direct</div>
+                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Certification</div>
                             </div>
-                            <div className="text-brand-blue font-black text-3xl mb-1">98% Succès</div>
-                            <p className="text-[10px] font-bold text-slate-400 leading-tight">Formation certifiée reconnue à l'international.</p>
-                        </motion.div>
-
-                        <div className="absolute top-1/2 -right-4 z-0 w-64 h-64 bg-brand-green/20 blur-[100px] rounded-full" />
+                            <div className="mb-1 text-2xl font-black text-brand-blue">98 % de réussite</div>
+                            <p className="text-xs leading-snug text-slate-600">Formation certifiée reconnue à l&apos;international.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -115,22 +119,29 @@ const Hero = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl"
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-xl md:p-6"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Vidéo de présentation"
+                        onClick={() => setIsVideoOpen(false)}
                     >
                         <motion.div
-                            initial={{ scale: 0.9, y: 20 }}
+                            initial={{ scale: 0.97, y: 10 }}
                             animate={{ scale: 1, y: 0 }}
-                            exit={{ scale: 0.9, y: 20 }}
-                            className="relative w-full max-w-5xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl"
+                            exit={{ scale: 0.97, y: 10 }}
+                            className="relative aspect-video w-full max-w-5xl overflow-hidden rounded-2xl bg-black shadow-2xl md:rounded-3xl"
+                            onClick={(e) => e.stopPropagation()}
                         >
                             <button
                                 onClick={() => setIsVideoOpen(false)}
-                                className="absolute top-6 right-6 z-10 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-colors"
+                                className="absolute top-3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-[#fff] backdrop-blur-md transition-colors hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fff] md:top-5 md:right-5"
+                                aria-label="Fermer la vidéo"
+                                title="Fermer"
                             >
-                                <X size={24} />
+                                <X size={22} />
                             </button>
                             <iframe
-                                className="w-full h-full"
+                                className="h-full w-full"
                                 src="https://www.youtube.com/embed/F06FjwYzz4E?autoplay=1&mute=1"
                                 title="Présentation de GSM Guide Academy"
                                 frameBorder="0"

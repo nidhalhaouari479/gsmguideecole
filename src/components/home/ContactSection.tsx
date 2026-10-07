@@ -1,18 +1,21 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Mail, Phone, MapPin, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Phone, MapPin, Send, CheckCircle2, AlertCircle, Loader2, User, Clock, ExternalLink } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-const inputClass = "w-full pl-12 pr-4 py-3 rounded-xl border border-border focus:ring-2 focus:ring-brand-blue outline-none transition-all bg-white dark:bg-slate-900 dark:text-white placeholder-slate-400 font-medium";
-const labelClass = "block text-sm font-bold mb-2 ml-1 text-slate-700 dark:text-slate-200";
+const inputBase = "w-full h-11 rounded-xl border bg-white text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2";
+const inputOk = "border-slate-200 focus:border-brand-green focus:ring-brand-green/20";
+const inputErr = "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20";
+const labelClass = "mb-1.5 block text-sm font-semibold text-slate-900";
+const errorClass = "mt-1.5 flex items-center gap-1 text-xs font-medium text-rose-700";
 
 export default function ContactSection() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
-    
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [showErrors, setShowErrors] = useState(false);
@@ -55,41 +58,49 @@ export default function ContactSection() {
         }
     };
 
+    const nameErr = showErrors && !name;
+    const emailErr = showErrors && (!email || !isValidEmail(email));
+    const subjectErr = showErrors && !subject;
+    const messageErr = showErrors && !message;
+
+    const contactItems = [
+        { icon: Phone, title: "Téléphone", value: "+216 54 15 15 15", desc: "Disponible de 9h à 18h", href: "tel:+21654151515" },
+        { icon: Mail, title: "E-mail", value: "Gsmguideacademy@gmail.com", desc: "Réponse sous 24h", href: "mailto:Gsmguideacademy@gmail.com" },
+        { icon: MapPin, title: "Adresse", value: "Centre Makni, Menzah 9", desc: "Tunis, Tunisie", href: "https://maps.google.com/?q=Gsm+Guide+Academy+Menzah+9+Tunis" },
+    ];
+
     if (showSuccess) {
         return (
-            <section id="contact" className="py-24 bg-slate-50 dark:bg-slate-950">
-                <div className="container mx-auto px-6">
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="max-w-2xl mx-auto premium-card p-12 bg-white dark:bg-slate-900 text-center shadow-2xl border-2 border-brand-green/20"
+            <section id="contact" className="scroll-mt-24 bg-slate-50 py-16 md:py-24">
+                <div className="container mx-auto px-4 sm:px-6">
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm md:p-10"
+                        role="status"
                     >
-                        <div className="w-24 h-24 rounded-full bg-brand-green/10 flex items-center justify-center mx-auto mb-8 relative">
-                            <motion.div
-                                animate={{ scale: [1, 1.4, 1] }}
-                                transition={{ repeat: Infinity, duration: 2 }}
-                                className="absolute inset-0 rounded-full bg-brand-green/10"
-                            />
-                            <CheckCircle2 size={48} className="text-brand-green relative z-10" />
+                        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+                            <CheckCircle2 size={36} className="text-emerald-600" />
                         </div>
-                        <h2 className="text-4xl font-black mb-4 tracking-tight">Message Envoyé !</h2>
-                        <div className="bg-brand-green/5 p-6 rounded-2xl border border-brand-green/10 mb-8">
-                            <p className="text-lg text-slate-700 dark:text-slate-200 font-bold mb-2">
-                                Merci pour votre message, {name.split(' ')[0]} !
-                            </p>
-                            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Nous avons bien reçu votre demande. Un e-mail de confirmation vient de vous être envoyé.
-                            </p>
-                            <p className="mt-4 text-brand-green font-black uppercase tracking-widest text-xs">
-                                ⏳ Nous vous rappellerons sous un délai maximum de 2 jours.
-                            </p>
+                        <h2 className="mb-3 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">Message envoyé !</h2>
+                        <p className="mb-2 font-semibold text-slate-900">
+                            Merci pour votre message{name ? `, ${name.split(' ')[0]}` : ''} !
+                        </p>
+                        <p className="text-sm leading-relaxed text-slate-600">
+                            Nous avons bien reçu votre demande. Un e-mail de confirmation vient de vous être envoyé.
+                        </p>
+                        <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                            <Clock size={14} /> Nous vous rappellerons sous un délai maximum de 2 jours.
+                        </p>
+                        <div className="mt-8">
+                            <button
+                                onClick={() => setShowSuccess(false)}
+                                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                            >
+                                <Send size={16} /> Envoyer un autre message
+                            </button>
                         </div>
-                        <button 
-                            onClick={() => setShowSuccess(false)}
-                            className="text-slate-500 font-bold hover:text-brand-blue transition-colors flex items-center justify-center gap-2 mx-auto"
-                        >
-                            <Send size={16} /> Envoyer un autre message
-                        </button>
                     </motion.div>
                 </div>
             </section>
@@ -97,90 +108,103 @@ export default function ContactSection() {
     }
 
     return (
-        <section id="contact" className="py-24 bg-slate-50 dark:bg-slate-950">
-            <div className="container mx-auto px-6">
-                <div className="text-center mb-16">
-                    <h2 className="text-4xl font-black mb-4 uppercase italic tracking-tighter">Contactez-nous</h2>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">Des questions ? Nous sommes là pour vous aider à lancer votre carrière.</p>
+        <section id="contact" className="scroll-mt-24 bg-slate-50 py-16 md:py-24">
+            <div className="container mx-auto px-4 sm:px-6">
+                <div className="mx-auto mb-10 max-w-2xl text-center md:mb-14">
+                    <p className="mb-3 text-xs font-bold uppercase tracking-wider text-brand-blue">Contact</p>
+                    <h2 className="mb-3 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Contactez-nous</h2>
+                    <p className="text-base text-slate-600">Des questions ? Nous sommes là pour vous aider à lancer votre carrière.</p>
                 </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
+
+                <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
                     {/* Form Card */}
-                    <div className="premium-card p-10 bg-white dark:bg-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none border border-white/5">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-8">
                         {error && (
-                            <div className="bg-red-50 dark:bg-red-500/10 border-l-4 border-red-500 p-4 mb-6 rounded-r-xl flex items-start gap-3">
-                                <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />
-                                <p className="text-sm font-medium text-red-800 dark:text-red-200">{error}</p>
+                            <div role="alert" className="mb-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+                                <AlertCircle className="mt-0.5 shrink-0 text-rose-600" size={18} />
+                                <p className="text-sm font-medium text-rose-800">{error}</p>
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                 <div>
-                                    <label className={`${labelClass} ${showErrors && !name ? 'text-red-500' : ''}`}>Nom Complet *</label>
+                                    <label htmlFor="contact-name" className={labelClass}>Nom complet <span className="text-rose-600">*</span></label>
                                     <div className="relative">
-                                        <div className={`absolute left-4 top-1/2 -translate-y-1/2 ${showErrors && !name ? 'text-red-500' : 'text-slate-400'}`}>
-                                            <Send size={18} className="-rotate-45" />
-                                        </div>
-                                        <input 
-                                            type="text" 
+                                        <User className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${nameErr ? 'text-rose-500' : 'text-slate-400'}`} size={18} />
+                                        <input
+                                            id="contact-name"
+                                            type="text"
+                                            autoComplete="name"
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
-                                            className={`${inputClass} ${showErrors && !name ? 'border-red-500 ring-red-100 focus:ring-red-200' : ''}`}
+                                            className={`${inputBase} pl-11 pr-3 ${nameErr ? inputErr : inputOk}`}
                                             placeholder="Ahmed Ben Ali"
-                                            required 
+                                            aria-invalid={nameErr || undefined}
+                                            aria-describedby={nameErr ? 'contact-name-err' : undefined}
+                                            required
                                         />
                                     </div>
-                                    {showErrors && !name && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-widest">Requis</p>}
+                                    {nameErr && <p id="contact-name-err" className={errorClass}><AlertCircle size={13} /> Ce champ est requis</p>}
                                 </div>
                                 <div>
-                                    <label className={`${labelClass} ${showErrors && (!email || !isValidEmail(email)) ? 'text-red-500' : ''}`}>E-mail *</label>
+                                    <label htmlFor="contact-email" className={labelClass}>E-mail <span className="text-rose-600">*</span></label>
                                     <div className="relative">
-                                        <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 ${showErrors && (!email || !isValidEmail(email)) ? 'text-red-500' : 'text-slate-400'}`} size={18} />
-                                        <input 
-                                            type="email" 
+                                        <Mail className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${emailErr ? 'text-rose-500' : 'text-slate-400'}`} size={18} />
+                                        <input
+                                            id="contact-email"
+                                            type="email"
+                                            autoComplete="email"
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
-                                            className={`${inputClass} ${showErrors && (!email || !isValidEmail(email)) ? 'border-red-500 ring-red-100 focus:ring-red-200' : ''}`}
+                                            className={`${inputBase} pl-11 pr-3 ${emailErr ? inputErr : inputOk}`}
                                             placeholder="ahmed@example.com"
-                                            required 
+                                            aria-invalid={emailErr || undefined}
+                                            aria-describedby={emailErr ? 'contact-email-err' : undefined}
+                                            required
                                         />
                                     </div>
-                                    {showErrors && !email && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-widest">Requis</p>}
-                                    {showErrors && email && !isValidEmail(email) && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-widest">Email invalide</p>}
+                                    {showErrors && !email && <p id="contact-email-err" className={errorClass}><AlertCircle size={13} /> Ce champ est requis</p>}
+                                    {showErrors && email && !isValidEmail(email) && <p id="contact-email-err" className={errorClass}><AlertCircle size={13} /> Adresse e-mail invalide</p>}
                                 </div>
                             </div>
-                            
+
                             <div>
-                                <label className={`${labelClass} ${showErrors && !subject ? 'text-red-500' : ''}`}>Sujet *</label>
-                                <input 
-                                    type="text" 
+                                <label htmlFor="contact-subject" className={labelClass}>Sujet <span className="text-rose-600">*</span></label>
+                                <input
+                                    id="contact-subject"
+                                    type="text"
                                     value={subject}
                                     onChange={(e) => setSubject(e.target.value)}
-                                    className={`${inputClass} pl-6 ${showErrors && !subject ? 'border-red-500 ring-red-100 focus:ring-red-200' : ''}`}
+                                    className={`${inputBase} px-3.5 ${subjectErr ? inputErr : inputOk}`}
                                     placeholder="Demande d'information / Inscription..."
-                                    required 
+                                    aria-invalid={subjectErr || undefined}
+                                    aria-describedby={subjectErr ? 'contact-subject-err' : undefined}
+                                    required
                                 />
-                                {showErrors && !subject && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-widest">Requis</p>}
+                                {subjectErr && <p id="contact-subject-err" className={errorClass}><AlertCircle size={13} /> Ce champ est requis</p>}
                             </div>
 
                             <div>
-                                <label className={`${labelClass} ${showErrors && !message ? 'text-red-500' : ''}`}>Message *</label>
-                                <textarea 
-                                    rows={4} 
+                                <label htmlFor="contact-message" className={labelClass}>Message <span className="text-rose-600">*</span></label>
+                                <textarea
+                                    id="contact-message"
+                                    rows={5}
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
-                                    className={`${inputClass.replace('py-3', 'py-4')} pl-6 ${showErrors && !message ? 'border-red-500 ring-red-100 focus:ring-red-200' : ''}`}
+                                    className={`${inputBase} h-auto resize-y px-3.5 py-3 ${messageErr ? inputErr : inputOk}`}
                                     placeholder="Dites-nous comment nous pouvons vous aider..."
+                                    aria-invalid={messageErr || undefined}
+                                    aria-describedby={messageErr ? 'contact-message-err' : undefined}
                                     required
                                 ></textarea>
-                                {showErrors && !message && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-widest">Requis</p>}
+                                {messageErr && <p id="contact-message-err" className={errorClass}><AlertCircle size={13} /> Ce champ est requis</p>}
                             </div>
 
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 disabled={isSubmitting}
-                                className="btn-primary w-full py-4 text-lg font-black tracking-tight flex items-center justify-center gap-3 shadow-xl shadow-brand-blue/20"
+                                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-green text-base font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {isSubmitting ? (
                                     <>
@@ -189,7 +213,7 @@ export default function ContactSection() {
                                     </>
                                 ) : (
                                     <>
-                                        <Send size={20} />
+                                        <Send size={18} />
                                         Envoyer le message
                                     </>
                                 )}
@@ -198,34 +222,31 @@ export default function ContactSection() {
                     </div>
 
                     {/* Info Side */}
-                    <div className="flex flex-col justify-between py-6">
-                        <div className="space-y-10">
-                            {[
-                                { icon: Phone, title: "Téléphone", value: "+216 54 15 15 15", desc: "Disponible de 9h à 18h" },
-                                { icon: Mail, title: "E-mail", value: "Gsmguideacademy@gmail.com", desc: "Réponse sous 24h" },
-                                { icon: MapPin, title: "Adresse", value: "Centre Makni, Menzah 9", desc: "Tunis, Tunisie" }
-                            ].map((item, i) => (
-                                <motion.div 
-                                    key={i}
-                                    initial={{ opacity: 0, x: 20 }}
-                                    whileInView={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i * 0.1 }}
-                                    className="flex items-start gap-5 hover:translate-x-2 transition-transform cursor-pointer"
+                    <div className="flex flex-col gap-6">
+                        <div className="grid gap-3">
+                            {contactItems.map((item) => (
+                                <a
+                                    key={item.title}
+                                    href={item.href}
+                                    target={item.href.startsWith('http') ? '_blank' : undefined}
+                                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                                    className="group flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-blue/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue md:p-5"
                                 >
-                                    <div className="w-14 h-14 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shadow-lg shadow-brand-blue/5">
-                                        <item.icon size={24} />
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-blue/10 text-brand-blue">
+                                        <item.icon size={20} />
                                     </div>
-                                    <div>
-                                        <div className="font-black text-2xl tracking-tighter italic uppercase text-slate-900 dark:text-white leading-none mb-2">{item.title}</div>
-                                        <div className="text-brand-blue font-bold text-lg">{item.value}</div>
-                                        <div className="text-slate-400 text-sm font-medium">{item.desc}</div>
+                                    <div className="min-w-0">
+                                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{item.title}</div>
+                                        <div className="break-words font-bold text-slate-900 transition-colors group-hover:text-brand-blue">{item.value}</div>
+                                        <div className="text-sm text-slate-600">{item.desc}</div>
                                     </div>
-                                </motion.div>
+                                    {item.href.startsWith('http') && <ExternalLink size={16} className="ml-auto mt-1 shrink-0 text-slate-400" />}
+                                </a>
                             ))}
                         </div>
 
                         {/* Google Maps Integration */}
-                        <div className="mt-12 w-full h-64 rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-slate-800 rotate-1 hover:rotate-0 transition-transform duration-500">
+                        <div className="h-64 w-full overflow-hidden rounded-2xl border border-slate-200 shadow-sm lg:h-auto lg:flex-1 lg:min-h-[260px]">
                             <iframe
                                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3192.837574959774!2d10.1512780753052!3d36.84636586509678!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x12fd33bd1e95da93%3A0x4bf9be9ecc20cedd!2sGsm%20Guide%20Academy!5e0!3m2!1sfr!2stn!4v1772617470401!5m2!1sfr!2stn"
                                 width="100%"
@@ -234,6 +255,7 @@ export default function ContactSection() {
                                 allowFullScreen={true}
                                 loading="lazy"
                                 referrerPolicy="no-referrer-when-downgrade"
+                                title="Plan d'accès GSM Guide Academy"
                             ></iframe>
                         </div>
                     </div>

@@ -5,27 +5,37 @@ import { supabase } from '@/lib/supabase';
 import {
     BookOpen,
     Plus,
-    Search,
-    MoreVertical,
     Edit2,
     Trash2,
-    Eye,
     Clock,
-    Tag,
     Users,
     TrendingUp,
-    Loader2,
     X,
-    Filter,
-    ChevronRight,
     LayoutGrid,
     List,
     Target,
     Layers,
-    Sparkles,
     Upload
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+    Badge,
+    Button,
+    Card,
+    EmptyState,
+    Field,
+    FilterTabs,
+    IconButton,
+    LoadingState,
+    Modal,
+    PageHeader,
+    SearchInput,
+    StatCard,
+    Toolbar,
+    cn,
+    formatDT,
+    inputClass,
+    table,
+} from '@/components/admin/ui';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 
 interface Course {
@@ -231,347 +241,297 @@ export default function CoursesAdminPage() {
     );
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-                <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Synchronisation des formations...</p>
-            </div>
-        );
+        return <LoadingState label="Chargement des formations…" />;
     }
 
     const stats = [
-        { label: 'Formations techniques', value: courses.length, icon: BookOpen, color: 'text-brand-blue', bg: 'bg-brand-blue/10' },
-        { label: 'Secteurs d\'Activité', value: [...new Set(courses.map(c => c.category))].length, icon: Layers, color: 'text-brand-green', bg: 'bg-brand-green/10' },
-        { label: 'Densité Étudiante', value: (courses.reduce((sum, c) => sum + (c.student_count || 0), 0) / (courses.length || 1)).toFixed(1), icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-        { label: 'Valeur Acquisition', value: `${(courses.reduce((sum, c) => sum + c.base_price, 0) / (courses.length || 1)).toFixed(0)} DT`, icon: Sparkles, color: 'text-amber-400', bg: 'bg-amber-400/10' }
+        { label: 'Formations', value: courses.length, icon: BookOpen },
+        { label: 'Secteurs d’activité', value: [...new Set(courses.map(c => c.category))].length, icon: Layers },
+        { label: 'Élèves par formation (moy.)', value: (courses.reduce((sum, c) => sum + (c.student_count || 0), 0) / (courses.length || 1)).toFixed(1), icon: Users },
+        { label: 'Prix de base moyen', value: formatDT(Number((courses.reduce((sum, c) => sum + c.base_price, 0) / (courses.length || 1)).toFixed(0))), icon: TrendingUp }
     ];
 
-    return (
-        <div className="space-y-6 md:space-y-10 pb-6 md:pb-20">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-                <div>
-                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <BookOpen size={14} /> Gestion du catalogue
-                    </div>
-                    <h1 className="text-4xl font-black text-white tracking-tighter">Catalogue <span className="text-slate-500">Formations</span></h1>
-                </div>
+    const translateCategory = (category: string) => (category || '')
+        .split(', ')
+        .map(cat => cat === 'Software' ? 'Logiciel' : cat === 'Hardware' ? 'Matériel' : cat)
+        .join(', ');
 
-                <div className="flex flex-wrap md:flex-nowrap items-center gap-3 md:gap-4">
-                    <div className="relative md:max-w-md w-full">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Rechercher une formation..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
+    const professorName = (course: Course) => course.professeurs ? `${course.professeurs.nom} ${course.professeurs.prenom}` : 'Non assigné';
+
+    const renderPrice = (course: Course, size: 'sm' | 'lg' = 'sm') => (
+        <div className={size === 'lg' ? '' : 'text-right md:text-left'}>
+            <p className="whitespace-nowrap tabular-nums">
+                <span className={cn('text-sm font-semibold', course.sold_price ? 'text-emerald-700' : 'text-slate-900')}>
+                    {formatDT(course.sold_price || course.base_price)}
+                </span>
+                {course.sold_price ? (
+                    <span className="ml-1.5 text-xs text-slate-400 line-through">{formatDT(course.base_price)}</span>
+                ) : null}
+            </p>
+            <p className="mt-0.5 whitespace-nowrap text-xs text-slate-500 tabular-nums">Avance : {formatDT(course.reservation_amount ?? 400)}</p>
+        </div>
+    );
+
+    const chipClassName = (checked: boolean) => cn(
+        'inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-brand-green/30',
+        checked ? 'border-slate-400 bg-slate-50 text-slate-900' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+    );
+
+    const dtSuffix = <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">DT</span>;
+
+    return (
+        <div className="space-y-6 pb-6 md:pb-12">
+            <PageHeader
+                title="Catalogue des formations"
+                description="Créez et mettez à jour les formations, leurs tarifs et leur programme."
+                actions={
+                    <Button variant="primary" icon={Plus} onClick={() => handleOpenModal()} className="max-md:w-full">
+                        Ajouter une formation
+                    </Button>
+                }
+            />
+
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {stats.map((stat) => (
+                    <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} />
+                ))}
+            </div>
+
+            <Card padded={false}>
+                <Toolbar>
+                    <SearchInput
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        placeholder="Titre ou catégorie…"
+                        label="Rechercher une formation"
+                    />
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                        <span className="text-sm text-slate-500 tabular-nums">
+                            {filteredCourses.length} formation{filteredCourses.length > 1 ? 's' : ''}
+                        </span>
+                        <FilterTabs
+                            label="Mode d’affichage"
+                            value={viewMode}
+                            onChange={setViewMode}
+                            options={[
+                                { value: 'grid', label: <><LayoutGrid size={16} aria-hidden="true" /><span className="sr-only sm:not-sr-only">Cartes</span></> },
+                                { value: 'list', label: <><List size={16} aria-hidden="true" /><span className="sr-only sm:not-sr-only">Tableau</span></> },
+                            ]}
                         />
                     </div>
-                    <div className="flex shrink-0 rounded-xl border border-slate-200 bg-white p-1">
-                        <button onClick={() => setViewMode('grid')} className={`flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:block rounded-lg md:p-2 transition-all ${viewMode === 'grid' ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:text-slate-900'}`} title="Afficher en cartes" aria-label="Afficher le catalogue en cartes"><LayoutGrid size={18} /></button>
-                        <button onClick={() => setViewMode('list')} className={`flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:block rounded-lg md:p-2 transition-all ${viewMode === 'list' ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:text-slate-900'}`} title="Afficher en tableau" aria-label="Afficher le catalogue en tableau"><List size={18} /></button>
-                    </div>
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="btn-primary py-3 px-4 md:px-6 h-auto min-h-11 md:min-h-0 flex-1 md:flex-none whitespace-nowrap shadow-none"
-                    >
-                        <Plus size={18} strokeWidth={3} /> AJOUTER<span className="hidden sm:inline"> UNE FORMATION</span>
-                    </button>
-                </div>
-            </header>
+                </Toolbar>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-                {stats.map((stat, i) => (
-                    <motion.div
-                        key={stat.label}
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="premium-card p-4 md:p-6"
-                    >
-                        <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
-                            <div className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl ${stat.bg} ${stat.color}`}>
-                                <stat.icon size={22} />
-                            </div>
-                            <div className="min-w-0">
-                                <h3 className="text-xl md:text-2xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{stat.label}</p>
-                            </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
+                {courses.length === 0 && (
+                    <EmptyState
+                        icon={BookOpen}
+                        title="Aucune formation"
+                        description="Créez une première entrée dans le catalogue."
+                        action={<Button variant="primary" icon={Plus} onClick={() => handleOpenModal()}>Ajouter une formation</Button>}
+                    />
+                )}
 
-            {/* Mobile list view (cards) */}
-            <div className={`${viewMode === 'list' ? 'block md:hidden' : 'hidden'} space-y-3`}>
-                {filteredCourses.map((course, idx) => (
-                    <motion.div key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="rounded-2xl bg-white border border-slate-200 p-4">
-                        <div className="flex items-start gap-3">
-                            <img src={course.image_url} alt={course.title_fr} className="h-14 w-20 shrink-0 rounded-xl bg-slate-100 object-cover" />
-                            <div className="min-w-0 flex-1">
-                                <p className="font-black leading-snug text-white line-clamp-2">{course.title_fr}</p>
-                                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{course.level || 'Tous niveaux'}</p>
-                            </div>
-                        </div>
-                        <div className="mt-3">
-                            <span className="inline-flex rounded-lg bg-brand-green/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-brand-green">{course.category === 'Software' ? 'Logiciel' : course.category === 'Hardware' ? 'Matériel' : course.category}</span>
-                        </div>
-                        <div className="mt-3 space-y-1.5">
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-500">Durée</span>
-                                <span className="min-w-0 truncate text-right text-sm font-bold text-slate-600">{course.duration}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-500">Professeur</span>
-                                <span className="min-w-0 truncate text-right text-sm font-bold text-slate-600">{course.professeurs ? `${course.professeurs.nom} ${course.professeurs.prenom}` : 'Non assigné'}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-500">Élèves</span>
-                                <span className="text-sm font-black text-slate-700">{course.student_count || 0}</span>
-                            </div>
-                            <div className="flex items-start justify-between gap-3">
-                                <span className="shrink-0 pt-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Prix</span>
-                                <div className="text-right">
-                                    {course.sold_price && <p className="text-[10px] font-bold text-slate-400 line-through">{course.base_price} DT</p>}
-                                    <p className={`text-base font-black ${course.sold_price ? 'text-brand-green' : 'text-white'}`}>{course.sold_price || course.base_price} DT</p>
-                                    <p className="text-[9px] font-bold uppercase text-slate-400">Avance {course.reservation_amount ?? 400} DT</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-4 grid grid-cols-2 gap-2">
-                            <button onClick={() => handleOpenModal(course)} className="min-h-10 rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-slate-600 active:border-brand-green active:text-brand-green transition-all"><Edit2 size={16} /> Modifier</button>
-                            <button onClick={() => handleDelete(course.id)} className="min-h-10 rounded-xl border border-rose-200 bg-rose-50 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-rose-500 transition-all"><Trash2 size={16} /> Supprimer</button>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
+                {filteredCourses.length === 0 && courses.length > 0 && (
+                    <EmptyState
+                        icon={Target}
+                        title="Aucune formation correspondante"
+                        description={`Aucun titre ni catégorie ne correspond à « ${searchQuery} ».`}
+                        action={<Button variant="secondary" icon={X} onClick={() => setSearchQuery('')}>Effacer la recherche</Button>}
+                    />
+                )}
 
-            <div className={`${viewMode === 'list' ? 'hidden md:block' : 'hidden'} premium-card overflow-hidden`}>
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[980px] border-collapse text-left">
-                        <thead className="border-b border-slate-200 bg-slate-50/80">
-                            <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                <th className="px-6 py-4">Formation</th>
-                                <th className="px-5 py-4">Catégorie</th>
-                                <th className="px-5 py-4">Durée</th>
-                                <th className="px-5 py-4">Professeur</th>
-                                <th className="px-5 py-4">Élèves</th>
-                                <th className="px-5 py-4">Prix</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {filteredCourses.map((course, idx) => (
-                                <motion.tr key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="group hover:bg-brand-green/[0.04] transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex min-w-[300px] items-center gap-4">
-                                            <img src={course.image_url} alt={course.title_fr} className="h-14 w-20 rounded-xl bg-slate-100 object-cover" />
-                                            <div><p className="max-w-sm font-black leading-snug text-white group-hover:text-brand-green">{course.title_fr}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{course.level || 'Tous niveaux'}</p></div>
+                {/* List view */}
+                {viewMode === 'list' && filteredCourses.length > 0 && (
+                    <>
+                        <div className="divide-y divide-slate-100 md:hidden">
+                            {filteredCourses.map((course) => (
+                                <div key={course.id} className="p-4">
+                                    <div className="flex items-start gap-3">
+                                        <img src={course.image_url} alt="" className="h-12 w-16 shrink-0 rounded-md bg-slate-100 object-cover" />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="line-clamp-2 font-medium leading-snug text-slate-900">{course.title_fr}</p>
+                                            <p className="mt-0.5 text-xs text-slate-500">{course.level || 'Tous niveaux'}</p>
                                         </div>
-                                    </td>
-                                    <td className="px-5 py-4"><span className="inline-flex rounded-lg bg-brand-green/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-brand-green">{course.category === 'Software' ? 'Logiciel' : course.category === 'Hardware' ? 'Matériel' : course.category}</span></td>
-                                    <td className="px-5 py-4 text-sm font-bold text-slate-600">{course.duration}</td>
-                                    <td className="px-5 py-4 text-sm font-bold text-slate-600">{course.professeurs ? `${course.professeurs.nom} ${course.professeurs.prenom}` : 'Non assigné'}</td>
-                                    <td className="px-5 py-4 text-sm font-black text-slate-700">{course.student_count || 0}</td>
-                                    <td className="px-5 py-4">{course.sold_price && <p className="text-[10px] font-bold text-slate-400 line-through">{course.base_price} DT</p>}<p className={`text-base font-black ${course.sold_price ? 'text-brand-green' : 'text-white'}`}>{course.sold_price || course.base_price} DT</p><p className="text-[9px] font-bold uppercase text-slate-400">Avance {course.reservation_amount ?? 400} DT</p></td>
-                                    <td className="px-6 py-4"><div className="flex justify-end gap-2"><button onClick={() => handleOpenModal(course)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-brand-green hover:text-brand-green" title="Modifier"><Edit2 size={16} /></button><button onClick={() => handleDelete(course.id)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500" title="Supprimer"><Trash2 size={16} /></button></div></td>
-                                </motion.tr>
+                                        <Badge dot={false} className="shrink-0">{translateCategory(course.category)}</Badge>
+                                    </div>
+                                    <dl className="mt-3 space-y-1.5 text-sm">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <dt className="shrink-0 text-slate-500">Durée</dt>
+                                            <dd className="min-w-0 truncate text-right text-slate-900">{course.duration}</dd>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <dt className="shrink-0 text-slate-500">Professeur</dt>
+                                            <dd className="min-w-0 truncate text-right text-slate-900">{professorName(course)}</dd>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <dt className="shrink-0 text-slate-500">Élèves</dt>
+                                            <dd className="text-slate-900 tabular-nums">{course.student_count || 0}</dd>
+                                        </div>
+                                        <div className="flex items-start justify-between gap-3">
+                                            <dt className="shrink-0 text-slate-500">Prix</dt>
+                                            <dd>{renderPrice(course)}</dd>
+                                        </div>
+                                    </dl>
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        <Button size="sm" icon={Edit2} onClick={() => handleOpenModal(course)}>Modifier</Button>
+                                        <Button size="sm" variant="ghost" icon={Trash2} onClick={() => handleDelete(course.id)} className="text-rose-600 hover:bg-rose-50 hover:text-rose-700">Supprimer</Button>
+                                    </div>
+                                </div>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div className={`${viewMode === 'grid' ? 'grid' : 'hidden'} grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8`}>
-                {filteredCourses.map((course, idx) => (
-                    <motion.div
-                        key={course.id}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className="premium-card overflow-hidden flex flex-col h-full group"
-                    >
-                        <div className="p-3">
-                            <div className="aspect-[16/10] rounded-xl overflow-hidden bg-slate-800 relative shadow-inner">
-                                <img
-                                    src={course.image_url}
-                                    alt={course.title_fr}
-                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100"
-                                />
-                                <div className="absolute top-4 left-4">
-                                    <span className="px-3 py-1.5 bg-brand-green shadow-lg shadow-brand-green/20 text-black text-[10px] font-black uppercase tracking-widest rounded-lg">
-                                        {course.category === 'Software' ? 'Logiciel' : course.category === 'Hardware' ? 'Matériel' : course.category}
-                                    </span>
-                                </div>
-                                <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] to-transparent opacity-60" />
-                            </div>
                         </div>
 
-                        <div className="p-4 md:p-7 flex flex-col flex-1">
-                            <div className="flex justify-between items-start gap-3 md:gap-0 mb-4">
-                                <h3 className="min-w-0 text-lg md:text-xl font-black text-white leading-tight tracking-tight group-hover:text-brand-green transition-colors">
-                                    {course.title_fr}
-                                </h3>
-                                <div className="relative shrink-0">
-                                    <button
-                                        onClick={() => setActiveDropdown(activeDropdown === course.id ? null : course.id)}
-                                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeDropdown === course.id ? 'bg-brand-green text-black' : 'bg-white/5 hover:bg-white/10 text-slate-400'}`}
-                                    >
-                                        <MoreVertical size={18} />
-                                    </button>
+                        <div className={cn(table.wrapper, 'hidden md:block')}>
+                            <table className={cn(table.table, 'min-w-[920px]')}>
+                                <thead className={table.thead}>
+                                    <tr>
+                                        <th className={table.th}>Formation</th>
+                                        <th className={table.th}>Catégorie</th>
+                                        <th className={table.th}>Durée</th>
+                                        <th className={table.th}>Professeur</th>
+                                        <th className={cn(table.th, 'text-right')}>Élèves</th>
+                                        <th className={table.th}>Prix</th>
+                                        <th className={cn(table.th, 'text-right')}><span className="sr-only">Actions</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody className={table.tbody}>
+                                    {filteredCourses.map((course) => (
+                                        <tr key={course.id} className={table.tr}>
+                                            <td className={table.td}>
+                                                <div className="flex min-w-[260px] items-center gap-3">
+                                                    <img src={course.image_url} alt="" className="h-9 w-12 shrink-0 rounded-md bg-slate-100 object-cover" />
+                                                    <div className="min-w-0">
+                                                        <p className="max-w-xs font-medium leading-snug text-slate-900">{course.title_fr}</p>
+                                                        <p className="mt-0.5 text-xs text-slate-500">{course.level || 'Tous niveaux'}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className={table.td}><Badge dot={false}>{translateCategory(course.category)}</Badge></td>
+                                            <td className={table.td}>{course.duration}</td>
+                                            <td className={table.td}>{professorName(course)}</td>
+                                            <td className={cn(table.td, 'text-right font-medium text-slate-900 tabular-nums')}>{course.student_count || 0}</td>
+                                            <td className={table.td}>{renderPrice(course)}</td>
+                                            <td className={table.td}>
+                                                <div className="flex justify-end gap-1">
+                                                    <IconButton icon={Edit2} label={`Modifier ${course.title_fr}`} title="Modifier" onClick={() => handleOpenModal(course)} />
+                                                    <IconButton icon={Trash2} label={`Supprimer ${course.title_fr}`} title="Supprimer" onClick={() => handleDelete(course.id)} className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                )}
 
-                                    <AnimatePresence>
-                                        {activeDropdown === course.id && (
-                                            <>
-                                                <div className="fixed inset-0 z-10" onClick={() => setActiveDropdown(null)} />
-                                                <motion.div
-                                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                    className="absolute right-0 top-12 w-52 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-50 py-3 overflow-hidden"
-                                                >
-                                                    <button
-                                                        onClick={() => {
-                                                            handleOpenModal(course);
-                                                            setActiveDropdown(null);
-                                                        }}
-                                                        className="w-full px-5 py-3 md:py-2.5 text-left text-xs font-black uppercase tracking-widest hover:bg-white/5 text-slate-300 transition-all flex items-center gap-3"
-                                                    >
-                                                        <Edit2 size={14} className="text-brand-green" /> Modifier
-                                                    </button>
-                                                    <div className="h-px bg-white/5 my-2" />
-                                                    <button
-                                                        onClick={() => handleDelete(course.id)}
-                                                        className="w-full px-5 py-3 md:py-2.5 text-left text-xs font-black uppercase tracking-widest hover:bg-rose-500/10 text-rose-500 transition-all flex items-center gap-3"
-                                                    >
-                                                        <Trash2 size={14} /> Supprimer
-                                                    </button>
-                                                </motion.div>
-                                            </>
+                {/* Grid view */}
+                {viewMode === 'grid' && filteredCourses.length > 0 && (
+                    <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+                        {filteredCourses.map((course) => (
+                            <article
+                                key={course.id}
+                                className="flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition-colors hover:border-slate-300"
+                            >
+                                <div className="aspect-[2/1] overflow-hidden bg-slate-100">
+                                    <img src={course.image_url} alt="" className="h-full w-full object-cover" />
+                                </div>
+
+                                <div className="flex flex-1 flex-col p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <h3 className="text-sm font-semibold leading-snug text-slate-900">{course.title_fr}</h3>
+                                        <Badge dot={false} className="shrink-0">{translateCategory(course.category)}</Badge>
+                                    </div>
+                                    <p className="mt-0.5 text-xs text-slate-500">{course.level || 'Tous niveaux'}</p>
+
+                                    <dl className="mb-4 mt-3 space-y-1.5 text-sm text-slate-600">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <Clock size={14} className="shrink-0 text-slate-400" />
+                                            <dt className="sr-only">Durée</dt>
+                                            <dd className="truncate">{course.duration}</dd>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Users size={14} className="shrink-0 text-slate-400" />
+                                            <dt className="sr-only">Élèves</dt>
+                                            <dd className="tabular-nums">{course.student_count || 0} élève{(course.student_count || 0) > 1 ? 's' : ''}</dd>
+                                        </div>
+                                        {course.professeurs && (
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                <dt className="shrink-0 text-slate-500">Professeur :</dt>
+                                                <dd className="truncate text-slate-900">{course.professeurs.nom} {course.professeurs.prenom}</dd>
+                                            </div>
                                         )}
-                                    </AnimatePresence>
-                                </div>
-                            </div>
+                                    </dl>
 
-                            <div className="grid grid-cols-2 gap-4 mb-4 md:mb-8">
-                                <div className="flex items-center gap-3 text-xs font-bold text-slate-500">
-                                    <Clock size={16} className="text-brand-green/50" />
-                                    <span>{course.duration}</span>
+                                    <div className="mt-auto flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
+                                        {renderPrice(course, 'lg')}
+                                        <div className="flex shrink-0 gap-1">
+                                            <IconButton icon={Edit2} label={`Modifier ${course.title_fr}`} title="Modifier" onClick={() => handleOpenModal(course)} />
+                                            <IconButton icon={Trash2} label={`Supprimer ${course.title_fr}`} title="Supprimer" onClick={() => handleDelete(course.id)} className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3 text-xs font-bold text-slate-500">
-                                    <Users size={16} className="text-brand-green/50" />
-                                    <span>{course.student_count} ÉLÈVES</span>
-                                </div>
-                            </div>
-
-                            {course.professeurs && (
-                                <div className="mb-4 text-xs font-bold text-slate-400 flex items-center gap-2">
-                                    <span className="text-white/50">Professeur :</span>
-                                    {course.professeurs.nom} {course.professeurs.prenom}
-                                </div>
-                            )}
-
-                            <div className="mt-auto pt-4 md:pt-6 border-t border-white/5 flex items-center justify-between">
-                                <div className="flex flex-col">
-                                    {course.sold_price ? (
-                                        <>
-                                            <span className="text-xs text-slate-500 line-through font-bold">{course.base_price} DT</span>
-                                            <span className="text-2xl font-black text-brand-green tracking-tighter">{course.sold_price} DT</span>
-                                        </>
-                                    ) : (
-                                        <span className="text-2xl font-black text-white tracking-tighter">{course.base_price} DT</span>
-                                    )}
-                                    <span className="mt-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                                        Avance de réservation : {course.reservation_amount ?? 400} DT
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </motion.div>
-                ))}
-
-                <motion.button
-                    onClick={() => handleOpenModal()}
-                    whileHover={{ scale: 1.02 }}
-                    className="border-2 border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center gap-4 md:gap-6 bg-white/[0.02] hover:bg-white/[0.05] hover:border-brand-green/30 transition-all min-h-[200px] md:min-h-[350px] p-6 md:p-8 group"
-                >
-                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 group-hover:text-brand-green group-hover:border-brand-green/30 transition-all shadow-xl">
-                        <Plus size={40} />
+                            </article>
+                        ))}
                     </div>
-                    <div className="text-center">
-                        <p className="font-black text-white uppercase tracking-widest text-sm">Ajouter une formation</p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Créer une entrée dans le catalogue</p>
-                    </div>
-                </motion.button>
-            </div>
-
-            {filteredCourses.length === 0 && courses.length > 0 && (
-                <div className="py-16 md:py-32 text-center">
-                    <div className="flex flex-col items-center gap-4">
-                        <Target size={48} className="text-slate-800" />
-                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucune formation correspondante</p>
-                    </div>
-                </div>
-            )}
+                )}
+            </Card>
 
             {/* Modal for Add/Edit */}
-            <AnimatePresence>
-                {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white border border-slate-200 p-5 pb-0 md:p-6 md:pb-0 rounded-2xl w-full max-w-2xl shadow-2xl m-auto relative max-h-[92dvh] overflow-y-auto overscroll-contain"
-                        >
-                            <div className="flex justify-between items-center gap-3 mb-4 md:mb-6">
-                                <h2 className="text-lg md:text-xl font-black text-slate-900">
-                                    {editingCourse ? 'Modifier la Formation' : 'Ajouter une Formation'}
-                                </h2>
-                                <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 -mr-2 shrink-0 flex items-center justify-center rounded-xl md:w-auto md:h-auto md:mr-0 md:block text-slate-400 hover:text-white" aria-label="Fermer">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 mb-1">Titre (FR) *</label>
-                                        <input type="text" required value={formData.title_fr} onChange={(e) => setFormData({ ...formData, title_fr: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 mb-2">Catégorie *</label>
-                                        <div className="flex gap-4 mt-2">
-                                            {['Software', 'Hardware'].map(cat => (
-                                                <label key={cat} className="flex items-center gap-2 min-h-10 md:min-h-0 cursor-pointer">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={(formData.category ? formData.category.split(', ') : []).includes(cat)}
-                                                        onChange={() => {
-                                                            const currentCats = formData.category ? formData.category.split(', ') : [];
-                                                            if (currentCats.includes(cat)) {
-                                                                setFormData({ ...formData, category: currentCats.filter(c => c !== cat).join(', ') });
-                                                            } else {
-                                                                setFormData({ ...formData, category: [...currentCats, cat].join(', ') });
-                                                            }
-                                                        }}
-                                                        className="w-4 h-4 rounded border-white/10 bg-slate-800 text-brand-green focus:ring-brand-green focus:ring-offset-slate-900" 
-                                                    />
-                                                <span className="text-slate-900 text-sm">{cat === 'Software' ? 'Logiciel' : 'Matériel'}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
+            <Modal
+                open={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                title={editingCourse ? 'Modifier la formation' : 'Ajouter une formation'}
+                size="lg"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Annuler</Button>
+                        <Button type="submit" form="course-form" variant="primary" loading={isSubmitting}>
+                            {editingCourse ? 'Enregistrer les modifications' : 'Créer la formation'}
+                        </Button>
+                    </>
+                }
+            >
+                <form id="course-form" onSubmit={handleSubmit} className="space-y-6 py-1">
+                    {/* General */}
+                    <fieldset className="space-y-4">
+                        <legend className="mb-3 text-sm font-semibold text-slate-900">Informations générales</legend>
+                        <Field label="Titre (FR)" htmlFor="course-title" required>
+                            <input id="course-title" type="text" required value={formData.title_fr} onChange={(e) => setFormData({ ...formData, title_fr: e.target.value })} className={inputClass} placeholder="Ex. : Réparation de smartphones" />
+                        </Field>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field label="Catégorie" required hint="Plusieurs choix possibles.">
+                                <div className="flex flex-wrap gap-2">
+                                    {['Software', 'Hardware'].map(cat => {
+                                        const checked = (formData.category ? formData.category.split(', ') : []).includes(cat);
+                                        return (
+                                            <label key={cat} className={chipClassName(checked)}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={() => {
+                                                        const currentCats = formData.category ? formData.category.split(', ') : [];
+                                                        if (currentCats.includes(cat)) {
+                                                            setFormData({ ...formData, category: currentCats.filter(c => c !== cat).join(', ') });
+                                                        } else {
+                                                            setFormData({ ...formData, category: [...currentCats, cat].join(', ') });
+                                                        }
+                                                    }}
+                                                    className="h-4 w-4 rounded border-slate-300 accent-slate-900"
+                                                />
+                                                {cat === 'Software' ? 'Logiciel' : 'Matériel'}
+                                            </label>
+                                        );
+                                    })}
                                 </div>
-                                
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 mb-2">Niveau *</label>
-                                    <div className="flex flex-wrap gap-4 mt-2 mb-4">
-                                        {['Débutant', 'Intermédiaire', 'Avancé'].map(lvl => (
-                                            <label key={lvl} className="flex items-center gap-2 min-h-10 md:min-h-0 cursor-pointer">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={(formData.level ? formData.level.split(', ') : []).includes(lvl)}
+                            </Field>
+                            <Field label="Niveau" required>
+                                <div className="flex flex-wrap gap-2">
+                                    {['Débutant', 'Intermédiaire', 'Avancé'].map(lvl => {
+                                        const checked = (formData.level ? formData.level.split(', ') : []).includes(lvl);
+                                        return (
+                                            <label key={lvl} className={chipClassName(checked)}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
                                                     onChange={() => {
                                                         const currentLvls = formData.level ? formData.level.split(', ') : [];
                                                         if (currentLvls.includes(lvl)) {
@@ -580,127 +540,134 @@ export default function CoursesAdminPage() {
                                                             setFormData({ ...formData, level: [...currentLvls, lvl].join(', ') });
                                                         }
                                                     }}
-                                                    className="w-4 h-4 rounded border-slate-300 text-brand-green focus:ring-brand-green" 
+                                                    className="h-4 w-4 rounded border-slate-300 accent-slate-900"
                                                 />
-                                                <span className="text-slate-900 text-sm">{lvl}</span>
+                                                {lvl}
                                             </label>
-                                        ))}
-                                    </div>
+                                        );
+                                    })}
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 mb-1">Prix de Base (DT) *</label>
-                                        <input type="number" min="0" step="0.01" required value={formData.base_price} onChange={(e) => setFormData({ ...formData, base_price: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 mb-1">Prix Soldé (DT)</label>
-                                        <input type="number" min="0" step="0.01" value={formData.sold_price} onChange={(e) => setFormData({ ...formData, sold_price: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" placeholder="Optionnel" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 mb-1">Avance de réservation (DT) *</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            required
-                                            value={formData.reservation_amount}
-                                            onChange={(e) => setFormData({ ...formData, reservation_amount: e.target.value })}
-                                            className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                        />
-                                        <p className="mt-1 text-[10px] text-slate-500">Montant minimum si l’étudiant paie lors de la réservation.</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 mb-1">Durée *</label>
-                                        <input type="text" required value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50" placeholder="ex: 12 Semaines" />
-                                    </div>
+                            </Field>
+                        </div>
+                    </fieldset>
+
+                    {/* Pricing */}
+                    <fieldset className="space-y-4 border-t border-slate-100 pt-5">
+                        <legend className="mb-3 text-sm font-semibold text-slate-900">Tarifs et durée</legend>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field label="Prix de base" htmlFor="course-base-price" required>
+                                <div className="relative">
+                                    <input id="course-base-price" type="number" min="0" step="0.01" required value={formData.base_price} onChange={(e) => setFormData({ ...formData, base_price: e.target.value })} className={`${inputClass} pr-12 tabular-nums`} />
+                                    {dtSuffix}
                                 </div>
-
-
-
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 mb-1">Image de Couverture *</label>
-                                    <div className={`relative border-2 border-dashed rounded-xl p-4 transition-all flex justify-center items-center overflow-hidden min-h-[120px] ${imagePreview ? 'border-brand-green bg-brand-green/5' : 'border-white/10 bg-slate-800/50 hover:bg-slate-800 border-white/20'}`}>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                            onChange={(e) => {
-                                                if (e.target.files && e.target.files[0]) {
-                                                    const file = e.target.files[0];
-                                                    setImageFile(file);
-                                                    setImagePreview(URL.createObjectURL(file));
-                                                    setFormData({ ...formData, image_url: 'pending_upload' });
-                                                }
-                                            }}
-                                        />
-                                        <div className="flex flex-col items-center justify-center gap-2 pointer-events-none text-center h-full">
-                                            {imagePreview ? (
-                                                <img src={imagePreview} alt="Aperçu" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-                                            ) : null}
-                                            <div className="relative z-0 flex flex-col items-center gap-2 p-2 rounded bg-black/40 backdrop-blur-sm">
-                                                <Upload size={24} className={imagePreview ? "text-white" : "text-slate-400"} />
-                                                <span className={`text-xs font-bold ${imagePreview ? "text-white" : "text-slate-400"}`}>
-                                                    {imagePreview ? "Changer l'image" : "Cliquez pour téléverser une image"}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {!imagePreview && !formData.image_url && <p className="text-[10px] text-red-400 mt-1">L'image est requise.</p>}
+                            </Field>
+                            <Field label="Prix soldé" htmlFor="course-sold-price" hint="Laissez vide s’il n’y a pas de promotion.">
+                                <div className="relative">
+                                    <input id="course-sold-price" type="number" min="0" step="0.01" value={formData.sold_price} onChange={(e) => setFormData({ ...formData, sold_price: e.target.value })} className={`${inputClass} pr-12 tabular-nums`} placeholder="Optionnel" />
+                                    {dtSuffix}
                                 </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 mb-1">Description principale (français / arabe)</label>
-                                    <RichTextEditor
-                                        value={formData.description_fr}
-                                        onChange={(description_fr) => setFormData({ ...formData, description_fr })}
-                                        placeholder="Rédigez la description de la formation…"
+                            </Field>
+                            <Field label="Avance de réservation" htmlFor="course-reservation" required hint="Montant minimum si l’étudiant paie lors de la réservation.">
+                                <div className="relative">
+                                    <input
+                                        id="course-reservation"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        required
+                                        value={formData.reservation_amount}
+                                        onChange={(e) => setFormData({ ...formData, reservation_amount: e.target.value })}
+                                        className={`${inputClass} pr-12 tabular-nums`}
                                     />
+                                    {dtSuffix}
                                 </div>
+                            </Field>
+                            <Field label="Durée" htmlFor="course-duration" required>
+                                <input id="course-duration" type="text" required value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} className={inputClass} placeholder="Ex. : 12 semaines" />
+                            </Field>
+                        </div>
+                    </fieldset>
 
-                                <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                    <div>
-                                        <h3 className="text-sm font-black text-slate-900">Programme du cours</h3>
-                                        <p className="mt-1 text-[11px] text-slate-500">Renseignez les quatre éléments qui seront affichés sur la page de cette formation.</p>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        {formData.program_items.map((item, index) => (
-                                            <div key={index}>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1">
-                                                    Élément {index + 1} *
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    dir="auto"
-                                                    value={item}
-                                                    onChange={(e) => {
-                                                        const nextItems = [...formData.program_items];
-                                                        nextItems[index] = e.target.value;
-                                                        setFormData({ ...formData, program_items: nextItems });
-                                                    }}
-                                                    placeholder={`Programme ${index + 1}`}
-                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-start text-slate-900 [unicode-bidi:plaintext] focus:outline-none focus:border-brand-green/50"
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
+                    {/* Cover */}
+                    <div className="border-t border-slate-100 pt-5">
+                        <Field
+                            label="Image de couverture"
+                            required
+                            error={!imagePreview && !formData.image_url ? 'L’image est requise.' : undefined}
+                        >
+                            <div className={cn(
+                                'relative flex min-h-[140px] items-center justify-center overflow-hidden rounded-lg border border-dashed p-4 transition-colors focus-within:ring-2 focus-within:ring-brand-green/30',
+                                imagePreview ? 'border-slate-200 bg-slate-50' : 'border-slate-300 bg-slate-50 hover:border-slate-400'
+                            )}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    aria-label="Téléverser une image de couverture"
+                                    className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                                    onChange={(e) => {
+                                        if (e.target.files && e.target.files[0]) {
+                                            const file = e.target.files[0];
+                                            setImageFile(file);
+                                            setImagePreview(URL.createObjectURL(file));
+                                            setFormData({ ...formData, image_url: 'pending_upload' });
+                                        }
+                                    }}
+                                />
+                                {imagePreview ? (
+                                    <img src={imagePreview} alt="Aperçu de la couverture" className="absolute inset-0 h-full w-full object-cover" />
+                                ) : null}
+                                <div className={cn('pointer-events-none relative flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-center', imagePreview && 'border border-slate-200 bg-[#fff]')}>
+                                    <Upload size={18} className="text-slate-400" />
+                                    <span className="text-sm font-medium text-slate-900">
+                                        {imagePreview ? "Changer l'image" : 'Cliquez pour téléverser une image'}
+                                    </span>
+                                    {!imagePreview && <span className="text-xs text-slate-500">JPG, PNG ou WEBP</span>}
                                 </div>
-
-                                <div className="sticky bottom-0 z-10 -mx-5 px-5 md:-mx-6 md:px-6 pb-[max(env(safe-area-inset-bottom),1rem)] bg-white flex justify-end gap-3 mt-8 pt-4 border-t border-slate-200">
-                                    <button type="button" onClick={() => setIsModalOpen(false)} className="shrink-0 min-h-11 md:min-h-0 px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-all">
-                                        Annuler
-                                    </button>
-
-                                    <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 md:flex-none min-h-11 md:min-h-0 px-5 py-2.5 flex items-center justify-center md:justify-start gap-2 text-center">
-                                        {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-                                        {editingCourse ? 'Enregistrer les modifications' : 'Créer la formation'}
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
+                            </div>
+                        </Field>
                     </div>
-                )}
-            </AnimatePresence>
+
+                    {/* Description */}
+                    <div className="border-t border-slate-100 pt-5">
+                        <Field label="Description principale (français / arabe)">
+                            <RichTextEditor
+                                value={formData.description_fr}
+                                onChange={(description_fr) => setFormData({ ...formData, description_fr })}
+                                placeholder="Rédigez la description de la formation…"
+                            />
+                        </Field>
+                    </div>
+
+                    {/* Program */}
+                    <fieldset className="space-y-3 border-t border-slate-100 pt-5">
+                        <legend className="sr-only">Programme du cours</legend>
+                        <div>
+                            <h3 className="text-sm font-semibold text-slate-900">Programme du cours</h3>
+                            <p className="mt-0.5 text-xs text-slate-500">Renseignez les quatre éléments qui seront affichés sur la page de cette formation.</p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {formData.program_items.map((item, index) => (
+                                <Field key={index} label={`Élément ${index + 1}`} htmlFor={`course-program-${index}`} required>
+                                    <input
+                                        id={`course-program-${index}`}
+                                        type="text"
+                                        required
+                                        dir="auto"
+                                        value={item}
+                                        onChange={(e) => {
+                                            const nextItems = [...formData.program_items];
+                                            nextItems[index] = e.target.value;
+                                            setFormData({ ...formData, program_items: nextItems });
+                                        }}
+                                        placeholder={`Programme ${index + 1}`}
+                                        className={`${inputClass} text-start [unicode-bidi:plaintext]`}
+                                    />
+                                </Field>
+                            ))}
+                        </div>
+                    </fieldset>
+                </form>
+            </Modal>
         </div>
     );
 }

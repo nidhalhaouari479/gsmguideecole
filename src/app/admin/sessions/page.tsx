@@ -7,28 +7,47 @@ import {
     Plus,
     Users,
     Clock,
-    MoreVertical,
     Loader2,
-    Calendar,
-    ChevronRight,
-    MapPin,
     ArrowRight,
     Edit2,
     Trash2,
     Check,
-    Filter,
     LayoutGrid,
     List,
-    AlertCircle,
-    CheckCircle2,
     Briefcase,
     Mail,
     Phone,
     X,
     CreditCard,
-    Upload
+    Upload,
+    Lock,
+    Minus,
+    ChevronLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+    Badge,
+    Button,
+    Card,
+    EmptyState,
+    Field,
+    FilterTabs,
+    IconButton,
+    LoadingState,
+    Modal,
+    PageHeader,
+    ProgressBar,
+    SearchInput,
+    StatCard,
+    Toolbar,
+    buttonClass,
+    cn,
+    formatDT,
+    inputClass,
+    selectClass,
+    table,
+    textareaClass,
+} from '@/components/admin/ui';
 import { supabase } from '@/lib/supabase';
 
 interface Session {
@@ -123,6 +142,7 @@ export default function SessionsAdminPage() {
     const [isManifestOpen, setIsManifestOpen] = useState(false);
     const [manifestStudents, setManifestStudents] = useState<any[]>([]);
     const [loadingManifest, setLoadingManifest] = useState(false);
+    const [manifestSearch, setManifestSearch] = useState('');
     const [selectedSessionLabel, setSelectedSessionLabel] = useState('');
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
     const [paymentStudent, setPaymentStudent] = useState<any | null>(null);
@@ -286,6 +306,7 @@ export default function SessionsAdminPage() {
         setSelectedSessionLabel(session.courses?.title_fr || 'Session');
         setSelectedSessionId(session.id);
         setIsManifestOpen(true);
+        setManifestSearch('');
         setLoadingManifest(true);
         setIsAddingStudent(false); // Reset add mode
         try {
@@ -555,613 +576,631 @@ export default function SessionsAdminPage() {
     const newStudentIsUnpaid = newStudentForm.amountPaid === '' || (Number.isFinite(newStudentPaidAmount) && newStudentPaidAmount === 0);
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-                <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px] animate-pulse">Synchronisation des sessions...</p>
-            </div>
-        );
+        return <LoadingState label="Chargement des sessions…" />;
     }
 
     const openSessions = sessions.filter(s => new Date(s.start_date) > new Date()).length;
     const totalStudents = sessions.reduce((sum, s) => sum + s.stats.confirmed, 0);
 
+    const normalizedManifestSearch = manifestSearch.trim().toLowerCase();
+    const filteredManifestStudents = normalizedManifestSearch
+        ? manifestStudents.filter(student =>
+            [student.full_name, student.email, student.phone]
+                .some(value => String(value || '').toLowerCase().includes(normalizedManifestSearch)))
+        : manifestStudents;
+    const manifestTotals = manifestStudents.reduce(
+        (acc, student) => {
+            const paid = Number(student.amount_paid || 0);
+            const total = Number(student.total_price || 0);
+            acc.paid += paid;
+            acc.remaining += Math.max(total - paid, 0);
+            if (total > 0 && paid >= total) acc.settled += 1;
+            return acc;
+        },
+        { paid: 0, remaining: 0, settled: 0 }
+    );
+
     const renderStudentStatusBadge = (student: any) => (
-        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
-            student.status === 'approved'
-            ? 'bg-brand-green/10 text-brand-green border-brand-green/20'
-            : 'bg-amber-400/10 text-amber-400 border-amber-400/20'
-        }`}>
-            {student.status === 'approved' ? 'VALIDÉ' : student.status === 'rejected' ? 'REFUSÉ' : 'EN ATTENTE'}
+        student.status === 'approved'
+            ? <Badge tone="success">Validé</Badge>
+            : student.status === 'rejected'
+                ? <Badge tone="danger">Refusé</Badge>
+                : <Badge tone="warning">En attente</Badge>
+    );
+
+    const renderStudentPaymentButton = (student: any, extraClassName = '') => {
+        const total = Number(student.total_price || 0);
+        const paid = Number(student.amount_paid || 0);
+        const hasRemaining = total > paid;
+        return (
+            <button
+                type="button"
+                onClick={() => {
+                    setPaymentAmount('');
+                    setPaymentNote('');
+                    setPaymentReceipt(null);
+                    setPaymentStudent(student);
+                }}
+                disabled={total > 0 && paid >= total}
+                className={cn(
+                    'group/pay block min-w-44 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40 disabled:cursor-default disabled:hover:border-slate-200 disabled:hover:bg-white',
+                    extraClassName
+                )}
+                title={hasRemaining ? 'Ajouter un paiement' : 'Formation soldée'}
+            >
+                <span className="flex items-center justify-between gap-2">
+                    <span className="whitespace-nowrap text-sm font-medium text-slate-900 tabular-nums">
+                        {paid.toLocaleString('fr-FR')} <span className="text-slate-400">/</span> {formatDT(total)}
+                    </span>
+                    {hasRemaining && (
+                        <Plus size={14} className="shrink-0 text-slate-400 transition-colors group-hover/pay:text-slate-700" />
+                    )}
+                </span>
+                <ProgressBar value={paid} max={total} label="Progression du paiement" className="mt-1.5" />
+                <span className={cn('mt-1 block whitespace-nowrap text-xs tabular-nums', hasRemaining ? 'text-rose-600' : 'text-emerald-700')}>
+                    {hasRemaining ? `Reste : ${formatDT(Math.max(total - paid, 0))}` : 'Soldé'}
+                </span>
+            </button>
+        );
+    };
+
+    const renderStudentRemoveButton = (student: any, extraClassName = '', compact = false) => {
+        const label = student.has_financial_history
+            ? 'Suppression impossible : cette inscription contient un paiement ou un justificatif.'
+            : 'Retirer de la session';
+        return (
+            <button
+                type="button"
+                onClick={() => handleRemoveStudent(student)}
+                disabled={removingStudentId === student.id || student.has_financial_history}
+                aria-label={label}
+                title={label}
+                className={cn(
+                    buttonClass(compact ? 'ghost' : 'secondary', compact ? 'md' : 'sm'),
+                    compact && 'w-10 px-0',
+                    student.has_financial_history
+                        ? 'text-slate-400'
+                        : 'text-rose-600 hover:bg-rose-50 hover:text-rose-700',
+                    extraClassName
+                )}
+            >
+                {removingStudentId === student.id
+                    ? <Loader2 size={16} className="animate-spin" />
+                    : student.has_financial_history
+                        ? <Lock size={16} />
+                        : <Trash2 size={16} />}
+                {!compact && (student.has_financial_history ? 'Paiement lié' : 'Retirer')}
+            </button>
+        );
+    };
+
+    const renderAvatar = (name?: string) => (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600" aria-hidden="true">
+            {(name?.charAt(0) || 'E').toUpperCase()}
         </span>
     );
 
-    const renderStudentPaymentButton = (student: any, extraClassName = '') => (
-        <button
-            type="button"
-            onClick={() => {
-                setPaymentAmount('');
-                setPaymentNote('');
-                setPaymentReceipt(null);
-                setPaymentStudent(student);
-            }}
-            disabled={Number(student.total_price || 0) > 0 && Number(student.amount_paid || 0) >= Number(student.total_price || 0)}
-            className={`min-w-36 rounded-xl border border-brand-green/30 bg-brand-green/10 px-3 py-2 text-left transition-all hover:border-brand-green hover:bg-brand-green/20 disabled:cursor-default disabled:border-emerald-200 disabled:bg-emerald-50 ${extraClassName}`}
-            title="Cliquer pour ajouter un paiement"
-        >
-            <span className="block text-xs font-black text-slate-900 tabular-nums">
-                {Number(student.amount_paid || 0).toLocaleString('fr-FR')} / {Number(student.total_price || 0).toLocaleString('fr-FR')} DT
-            </span>
-            <span className={`mt-0.5 block text-[9px] font-bold uppercase tracking-wider ${Number(student.total_price || 0) > Number(student.amount_paid || 0) ? 'text-rose-500' : 'text-emerald-600'}`}>
-                {Number(student.total_price || 0) > Number(student.amount_paid || 0)
-                    ? `Reste : ${Math.max(Number(student.total_price || 0) - Number(student.amount_paid || 0), 0).toLocaleString('fr-FR')} DT`
-                    : 'Soldé'}
-            </span>
-        </button>
+    const DEFAULT_SESSION_IMAGE = 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800&auto=format&fit=crop';
+
+    const totalSeats = sessions.reduce((sum, s) => sum + (Number(s.seats_available) || 0), 0);
+    const occupancyRate = totalSeats > 0 ? Math.round((totalStudents / totalSeats) * 100) : 0;
+
+    const openCreateModal = () => {
+        setEditingSessionId(null);
+        setFormData({
+            course_id: '',
+            instructor_id: '',
+            seats_available: '12',
+            schedule: 'Temps plein',
+            seanceCount: 1,
+            seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
+        });
+        setCurrentStep(1);
+        setIsModalOpen(true);
+    };
+
+    const formatSessionDate = (value: string, month: 'short' | 'long' = 'short') =>
+        new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month, year: 'numeric' });
+
+    const renderSessionStatusBadge = (session: Session) => {
+        const closed = isSessionClosed(session);
+        const ongoing = !closed && isSessionOngoing(session);
+        if (closed) return <Badge>Terminée</Badge>;
+        if (ongoing) return <Badge tone="success">En cours</Badge>;
+        return <Badge tone="info">À venir</Badge>;
+    };
+
+    const renderOccupancy = (session: Session) => {
+        const occupancy = Math.round((session.stats.confirmed / session.seats_available) * 100) || 0;
+        const isFull = occupancy >= 100;
+        return (
+            <div className="min-w-0">
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
+                    <span className="whitespace-nowrap text-slate-500 tabular-nums">
+                        <span className="font-medium text-slate-900">{session.stats.confirmed}</span> / {session.seats_available} places
+                    </span>
+                    <span className={cn('font-medium tabular-nums', isFull ? 'text-emerald-700' : 'text-slate-500')}>{isFull ? 'Complet' : `${occupancy}%`}</span>
+                </div>
+                <ProgressBar value={session.stats.confirmed} max={Number(session.seats_available) || 0} label="Taux de remplissage" />
+                {session.stats.pending > 0 && (
+                    <p className="mt-1 text-xs text-amber-700 tabular-nums">{session.stats.pending} en attente de validation</p>
+                )}
+            </div>
+        );
+    };
+
+    const renderSessionActions = (session: Session) => (
+        <>
+            <IconButton icon={Edit2} label="Modifier la session" onClick={() => handleEditClick(session)} />
+            <IconButton icon={Trash2} label="Supprimer la session" onClick={() => handleDeleteSession(session.id)} className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" />
+        </>
     );
 
-    const renderStudentRemoveButton = (student: any, extraClassName = '') => (
-        <button
-            onClick={() => handleRemoveStudent(student)}
-            disabled={removingStudentId === student.id || student.has_financial_history}
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white font-black text-[9px] uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-rose-50 disabled:hover:text-rose-600 ${extraClassName}`}
-            title={student.has_financial_history
-                ? 'Cette inscription contient un paiement ou un justificatif.'
-                : 'Retirer de la session'}
-        >
-            {removingStudentId === student.id
-                ? <Loader2 size={13} className="animate-spin" />
-                : student.has_financial_history
-                    ? <AlertCircle size={13} />
-                    : <Trash2 size={13} />}
-            {student.has_financial_history ? 'Paiement lié' : 'Retirer'}
-        </button>
-    );
+    const steps = [
+        { id: 1, label: editingSessionId ? 'Modifier' : 'Informations' },
+        { id: 2, label: 'Nombre de séances' },
+        { id: 3, label: 'Calendrier' },
+    ];
+
+    const dtSuffix = <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">DT</span>;
+
+    const closeManifest = () => {
+        closeStudentPicker();
+        setIsManifestOpen(false);
+    };
 
     return (
-        <div className="space-y-6 md:space-y-10 pb-6 md:pb-20">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-                <div>
-                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <CalendarIcon size={14} /> Planification des formations
-                    </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Sessions <span className="text-slate-600">et calendrier</span></h1>
-                </div>
+        <div className="space-y-6 pb-6 md:pb-12">
+            <PageHeader
+                title="Sessions et calendrier"
+                description="Planifiez les sessions, suivez le remplissage et gérez les étudiants inscrits."
+                actions={!isProfessor ? (
+                    <Button variant="primary" icon={Plus} onClick={openCreateModal} className="max-md:w-full">
+                        Nouvelle session
+                    </Button>
+                ) : undefined}
+            />
 
-                <div className="flex flex-wrap md:flex-nowrap items-center gap-3 md:gap-4">
-                    <div className="relative max-w-md w-full">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Rechercher une session..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
-                        />
-                    </div>
-                    <div className="flex bg-white border border-slate-200 p-1 rounded-xl">
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={`p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-slate-900'}`}
-                            title="Afficher en cartes"
-                            aria-label="Afficher les sessions en cartes"
-                        >
-                            <LayoutGrid size={18} />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={`p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-brand-green text-black shadow-lg' : 'text-slate-500 hover:text-slate-900'}`}
-                            title="Afficher en tableau"
-                            aria-label="Afficher les sessions en tableau"
-                        >
-                            <List size={18} />
-                        </button>
-                    </div>
-                    <button
-                        onClick={() => {
-                            setEditingSessionId(null);
-                            setFormData({
-                                course_id: '',
-                                instructor_id: '',
-                                seats_available: '12',
-                                schedule: 'Temps plein',
-                                seanceCount: 1,
-                                seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
-                            });
-                            setCurrentStep(1);
-                            setIsModalOpen(true);
-                        }}
-                        className={`${isProfessor ? 'hidden' : 'flex'} btn-primary py-3 px-6 h-auto shadow-none items-center gap-2 max-md:flex-1 max-md:justify-center max-md:min-h-12`}
-                    >
-                        <Plus size={18} /> NOUVELLE SESSION
-                    </button>
-                </div>
-            </header>
-
-            <div className={`${isProfessor ? 'hidden' : 'grid'} grid-cols-2 md:grid-cols-3 gap-3 md:gap-6`}>
-                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="premium-card p-4 md:p-6">
-                    <div className="flex items-center gap-3 md:gap-4">
-                        <div className="p-2.5 md:p-3 shrink-0 rounded-2xl bg-brand-blue/10 text-brand-blue">
-                            <Clock size={24} />
-                        </div>
-                        <div>
-                            <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{openSessions}</h3>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider md:tracking-widest mt-1 max-md:leading-tight">Sessions actives</p>
-                        </div>
-                    </div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="premium-card p-4 md:p-6">
-                    <div className="flex items-center gap-3 md:gap-4">
-                        <div className="p-2.5 md:p-3 shrink-0 rounded-2xl bg-brand-green/10 text-brand-green">
-                            <Users size={24} />
-                        </div>
-                        <div>
-                            <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{totalStudents}</h3>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider md:tracking-widest mt-1 max-md:leading-tight">Étudiants inscrits</p>
-                        </div>
-                    </div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="premium-card p-4 md:p-6 col-span-2 md:col-span-1">
-                    <div className="flex items-center gap-3 md:gap-4">
-                        <div className="p-2.5 md:p-3 shrink-0 rounded-2xl bg-amber-400/10 text-amber-400">
-                            <Briefcase size={24} />
-                        </div>
-                        <div>
-                            <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter tabular-nums">92%</h3>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider md:tracking-widest mt-1 max-md:leading-tight">Taux d'Occupation</p>
-                        </div>
-                    </div>
-                </motion.div>
-            </div>
-
-            <div className="flex flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-                {[
-                    { key: 'all' as const, label: 'Toutes les sessions', count: sessions.length },
-                    { key: 'open' as const, label: 'Sessions ouvertes', count: openSessionCount },
-                    { key: 'ongoing' as const, label: 'Sessions en cours', count: ongoingSessionCount },
-                    { key: 'closed' as const, label: 'Sessions fermées', count: closedSessionCount }
-                ].map(filter => (
-                    <button
-                        key={filter.key}
-                        type="button"
-                        onClick={() => setSessionFilter(filter.key)}
-                        className={`flex shrink-0 whitespace-nowrap items-center gap-2 rounded-xl px-4 py-2.5 max-md:min-h-10 text-xs font-black uppercase tracking-wider transition-all ${sessionFilter === filter.key ? 'bg-brand-green text-black shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-                    >
-                        {filter.label}
-                        <span className={`rounded-md px-2 py-0.5 text-[10px] ${sessionFilter === filter.key ? 'bg-black/10' : 'bg-slate-100 text-slate-500'}`}>{filter.count}</span>
-                    </button>
-                ))}
-            </div>
-
-            <div className={`${viewMode === 'list' ? 'block' : 'hidden'}`}>
-                <div className="md:hidden space-y-3">
-                    {filteredSessions.map((session, idx) => {
-                        const { planning, seanceCount } = parseSessionPlanning(session.schedule);
-                        const occupancy = Math.round((session.stats.confirmed / session.seats_available) * 100) || 0;
-                        return (
-                            <motion.div key={session.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="rounded-2xl bg-white border border-slate-200 p-4">
-                                <div className="flex items-start gap-3">
-                                    <img src={session.courses?.image_url || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=400&auto=format&fit=crop'} alt={session.courses?.title_fr} className="h-14 w-16 shrink-0 rounded-xl bg-slate-100 object-cover" />
-                                    <div className="min-w-0 flex-1">
-                                        <p className="font-black leading-snug text-slate-900">{session.courses?.title_fr}</p>
-                                        <span className="mt-1 inline-flex rounded-md bg-brand-blue/10 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-brand-blue">{translateCategory(session.courses?.category)}</span>
-                                    </div>
-                                </div>
-                                <div className="mt-4 space-y-2">
-                                    <div className="flex items-center justify-between gap-3 text-sm">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Instructeur</span>
-                                        <span className="truncate font-bold text-slate-900">{session.instructor?.full_name || 'Non assigné'}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-3 text-sm">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date de début</span>
-                                        <span className="font-black text-slate-900">{new Date(session.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-3 text-sm">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Calendrier</span>
-                                        <span className="text-right font-bold text-slate-900">{planning}{seanceCount > 0 && <span className="ml-2 text-[10px] font-bold uppercase text-slate-600">{seanceCount} séances</span>}</span>
-                                    </div>
-                                    <div className="pt-1">
-                                        <div className="mb-2 flex justify-between text-[10px] font-black"><span className="text-slate-600">Inscriptions : {session.stats.confirmed}/{session.seats_available}</span><span className="text-brand-blue">{occupancy}%</span></div>
-                                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-green" style={{ width: `${Math.min(occupancy, 100)}%` }} /></div>
-                                    </div>
-                                </div>
-                                <div className="mt-4 flex gap-2">
-                                    <button onClick={() => handleViewManifest(session)} className="flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 px-3 text-[10px] font-black uppercase tracking-wider text-brand-green">Inscrits</button>
-                                    <button onClick={() => handleEditClick(session)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500" title="Modifier" aria-label="Modifier"><Edit2 size={16} /></button>
-                                    <button onClick={() => handleDeleteSession(session.id)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 active:bg-rose-50 active:text-rose-500" title="Supprimer" aria-label="Supprimer"><Trash2 size={16} /></button>
-                                </div>
-                            </motion.div>
-                        );
-                    })}
-                </div>
-                <div className="hidden md:block premium-card overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1100px] border-collapse text-left">
-                        <thead className="border-b border-slate-200 bg-slate-50/80">
-                            <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                <th className="px-6 py-4">Formation</th>
-                                <th className="px-5 py-4">Instructeur</th>
-                                <th className="px-5 py-4">Date de début</th>
-                                <th className="px-5 py-4">Calendrier</th>
-                                <th className="px-5 py-4">Inscriptions</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {filteredSessions.map((session, idx) => {
-                                const { planning, seanceCount } = parseSessionPlanning(session.schedule);
-                                const occupancy = Math.round((session.stats.confirmed / session.seats_available) * 100) || 0;
-                                return (
-                                    <motion.tr key={session.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="group hover:bg-brand-green/[0.04] transition-colors">
-                                        <td className="px-6 py-4"><div className="flex min-w-[320px] items-center gap-4"><img src={session.courses?.image_url || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=400&auto=format&fit=crop'} alt={session.courses?.title_fr} className="h-14 w-20 rounded-xl bg-slate-100 object-cover" /><div><p className="max-w-sm font-black leading-snug text-slate-900">{session.courses?.title_fr}</p><span className="mt-1 inline-flex rounded-md bg-brand-blue/10 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-brand-blue">{translateCategory(session.courses?.category)}</span></div></div></td>
-                                        <td className="px-5 py-4 text-sm font-bold text-slate-900">{session.instructor?.full_name || 'Non assigné'}</td>
-                                        <td className="px-5 py-4 text-sm font-black text-slate-900">{new Date(session.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                        <td className="px-5 py-4"><p className="text-sm font-bold text-slate-900">{planning}</p>{seanceCount > 0 && <p className="mt-1 text-[10px] font-bold uppercase text-slate-600">{seanceCount} séances</p>}</td>
-                                        <td className="px-5 py-4"><div className="w-36"><div className="mb-2 flex justify-between text-[10px] font-black"><span className="text-slate-600">{session.stats.confirmed}/{session.seats_available}</span><span className="text-brand-blue">{occupancy}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-green" style={{ width: `${Math.min(occupancy, 100)}%` }} /></div></div></td>
-                                        <td className="px-6 py-4"><div className="flex justify-end gap-2"><button onClick={() => handleViewManifest(session)} className="rounded-lg border border-slate-200 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-brand-green hover:border-brand-green">Inscrits</button><button onClick={() => handleEditClick(session)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-brand-green hover:text-brand-green" title="Modifier"><Edit2 size={16} /></button><button onClick={() => handleDeleteSession(session.id)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500" title="Supprimer"><Trash2 size={16} /></button></div></td>
-                                    </motion.tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-                </div>
-            </div>
-
-            <div className={`${viewMode === 'grid' ? 'grid' : 'hidden'} grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8`}>
-                {filteredSessions.map((session, idx) => (
-                    <motion.div
-                        key={session.id}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className="premium-card group hover:border-brand-green/40 transition-all flex flex-col md:flex-row overflow-hidden"
-                    >
-                        <div className="w-full md:w-48 h-36 md:h-auto relative overflow-hidden shrink-0">
-                            <img
-                                src={session.courses?.image_url || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=2070&auto=format&fit=crop'}
-                                alt={session.courses?.title_fr}
-                                className="w-full h-full object-cover grayscale brightness-50 group-hover:grayscale-0 group-hover:brightness-100 max-md:grayscale-0 max-md:brightness-90 transition-all duration-700"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/20 to-transparent" />
-                            <div className="absolute top-4 left-4">
-                                <span className="bg-brand-blue/90 text-white text-[8px] font-black px-2 py-1 rounded uppercase tracking-widest">
-                                    {translateCategory(session.courses?.category)}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="p-4 md:p-6 flex-grow flex flex-col justify-between">
-                            <div className="space-y-4">
-                                <div className="flex items-start justify-between gap-3 md:gap-4">
-                                    <div className="min-w-0">
-                                        <h2 className="text-lg md:text-xl font-black text-slate-900 tracking-tight leading-tight">
-                                            {session.courses?.title_fr}
-                                        </h2>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <div className="w-5 h-5 rounded-lg bg-white/5 flex items-center justify-center">
-                                                <Briefcase size={12} className="text-slate-500" />
-                                            </div>
-                                            <span className="text-[10px] font-black text-slate-900 tracking-widest uppercase">
-                                                Instructeur : <span className="text-slate-900">{session.instructor?.full_name || 'NON ASSIGNÉ'}</span>
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="flex max-md:shrink-0 items-center gap-1">
-                                        <button 
-                                            onClick={() => handleEditClick(session)}
-                                            className={`${isProfessor ? 'hidden' : 'max-md:flex'} p-2 max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center text-slate-500 hover:text-brand-green transition-colors bg-white/5 rounded-lg`}
-                                            title="Modifier"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDeleteSession(session.id)}
-                                            className={`${isProfessor ? 'hidden' : 'max-md:flex'} p-2 max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center text-slate-500 hover:text-red-500 transition-colors bg-white/5 rounded-lg`}
-                                            title="Supprimer"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2 text-slate-900">
-                                            <CalendarIcon size={14} className="text-brand-green" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Date de début</span>
-                                        </div>
-                                        <p className="text-sm font-black text-slate-900 uppercase tracking-tighter">
-                                            {new Date(session.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                                        </p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2 text-slate-900">
-                                            <Clock size={14} className="text-brand-green" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Calendrier</span>
-                                        </div>
-                                        <p className="text-sm font-black text-slate-900 uppercase tracking-tighter">
-                                            {(() => {
-                                                try {
-                                                    const parsed = JSON.parse(session.schedule);
-                                                    return (
-                                                        <span className="flex items-center gap-2">
-                                                            {translateScheduleLabel(parsed.label)}
-                                                            <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-900">
-                                                                {parsed.seances?.length || 0} séances
-                                                            </span>
-                                                        </span>
-                                                    );
-                                                } catch (e) {
-                                                    return translateScheduleLabel(session.schedule);
-                                                }
-                                            })()}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-5 md:mt-8 pt-4 md:pt-6 border-t border-white/5 flex items-end justify-between max-md:gap-4">
-                                <div className="space-y-2 flex-grow max-w-[180px]">
-                                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-1">
-                                        <span className="text-slate-900 text-[8px]">Inscriptions : <span className="text-slate-900">{session.stats.confirmed}/{session.seats_available}</span></span>
-                                        <span className="text-brand-blue">{Math.round((session.stats.confirmed / session.seats_available) * 100)}%</span>
-                                    </div>
-                                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                        <motion.div
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${(session.stats.confirmed / session.seats_available) * 100}%` }}
-                                            transition={{ duration: 1, delay: 0.5 }}
-                                            className="h-full bg-brand-green shadow-[0_0_10px_rgba(161,184,62,0.3)]"
-                                        />
-                                    </div>
-                                </div>
-
-                                <button 
-                                    onClick={() => handleViewManifest(session)}
-                                    className="flex max-md:shrink-0 max-md:min-h-10 items-center gap-2 text-brand-green font-black uppercase tracking-widest text-[10px] hover:gap-3 transition-all"
-                                >
-                                    VOIR LES INSCRITS <ChevronRight size={14} />
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
-
-            {filteredSessions.length === 0 && (
-                <div className="py-16 md:py-32 text-center">
-                    <div className="flex flex-col items-center gap-4">
-                        <CalendarIcon size={48} className="text-slate-800" />
-                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucune session correspondante</p>
+            {!isProfessor && (
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                    <StatCard label="Sessions à venir" value={openSessions} icon={Clock} />
+                    <StatCard label="Étudiants inscrits" value={totalStudents} icon={Users} />
+                    <div className="col-span-2 md:col-span-1">
+                        <StatCard label="Taux d’occupation" value={`${occupancyRate}%`} icon={Briefcase} />
                     </div>
                 </div>
             )}
 
-            {/* NEW SESSION MODAL */}
-            <AnimatePresence>
-                {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
-                        >
-                            {/* Header */}
-                            <div className="p-4 md:p-8 border-b border-slate-100 flex justify-between items-start md:items-center gap-3 md:gap-0 bg-white">
-                                <div className="max-md:min-w-0">
-                                    <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                                        {editingSessionId ? 'Modifier la' : 'Nouvelle'} <span className="text-brand-green">session de formation</span>
-                                    </h2>
-                                    <div className="flex items-center gap-2 md:gap-4 mt-2 max-md:overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                                        <div className={`flex shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 1 ? 'text-brand-green' : 'text-slate-500'}`}>
-                                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 1 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>1</span> {editingSessionId ? 'MODIFIER' : 'INFORMATIONS'}
+            <Card padded={false}>
+                <Toolbar>
+                    <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="Formation ou instructeur…"
+                            label="Rechercher une session"
+                        />
+                        <FilterTabs
+                            label="Filtrer les sessions"
+                            value={sessionFilter}
+                            onChange={setSessionFilter}
+                            options={[
+                                { value: 'all', label: 'Toutes', count: sessions.length },
+                                { value: 'open', label: 'Ouvertes', count: openSessionCount },
+                                { value: 'ongoing', label: 'En cours', count: ongoingSessionCount },
+                                { value: 'closed', label: 'Fermées', count: closedSessionCount },
+                            ]}
+                        />
+                    </div>
+                    <div className="shrink-0">
+                        <FilterTabs
+                            label="Mode d’affichage"
+                            value={viewMode}
+                            onChange={setViewMode}
+                            options={[
+                                { value: 'grid', label: <><LayoutGrid size={16} aria-hidden="true" /><span className="sr-only sm:not-sr-only">Cartes</span></> },
+                                { value: 'list', label: <><List size={16} aria-hidden="true" /><span className="sr-only sm:not-sr-only">Tableau</span></> },
+                            ]}
+                        />
+                    </div>
+                </Toolbar>
+
+                {/* List view */}
+                {viewMode === 'list' && filteredSessions.length > 0 && (
+                    <>
+                        <div className="divide-y divide-slate-100 md:hidden">
+                            {filteredSessions.map((session) => {
+                                const { planning, seanceCount } = parseSessionPlanning(session.schedule);
+                                return (
+                                    <div key={session.id} className="p-4">
+                                        <div className="flex items-start gap-3">
+                                            <img src={session.courses?.image_url || DEFAULT_SESSION_IMAGE} alt="" className="h-10 w-12 shrink-0 rounded-md bg-slate-100 object-cover" />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="line-clamp-2 font-medium leading-snug text-slate-900">{session.courses?.title_fr}</p>
+                                                <p className="mt-0.5 text-xs text-slate-500">{translateCategory(session.courses?.category)}</p>
+                                            </div>
+                                            <div className="shrink-0">{renderSessionStatusBadge(session)}</div>
                                         </div>
-                                        <div className="w-4 md:w-8 shrink-0 h-[1px] bg-slate-800" />
-                                        <div className={`flex shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 2 ? 'text-brand-green' : 'text-slate-500'}`}>
-                                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 2 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>2</span> NOMBRE
-                                        </div>
-                                        <div className="w-4 md:w-8 shrink-0 h-[1px] bg-slate-800" />
-                                        <div className={`flex shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-widest ${currentStep === 3 ? 'text-brand-green' : 'text-slate-500'}`}>
-                                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${currentStep === 3 ? 'border-brand-green bg-brand-green text-black' : 'border-slate-800'}`}>3</span> CALENDRIER
+                                        <dl className="mt-3 space-y-1.5 text-sm">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <dt className="shrink-0 text-slate-500">Instructeur</dt>
+                                                <dd className="min-w-0 truncate text-right text-slate-900">{session.instructor?.full_name || 'Non assigné'}</dd>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <dt className="shrink-0 text-slate-500">Date de début</dt>
+                                                <dd className="text-slate-900 tabular-nums">{formatSessionDate(session.start_date)}</dd>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <dt className="shrink-0 text-slate-500">Calendrier</dt>
+                                                <dd className="min-w-0 text-right text-slate-900">{planning}{seanceCount > 0 && <span className="ml-1.5 text-xs text-slate-500">· {seanceCount} séance{seanceCount > 1 ? 's' : ''}</span>}</dd>
+                                            </div>
+                                        </dl>
+                                        <div className="mt-3">{renderOccupancy(session)}</div>
+                                        <div className="mt-3 flex gap-2">
+                                            <Button size="sm" icon={Users} onClick={() => handleViewManifest(session)} className="flex-1">Inscrits</Button>
+                                            {!isProfessor && renderSessionActions(session)}
                                         </div>
                                     </div>
-                                </div>
-                                <button onClick={() => setIsModalOpen(false)} className="p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:shrink-0 max-md:items-center max-md:justify-center text-slate-500 hover:text-white bg-white/5 rounded-xl transition-all">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            {/* Content */}
-                            <div className="p-4 md:p-8 overflow-y-auto custom-scrollbar flex-grow">
-                                <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
-                                    {currentStep === 1 && (
-                                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Formation *</label>
-                                                    <select
-                                                        required
-                                                        value={formData.course_id}
-                                                        onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-base md:text-sm"
-                                                    >
-                                                        <option value="">Sélectionner une formation</option>
-                                                        {courses.map(c => (
-                                                            <option key={c.id} value={c.id}>{c.title_fr}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Instructeur</label>
-                                                    <select
-                                                        value={formData.instructor_id}
-                                                        onChange={(e) => setFormData({ ...formData, instructor_id: e.target.value })}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 appearance-none font-bold text-base md:text-sm"
-                                                    >
-                                                        <option value="">Non assigné</option>
-                                                        {instructors.map(i => (
-                                                            <option key={i.id} value={i.id}>{i.nom} {i.prenom}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Places Disponibles</label>
-                                                    <input
-                                                        type="number"
-                                                        required
-                                                        value={formData.seats_available}
-                                                        onChange={(e) => setFormData({ ...formData, seats_available: e.target.value })}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
-                                                        placeholder="Ex: 12"
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Rythme Global</label>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.schedule}
-                                                        onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
-                                                        placeholder="Ex. : Temps plein / Week-end"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-
-                                    {currentStep === 2 && (
-                                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 text-center py-6 md:py-10">
-                                            <div className="max-w-xs mx-auto space-y-4">
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombre de séances à planifier</label>
-                                                <div className="flex items-center justify-center gap-6">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleSeanceCountChange(Math.max(1, formData.seanceCount - 1))}
-                                                        className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-900 flex items-center justify-center hover:bg-brand-green hover:text-black transition-all font-black text-xl shadow-lg"
-                                                    >
-                                                        -
-                                                    </button>
-                                                    <span className="text-5xl font-black text-slate-900 tabular-nums tracking-tighter">{formData.seanceCount}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleSeanceCountChange(formData.seanceCount + 1)}
-                                                        className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-900 flex items-center justify-center hover:bg-brand-green hover:text-black transition-all font-black text-xl shadow-lg"
-                                                    >
-                                                        +
-                                                    </button>
-                                                </div>
-                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-white/5 py-2 px-4 rounded-full">Définit le nombre total de rencontres physiques</p>
-                                            </div>
-                                        </motion.div>
-                                    )}
-
-                                    {currentStep === 3 && (
-                                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 pb-4 md:pb-10">
-                                            <div className="grid grid-cols-1 gap-4">
-                                                {formData.seances.map((seance, index) => (
-                                                    <div key={index} className="bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-200 space-y-4 group hover:border-brand-green/30 transition-all">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-[10px] font-black text-brand-green uppercase tracking-[0.2em]">Séance #{index + 1}</span>
-                                                            <CalendarIcon size={14} className="text-slate-700 group-hover:text-brand-green transition-colors" />
-                                                        </div>
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                                                            <div className="space-y-2 col-span-2 md:col-span-1">
-                                                                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Date Precise</label>
-                                                                <input
-                                                                    type="date"
-                                                                    required
-                                                                    value={seance.date}
-                                                                    onChange={(e) => handleSeanceChange(index, 'date', e.target.value)}
-                                                                    className="w-full max-md:min-w-0 bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-base md:text-xs font-bold"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Heure Début</label>
-                                                                <input
-                                                                    type="time"
-                                                                    required
-                                                                    value={seance.start_time}
-                                                                    onChange={(e) => handleSeanceChange(index, 'start_time', e.target.value)}
-                                                                    className="w-full max-md:min-w-0 bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-base md:text-xs font-bold"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Heure Fin</label>
-                                                                <input
-                                                                    type="time"
-                                                                    required
-                                                                    value={seance.end_time}
-                                                                    onChange={(e) => handleSeanceChange(index, 'end_time', e.target.value)}
-                                                                    className="w-full max-md:min-w-0 bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50 text-base md:text-xs font-bold"
-                                                                />
-                                                            </div>
+                                );
+                            })}
+                        </div>
+                        <div className={cn(table.wrapper, 'hidden md:block')}>
+                            <table className={cn(table.table, 'min-w-[960px]')}>
+                                <thead className={table.thead}>
+                                    <tr>
+                                        <th className={table.th}>Formation</th>
+                                        <th className={table.th}>Instructeur</th>
+                                        <th className={table.th}>Début</th>
+                                        <th className={table.th}>Statut</th>
+                                        <th className={table.th}>Calendrier</th>
+                                        <th className={table.th}>Inscriptions</th>
+                                        <th className={cn(table.th, 'text-right')}><span className="sr-only">Actions</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody className={table.tbody}>
+                                    {filteredSessions.map((session) => {
+                                        const { planning, seanceCount } = parseSessionPlanning(session.schedule);
+                                        return (
+                                            <tr key={session.id} className={table.tr}>
+                                                <td className={table.td}>
+                                                    <div className="flex min-w-[260px] items-center gap-3">
+                                                        <img src={session.courses?.image_url || DEFAULT_SESSION_IMAGE} alt="" className="h-9 w-12 shrink-0 rounded-md bg-slate-100 object-cover" />
+                                                        <div className="min-w-0">
+                                                            <p className="max-w-xs font-medium leading-snug text-slate-900">{session.courses?.title_fr}</p>
+                                                            <p className="mt-0.5 text-xs text-slate-500">{translateCategory(session.courses?.category)}</p>
                                                         </div>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </form>
-                            </div>
+                                                </td>
+                                                <td className={table.td}>{session.instructor?.full_name || <span className="text-slate-400">Non assigné</span>}</td>
+                                                <td className={cn(table.td, 'whitespace-nowrap tabular-nums')}>{formatSessionDate(session.start_date)}</td>
+                                                <td className={table.td}>{renderSessionStatusBadge(session)}</td>
+                                                <td className={table.td}>
+                                                    <p className="text-slate-900">{planning}</p>
+                                                    {seanceCount > 0 && <p className="mt-0.5 text-xs text-slate-500 tabular-nums">{seanceCount} séance{seanceCount > 1 ? 's' : ''}</p>}
+                                                </td>
+                                                <td className={table.td}><div className="w-44">{renderOccupancy(session)}</div></td>
+                                                <td className={table.td}>
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button size="sm" variant="ghost" icon={Users} onClick={() => handleViewManifest(session)}>Inscrits</Button>
+                                                        {!isProfessor && renderSessionActions(session)}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                )}
 
-                            {/* Footer */}
-                            <div className="p-4 md:p-8 border-t border-slate-100 bg-white flex flex-col-reverse gap-3 md:flex-row md:gap-0 justify-between md:items-center">
-                                <button
-                                    type="button"
-                                    onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : setIsModalOpen(false)}
-                                    className="w-full md:w-auto px-8 py-3 md:py-4 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-xs uppercase tracking-widest transition-all"
+                {/* Grid view */}
+                {viewMode === 'grid' && filteredSessions.length > 0 && (
+                    <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 2xl:grid-cols-3">
+                        {filteredSessions.map((session) => {
+                            const { planning, seanceCount } = parseSessionPlanning(session.schedule);
+                            return (
+                                <article
+                                    key={session.id}
+                                    className="flex flex-col rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300"
                                 >
-                                    {currentStep === 1 ? 'Annuler' : 'Précédent'}
-                                </button>
+                                    <div className="flex items-start gap-3">
+                                        <img
+                                            src={session.courses?.image_url || DEFAULT_SESSION_IMAGE}
+                                            alt=""
+                                            className="h-11 w-11 shrink-0 rounded-md bg-slate-100 object-cover"
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <h2 className="text-sm font-semibold leading-snug text-slate-900">
+                                                {session.courses?.title_fr}
+                                            </h2>
+                                            <p className="mt-0.5 text-xs text-slate-500">{translateCategory(session.courses?.category)}</p>
+                                        </div>
+                                        <div className="shrink-0">{renderSessionStatusBadge(session)}</div>
+                                    </div>
 
-                                {currentStep < 3 ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentStep(currentStep + 1)}
-                                        disabled={currentStep === 1 && !formData.course_id}
-                                        className="btn-primary w-full md:w-auto py-4 px-6 md:px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center gap-2 group"
-                                    >
-                                        ÉTAPE SUIVANTE <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={handleSubmit}
-                                        disabled={isSubmitting}
-                                        className="btn-primary w-full md:w-auto py-4 px-6 md:px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center gap-2"
-                                    >
-                                        {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : (editingSessionId ? <Check size={18} /> : <Plus size={18} />)}
-                                        {isSubmitting ? 'ENREGISTREMENT...' : (editingSessionId ? 'ENREGISTRER LES MODIFICATIONS' : 'CRÉER LA SESSION')}
-                                    </button>
-                                )}
-                            </div>
-                        </motion.div>
+                                    <dl className="mt-4 space-y-1.5 text-sm">
+                                        <div className="flex items-center gap-2">
+                                            <CalendarIcon size={14} className="shrink-0 text-slate-400" />
+                                            <dt className="sr-only">Dates</dt>
+                                            <dd className="text-slate-700 tabular-nums">
+                                                {formatSessionDate(session.start_date)} → {formatSessionDate(session.end_date)}
+                                            </dd>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Clock size={14} className="shrink-0 text-slate-400" />
+                                            <dt className="sr-only">Calendrier</dt>
+                                            <dd className="text-slate-700">
+                                                {planning}
+                                                {seanceCount > 0 && <span className="text-slate-500 tabular-nums"> · {seanceCount} séance{seanceCount > 1 ? 's' : ''}</span>}
+                                            </dd>
+                                        </div>
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <Briefcase size={14} className="shrink-0 text-slate-400" />
+                                            <dt className="sr-only">Instructeur</dt>
+                                            <dd className="truncate text-slate-700">{session.instructor?.full_name || 'Instructeur non assigné'}</dd>
+                                        </div>
+                                    </dl>
+
+                                    <div className="mt-4">{renderOccupancy(session)}</div>
+
+                                    <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                                        <Button size="sm" variant="secondary" icon={Users} onClick={() => handleViewManifest(session)}>
+                                            Voir les inscrits
+                                        </Button>
+                                        {!isProfessor && (
+                                            <div className="flex shrink-0 gap-1">{renderSessionActions(session)}</div>
+                                        )}
+                                    </div>
+                                </article>
+                            );
+                        })}
                     </div>
                 )}
-            </AnimatePresence>
-            {/* SESSION MANIFEST MODAL */}
+
+                {filteredSessions.length === 0 && (
+                    <EmptyState
+                        icon={CalendarIcon}
+                        title={sessions.length === 0 ? 'Aucune session planifiée' : 'Aucune session correspondante'}
+                        description={sessions.length === 0
+                            ? 'Les sessions planifiées apparaîtront ici.'
+                            : 'Modifiez la recherche ou le filtre pour afficher d’autres sessions.'}
+                        action={sessions.length === 0 && !isProfessor ? (
+                            <Button variant="primary" icon={Plus} onClick={openCreateModal}>Nouvelle session</Button>
+                        ) : sessions.length > 0 ? (
+                            <Button icon={X} onClick={() => { setSearchQuery(''); setSessionFilter('all'); }}>Réinitialiser les filtres</Button>
+                        ) : undefined}
+                    />
+                )}
+            </Card>
+
+            {/* NEW / EDIT SESSION MODAL */}
+            <Modal
+                open={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                title={editingSessionId ? 'Modifier la session' : 'Nouvelle session'}
+                size="lg"
+                footer={
+                    <>
+                        <Button
+                            variant="secondary"
+                            icon={currentStep > 1 ? ChevronLeft : undefined}
+                            onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : setIsModalOpen(false)}
+                        >
+                            {currentStep === 1 ? 'Annuler' : 'Précédent'}
+                        </Button>
+                        {currentStep < 3 ? (
+                            <Button
+                                variant="primary"
+                                onClick={() => setCurrentStep(currentStep + 1)}
+                                disabled={currentStep === 1 && !formData.course_id}
+                                title={currentStep === 1 && !formData.course_id ? 'Sélectionnez une formation pour continuer' : undefined}
+                            >
+                                Étape suivante <ArrowRight size={16} />
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="primary"
+                                icon={editingSessionId ? Check : Plus}
+                                loading={isSubmitting}
+                                onClick={handleSubmit}
+                            >
+                                {isSubmitting ? 'Enregistrement…' : (editingSessionId ? 'Enregistrer les modifications' : 'Créer la session')}
+                            </Button>
+                        )}
+                    </>
+                }
+            >
+                <ol className="mb-5 grid grid-cols-3 gap-2" aria-label="Étapes">
+                    {steps.map((step) => {
+                        const isCurrent = currentStep === step.id;
+                        const isDone = currentStep > step.id;
+                        return (
+                            <li key={step.id} aria-current={isCurrent ? 'step' : undefined} className="min-w-0">
+                                <div className={cn('h-1 rounded-full', isDone || isCurrent ? 'bg-slate-900' : 'bg-slate-200')} />
+                                <div className="mt-2 flex items-center gap-1.5">
+                                    <span className={cn(
+                                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums',
+                                        isDone ? 'bg-emerald-600 text-[#fff]' : isCurrent ? 'bg-slate-900 text-[#fff]' : 'bg-slate-100 text-slate-500'
+                                    )}>
+                                        {isDone ? <Check size={12} /> : step.id}
+                                    </span>
+                                    <span className={cn('truncate text-xs font-medium', isCurrent ? 'text-slate-900' : 'text-slate-500')}>{step.label}</span>
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ol>
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {currentStep === 1 && (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field
+                                label="Formation"
+                                htmlFor="session-course"
+                                required
+                                hint={!formData.course_id ? 'Requise pour passer à l’étape suivante.' : undefined}
+                                className="sm:col-span-2"
+                            >
+                                <select
+                                    id="session-course"
+                                    required
+                                    value={formData.course_id}
+                                    onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
+                                    className={selectClass}
+                                >
+                                    <option value="">Sélectionner une formation</option>
+                                    {courses.map(c => (
+                                        <option key={c.id} value={c.id}>{c.title_fr}</option>
+                                    ))}
+                                </select>
+                            </Field>
+                            <Field label="Instructeur" htmlFor="session-instructor" hint="Optionnel, peut être assigné plus tard.">
+                                <select
+                                    id="session-instructor"
+                                    value={formData.instructor_id}
+                                    onChange={(e) => setFormData({ ...formData, instructor_id: e.target.value })}
+                                    className={selectClass}
+                                >
+                                    <option value="">Non assigné</option>
+                                    {instructors.map(i => (
+                                        <option key={i.id} value={i.id}>{i.nom} {i.prenom}</option>
+                                    ))}
+                                </select>
+                            </Field>
+                            <Field label="Places disponibles" htmlFor="session-seats" required hint="Nombre maximum d’étudiants.">
+                                <input
+                                    id="session-seats"
+                                    type="number"
+                                    required
+                                    value={formData.seats_available}
+                                    onChange={(e) => setFormData({ ...formData, seats_available: e.target.value })}
+                                    className={`${inputClass} tabular-nums`}
+                                    placeholder="Ex. : 12"
+                                />
+                            </Field>
+                            <Field label="Rythme global" htmlFor="session-rhythm" hint="Libellé affiché pour décrire le rythme de la session." className="sm:col-span-2">
+                                <input
+                                    id="session-rhythm"
+                                    type="text"
+                                    value={formData.schedule}
+                                    onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
+                                    className={inputClass}
+                                    placeholder="Ex. : Temps plein / Week-end"
+                                />
+                            </Field>
+                        </div>
+                    )}
+
+                    {currentStep === 2 && (
+                        <div className="py-4 text-center md:py-6">
+                            <p id="seance-count-label" className="text-sm font-medium text-slate-700">Nombre de séances à planifier</p>
+                            <div className="mt-4 flex items-center justify-center gap-6" role="group" aria-labelledby="seance-count-label">
+                                <IconButton
+                                    variant="secondary"
+                                    icon={Minus}
+                                    label="Retirer une séance"
+                                    title={formData.seanceCount <= 1 ? 'Au moins une séance est nécessaire' : 'Retirer une séance'}
+                                    onClick={() => handleSeanceCountChange(Math.max(1, formData.seanceCount - 1))}
+                                    disabled={formData.seanceCount <= 1}
+                                    className="h-11 w-11"
+                                />
+                                <span className="min-w-16 text-4xl font-bold tracking-tight text-slate-900 tabular-nums" aria-live="polite">{formData.seanceCount}</span>
+                                <IconButton
+                                    variant="secondary"
+                                    icon={Plus}
+                                    label="Ajouter une séance"
+                                    onClick={() => handleSeanceCountChange(formData.seanceCount + 1)}
+                                    className="h-11 w-11"
+                                />
+                            </div>
+                            <p className="mx-auto mt-4 max-w-xs text-sm text-slate-500">Définit le nombre total de rencontres en présentiel. Vous préciserez les dates à l’étape suivante.</p>
+                        </div>
+                    )}
+
+                    {currentStep === 3 && (
+                        <div className="space-y-3">
+                            {formData.seances.map((seance, index) => (
+                                <fieldset key={index} className="rounded-lg border border-slate-200 p-4">
+                                    <legend className="sr-only">Séance {index + 1}</legend>
+                                    <div className="mb-3 flex items-center justify-between gap-2">
+                                        <span className="text-sm font-semibold text-slate-900">Séance {index + 1}</span>
+                                        {seance.date && (
+                                            <span className="text-xs text-slate-500 tabular-nums">{new Date(seance.date).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })}</span>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                        <Field label="Date" htmlFor={`seance-${index}-date`} required className="col-span-2 min-w-0 sm:col-span-1">
+                                            <input
+                                                id={`seance-${index}-date`}
+                                                type="date"
+                                                required
+                                                value={seance.date}
+                                                onChange={(e) => handleSeanceChange(index, 'date', e.target.value)}
+                                                className={`${inputClass} min-w-0 tabular-nums`}
+                                            />
+                                        </Field>
+                                        <Field label="Heure de début" htmlFor={`seance-${index}-start`} required className="min-w-0">
+                                            <input
+                                                id={`seance-${index}-start`}
+                                                type="time"
+                                                required
+                                                value={seance.start_time}
+                                                onChange={(e) => handleSeanceChange(index, 'start_time', e.target.value)}
+                                                className={`${inputClass} min-w-0 tabular-nums`}
+                                            />
+                                        </Field>
+                                        <Field label="Heure de fin" htmlFor={`seance-${index}-end`} required className="min-w-0">
+                                            <input
+                                                id={`seance-${index}-end`}
+                                                type="time"
+                                                required
+                                                value={seance.end_time}
+                                                onChange={(e) => handleSeanceChange(index, 'end_time', e.target.value)}
+                                                className={`${inputClass} min-w-0 tabular-nums`}
+                                            />
+                                        </Field>
+                                    </div>
+                                </fieldset>
+                            ))}
+                        </div>
+                    )}
+                </form>
+            </Modal>
+
+            {/* SESSION MANIFEST DIALOG — custom structure (hosts stacked dialogs), styled like Modal */}
             <AnimatePresence>
                 {isManifestOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="manifest-title">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col"
+                            className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 8 }}
+                            transition={{ duration: 0.15 }}
+                            className="relative flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
                         >
                             {/* Header */}
-                            <div className="p-4 md:p-8 border-b border-slate-100 flex justify-between items-start md:items-center gap-3 md:gap-0 bg-white">
-                                <div className="max-md:min-w-0">
-                                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-1">
-                                        <Users size={12} /> Liste des Étudiants
-                                    </div>
-                                    <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tight">
-                                        Étudiants Inscrits <span className="text-slate-500">dans</span> {selectedSessionLabel}
+                            <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                                <div className="min-w-0">
+                                    <h2 id="manifest-title" className="line-clamp-2 text-base font-semibold text-slate-900" title={selectedSessionLabel}>
+                                        {selectedSessionLabel}
                                     </h2>
+                                    <p className="mt-0.5 text-sm text-slate-500 tabular-nums">
+                                        {manifestStudents.length} étudiant{manifestStudents.length > 1 ? 's' : ''} inscrit{manifestStudents.length > 1 ? 's' : ''}
+                                    </p>
                                 </div>
-                                <div className="flex max-md:shrink-0 items-center gap-2 md:gap-3">
-                                    <button 
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <Button
+                                        variant="primary"
+                                        size="sm"
+                                        icon={Plus}
+                                        aria-label="Ajouter un étudiant"
                                         onClick={() => {
                                             fetchAllStudents();
                                             setStudentSearchQuery('');
@@ -1169,155 +1208,157 @@ export default function SessionsAdminPage() {
                                             resetNewStudentForm();
                                             setIsAddingStudent(true);
                                         }}
-                                        className="flex max-md:h-10 items-center gap-2 px-4 py-2 rounded-xl bg-brand-green/20 text-brand-green border border-brand-green/20 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-brand-green hover:text-black"
-                                        aria-label="Ajouter un étudiant"
                                     >
-                                        <Plus size={14} />
                                         <span className="hidden md:inline">Ajouter un étudiant</span>
                                         <span className="md:hidden">Ajouter</span>
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            closeStudentPicker();
-                                            setIsManifestOpen(false);
-                                        }}
-                                        aria-label="Fermer"
-                                        className="p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:items-center max-md:justify-center text-slate-500 hover:text-slate-900 bg-slate-100 rounded-xl transition-all"
-                                    >
-                                        <X size={20} />
-                                    </button>
+                                    </Button>
+                                    <IconButton label="Fermer" icon={X} onClick={closeManifest} className="-mr-2" />
                                 </div>
                             </div>
 
+                            {/* Summary + search */}
+                            {!loadingManifest && manifestStudents.length > 0 && (
+                                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/60 px-5 py-3 md:flex-row md:items-center md:justify-between">
+                                    {!isProfessor ? (
+                                        <dl className="grid grid-cols-3 gap-4 md:flex md:gap-8">
+                                            <div>
+                                                <dt className="text-xs text-slate-500">Encaissé</dt>
+                                                <dd className="text-sm font-semibold text-emerald-700 tabular-nums">{formatDT(manifestTotals.paid)}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-xs text-slate-500">Reste à percevoir</dt>
+                                                <dd className="text-sm font-semibold text-rose-600 tabular-nums">{formatDT(manifestTotals.remaining)}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-xs text-slate-500">Soldés</dt>
+                                                <dd className="text-sm font-semibold text-slate-900 tabular-nums">{manifestTotals.settled} / {manifestStudents.length}</dd>
+                                            </div>
+                                        </dl>
+                                    ) : <div />}
+                                    <SearchInput
+                                        value={manifestSearch}
+                                        onChange={setManifestSearch}
+                                        placeholder="Nom, email ou téléphone…"
+                                        label="Rechercher un étudiant"
+                                    />
+                                </div>
+                            )}
+
                             {/* Content */}
-                            <div className="flex-grow overflow-y-auto custom-scrollbar p-0">
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
                                 {loadingManifest ? (
-                                    <div className="flex flex-col items-center justify-center py-16 md:py-32 gap-4">
-                                        <Loader2 className="animate-spin text-brand-green" size={32} />
-                                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Chargement des inscrits...</p>
-                                    </div>
+                                    <LoadingState label="Chargement des inscrits…" />
+                                ) : manifestStudents.length > 0 && filteredManifestStudents.length === 0 ? (
+                                    <EmptyState
+                                        icon={Search}
+                                        title="Aucun résultat"
+                                        description={`Aucun étudiant ne correspond à « ${manifestSearch} ».`}
+                                    />
                                 ) : manifestStudents.length > 0 ? (
                                     <>
-                                    <div className="md:hidden space-y-3 p-4">
-                                        {manifestStudents.map((student, idx) => (
-                                            <motion.div
-                                                key={student.id}
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: idx * 0.05 }}
-                                                className="rounded-2xl bg-white border border-slate-200 p-4"
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex min-w-0 items-center gap-3">
-                                                        <div className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 text-xs font-black border border-slate-200">
-                                                            {student.full_name?.charAt(0)}
+                                        <div className="divide-y divide-slate-100 md:hidden">
+                                            {filteredManifestStudents.map((student) => (
+                                                <div key={student.id} className="p-4">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex min-w-0 items-center gap-3">
+                                                            {renderAvatar(student.full_name)}
+                                                            <div className="min-w-0">
+                                                                <p className="truncate text-sm font-medium text-slate-900">{student.full_name}</p>
+                                                                <p className="mt-0.5 text-xs text-slate-500 tabular-nums">
+                                                                    Inscrit le {new Date(student.enrolled_at).toLocaleDateString('fr-FR')}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex min-w-0 flex-col">
-                                                            <span className="truncate font-bold text-slate-900 text-sm">{student.full_name}</span>
-                                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider mt-0.5">
-                                                                Inscrit le : {new Date(student.enrolled_at).toLocaleDateString('fr-FR')}
-                                                            </span>
-                                                        </div>
+                                                        <div className="shrink-0">{renderStudentStatusBadge(student)}</div>
                                                     </div>
-                                                    <div className="shrink-0">{renderStudentStatusBadge(student)}</div>
-                                                </div>
-                                                <div className="mt-3 flex flex-col gap-1.5">
-                                                    <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600 font-bold">
-                                                        <Mail size={12} className="shrink-0 text-brand-blue" /> <span className="break-all">{student.email}</span>
+                                                    <div className="mt-3 space-y-1 text-xs text-slate-600">
+                                                        <p className="flex min-w-0 items-center gap-2">
+                                                            <Mail size={12} className="shrink-0 text-slate-400" /> <span className="break-all">{student.email}</span>
+                                                        </p>
+                                                        <p className="flex items-center gap-2 tabular-nums">
+                                                            <Phone size={12} className="shrink-0 text-slate-400" /> {student.phone}
+                                                        </p>
                                                     </div>
-                                                    <div className="flex items-center gap-2 text-xs text-slate-600 font-bold">
-                                                        <Phone size={12} className="shrink-0 text-brand-green" /> {student.phone}
+                                                    <div className="mt-3 flex flex-col gap-2">
+                                                        {!isProfessor && renderStudentPaymentButton(student, 'w-full')}
+                                                        {renderStudentRemoveButton(student, 'w-full')}
                                                     </div>
                                                 </div>
-                                                <div className="mt-4 flex flex-col gap-2">
-                                                    {!isProfessor && renderStudentPaymentButton(student, 'w-full min-h-10')}
-                                                    {renderStudentRemoveButton(student, 'w-full h-10 justify-center')}
-                                                </div>
-                                            </motion.div>
-                                        ))}
-                                    </div>
-                                    <table className="hidden md:table w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-white/5 border-b border-white/5">
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Étudiant</th>
-                                                <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Coordonnées</th>
-                                                <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Statut</th>
-                                                {!isProfessor && (
-                                                    <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Paiement</th>
-                                                )}
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/5">
-                                            {manifestStudents.map((student, idx) => (
-                                                <motion.tr 
-                                                    key={student.id}
-                                                    initial={{ opacity: 0, x: -10 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    transition={{ delay: idx * 0.05 }}
-                                                    className="hover:bg-white/[0.02] transition-colors group"
-                                                >
-                                                    <td className="px-8 py-4">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 text-xs font-black border border-slate-200">
-                                                                {student.full_name?.charAt(0)}
-                                                            </div>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-bold text-slate-900 text-sm">{student.full_name}</span>
-                                                                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">
-                                                                    Inscrit le : {new Date(student.enrolled_at).toLocaleDateString('fr-FR')}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex flex-col gap-1">
-                                                            <div className="flex items-center gap-2 text-xs text-slate-600 font-bold">
-                                                                <Mail size={12} className="text-brand-blue" /> {student.email}
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-600 font-bold">
-                                                                <Phone size={12} className="text-brand-green" /> {student.phone}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        {renderStudentStatusBadge(student)}
-                                                    </td>
-                                                    {!isProfessor && (
-                                                        <td className="px-6 py-4">
-                                                            {renderStudentPaymentButton(student)}
-                                                        </td>
-                                                    )}
-                                                    <td className="px-8 py-4 text-right">
-                                                        {renderStudentRemoveButton(student)}
-                                                    </td>
-                                                </motion.tr>
                                             ))}
-                                        </tbody>
-                                    </table>
+                                        </div>
+                                        <table className={cn(table.table, 'hidden md:table')}>
+                                            <thead className={table.thead}>
+                                                <tr>
+                                                    <th className={table.th}>Étudiant</th>
+                                                    <th className={table.th}>Coordonnées</th>
+                                                    <th className={table.th}>Statut</th>
+                                                    {!isProfessor && <th className={table.th}>Paiement</th>}
+                                                    <th className={cn(table.th, 'text-right')}><span className="sr-only">Actions</span></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className={table.tbody}>
+                                                {filteredManifestStudents.map((student) => (
+                                                    <tr key={student.id} className={table.tr}>
+                                                        <td className={table.td}>
+                                                            <div className="flex min-w-[12rem] items-center gap-3">
+                                                                {renderAvatar(student.full_name)}
+                                                                <div className="min-w-0">
+                                                                    <p className="font-medium leading-snug text-slate-900">{student.full_name}</p>
+                                                                    <p className="mt-0.5 whitespace-nowrap text-xs text-slate-500 tabular-nums">
+                                                                        Inscrit le {new Date(student.enrolled_at).toLocaleDateString('fr-FR')}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className={table.td}>
+                                                            <div className="flex min-w-0 flex-col gap-1 text-xs">
+                                                                <a href={`mailto:${student.email}`} className="flex items-center gap-2 break-all text-slate-600 hover:text-slate-900">
+                                                                    <Mail size={12} className="shrink-0 text-slate-400" /> {student.email}
+                                                                </a>
+                                                                {student.phone && student.phone !== 'N/A' ? (
+                                                                    <a href={`tel:${student.phone}`} className="flex items-center gap-2 whitespace-nowrap text-slate-600 tabular-nums hover:text-slate-900">
+                                                                        <Phone size={12} className="shrink-0 text-slate-400" /> {student.phone}
+                                                                    </a>
+                                                                ) : (
+                                                                    <span className="flex items-center gap-2 text-slate-400">
+                                                                        <Phone size={12} className="shrink-0" /> Non renseigné
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className={table.td}>{renderStudentStatusBadge(student)}</td>
+                                                        {!isProfessor && (
+                                                            <td className={table.td}>{renderStudentPaymentButton(student)}</td>
+                                                        )}
+                                                        <td className={cn(table.td, 'text-right')}>
+                                                            {renderStudentRemoveButton(student, '', true)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </>
                                 ) : (
-                                    <div className="py-16 md:py-32 text-center">
-                                        <Users size={48} className="text-slate-800 mx-auto mb-4" />
-                                        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun étudiant inscrit à cette session</p>
-                                    </div>
+                                    <EmptyState icon={Users} title="Aucun étudiant inscrit à cette session" />
                                 )}
                             </div>
 
                             {/* Footer */}
-                            <div className="p-4 md:p-8 border-t border-slate-100 bg-white flex justify-between items-center gap-3 md:gap-0">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                    Total Inscrits : <span className="text-slate-900">{manifestStudents.length}</span>
+                            <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/60 px-5 py-3">
+                                <p className="text-sm text-slate-500 tabular-nums">
+                                    {normalizedManifestSearch
+                                        ? <>Affichés : <span className="font-medium text-slate-900">{filteredManifestStudents.length}</span> / {manifestStudents.length}</>
+                                        : <>Total inscrits : <span className="font-medium text-slate-900">{manifestStudents.length}</span></>}
                                 </p>
-                                <button
+                                <Button
+                                    variant="secondary"
                                     onClick={() => {
                                         setIsAddingStudent(false);
                                         setIsManifestOpen(false);
                                     }}
-                                    className="max-md:h-10 px-8 py-3 rounded-xl bg-white text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all border border-slate-200"
                                 >
                                     Fermer
-                                </button>
+                                </Button>
                             </div>
                         </motion.div>
                     </div>
@@ -1325,370 +1366,325 @@ export default function SessionsAdminPage() {
             </AnimatePresence>
 
             {/* SESSION PAYMENT MODAL - ADMIN ONLY */}
-            <AnimatePresence>
-                {paymentStudent && !isProfessor && (
-                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="w-full max-w-xl overflow-hidden max-md:flex max-md:flex-col max-md:max-h-[92dvh] rounded-3xl border border-slate-200 bg-white shadow-2xl"
-                        >
-                            <div className="flex items-start justify-between border-b border-slate-100 p-4 md:p-7 max-md:shrink-0 max-md:gap-3">
-                                <div>
-                                    <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-green">
-                                        <CreditCard size={14} /> Paiement de la session
-                                    </div>
-                                    <h2 className="text-xl md:text-2xl font-black text-slate-900">Ajouter un paiement</h2>
-                                    <p className="mt-1 text-sm font-semibold text-slate-600">{paymentStudent.full_name}</p>
-                                    <p className="mt-0.5 text-xs text-slate-500">{selectedSessionLabel}</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={closePaymentModal}
-                                    className="rounded-xl bg-slate-100 p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:shrink-0 max-md:items-center max-md:justify-center text-slate-500 transition-colors hover:text-slate-900"
-                                    title="Fermer"
+            {(() => {
+                const open = Boolean(paymentStudent) && !isProfessor;
+                const paymentTotal = Number(paymentStudent?.total_price || 0);
+                const paymentPaid = Number(paymentStudent?.amount_paid || 0);
+                const paymentRemaining = Math.max(paymentTotal - paymentPaid, 0);
+                return (
+                    <Modal
+                        open={open}
+                        onClose={closePaymentModal}
+                        title="Ajouter un paiement"
+                        description={paymentStudent ? <>{paymentStudent.full_name} · {selectedSessionLabel}</> : undefined}
+                        size="md"
+                        footer={
+                            <>
+                                <Button variant="secondary" onClick={closePaymentModal}>Annuler</Button>
+                                <Button
+                                    type="submit"
+                                    form="session-payment-form"
+                                    variant="primary"
+                                    icon={Check}
+                                    loading={savingPayment}
+                                    disabled={!paymentAmount}
+                                    title={!paymentAmount ? 'Saisissez un montant pour enregistrer' : undefined}
                                 >
-                                    <X size={20} />
-                                </button>
+                                    Enregistrer le paiement
+                                </Button>
+                            </>
+                        }
+                    >
+                        <form id="session-payment-form" onSubmit={handleSessionPayment} className="space-y-5">
+                            <div className="rounded-lg border border-slate-200 p-4">
+                                <dl className="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <dt className="text-xs text-slate-500">Prix total</dt>
+                                        <dd className="mt-0.5 text-sm font-semibold text-slate-900 tabular-nums">{formatDT(paymentTotal)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs text-slate-500">Déjà payé</dt>
+                                        <dd className="mt-0.5 text-sm font-semibold text-emerald-700 tabular-nums">{formatDT(paymentPaid)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs text-slate-500">Reste</dt>
+                                        <dd className="mt-0.5 text-sm font-semibold text-rose-600 tabular-nums">{formatDT(paymentRemaining)}</dd>
+                                    </div>
+                                </dl>
+                                <ProgressBar value={paymentPaid} max={paymentTotal} label="Progression du paiement" className="mt-3" />
                             </div>
 
-                            <form onSubmit={handleSessionPayment} className="space-y-5 p-4 md:p-7 max-md:flex-1 max-md:overflow-y-auto">
-                                <div className="grid grid-cols-3 gap-2 md:gap-3 rounded-2xl bg-slate-50 p-3 md:p-4 text-center">
-                                    <div>
-                                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Prix total</p>
-                                        <p className="mt-1 text-sm md:text-base font-black text-slate-900">{Number(paymentStudent.total_price || 0).toLocaleString('fr-FR')} DT</p>
-                                    </div>
-                                    <div className="border-x border-slate-200">
-                                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Déjà payé</p>
-                                        <p className="mt-1 text-sm md:text-base font-black text-emerald-600">{Number(paymentStudent.amount_paid || 0).toLocaleString('fr-FR')} DT</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Reste</p>
-                                        <p className="mt-1 text-sm md:text-base font-black text-rose-500">{Math.max(Number(paymentStudent.total_price || 0) - Number(paymentStudent.amount_paid || 0), 0).toLocaleString('fr-FR')} DT</p>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Montant reçu (DT) *</label>
+                            <Field label="Montant reçu" htmlFor="session-payment-amount" required>
+                                <div className="relative">
                                     <input
+                                        id="session-payment-amount"
                                         required
                                         autoFocus
                                         type="number"
                                         min="0.001"
                                         step="0.001"
-                                        max={Math.max(Number(paymentStudent.total_price || 0) - Number(paymentStudent.amount_paid || 0), 0) || undefined}
+                                        max={paymentRemaining || undefined}
                                         value={paymentAmount}
                                         onChange={(event) => setPaymentAmount(event.target.value)}
                                         placeholder="Exemple : 100"
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none focus:border-brand-green"
+                                        aria-describedby="session-payment-amount-help"
+                                        className={`${inputClass} pr-12 tabular-nums`}
                                     />
+                                    {dtSuffix}
                                 </div>
-
-                                <div>
-                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Reçu de paiement (facultatif)</label>
-                                    <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed p-4 transition-all ${paymentReceipt ? 'border-brand-green bg-brand-green/5' : 'border-slate-200 bg-slate-50 hover:border-brand-green/50'}`}>
-                                        <input
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp,application/pdf"
-                                            className="hidden"
-                                            onChange={(event) => setPaymentReceipt(event.target.files?.[0] || null)}
-                                        />
-                                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${paymentReceipt ? 'bg-brand-green text-black' : 'bg-white text-slate-400 shadow-sm'}`}>
-                                            <Upload size={18} />
-                                        </span>
-                                        <span className="min-w-0">
-                                            <span className="block truncate text-sm font-semibold text-slate-800">
-                                                {paymentReceipt ? paymentReceipt.name : 'Cliquer pour ajouter le reçu'}
-                                            </span>
-                                            <span className="mt-0.5 block text-xs text-slate-500">JPG, PNG, WEBP ou PDF · maximum 10 Mo</span>
-                                        </span>
-                                    </label>
-                                </div>
-
-                                <div>
-                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Remarque</label>
-                                    <textarea
-                                        rows={3}
-                                        maxLength={2000}
-                                        value={paymentNote}
-                                        onChange={(event) => setPaymentNote(event.target.value)}
-                                        placeholder="Exemple : paiement en espèces…"
-                                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
-                                    />
-                                </div>
-
-                                <div className="flex flex-col-reverse md:flex-row justify-end gap-3 border-t border-slate-100 pt-5">
-                                    <button
-                                        type="button"
-                                        onClick={closePaymentModal}
-                                        className="w-full md:w-auto max-md:min-h-11 rounded-xl border border-slate-200 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={savingPayment || !paymentAmount}
-                                        className="btn-primary flex w-full md:w-auto max-md:min-h-11 h-auto items-center gap-2 px-6 py-3 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {savingPayment ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                                        Enregistrer le paiement
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* STUDENT PICKER MODAL */}
-            <AnimatePresence>
-                {isManifestOpen && isAddingStudent && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.94, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.94, y: 20 }}
-                            className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl flex flex-col"
-                        >
-                            <div className="p-4 md:p-7 border-b border-slate-100 flex items-start justify-between gap-3 md:gap-6">
-                                <div>
-                                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-1">
-                                        <Plus size={13} /> Nouvelle inscription
-                                    </div>
-                                    <h2 className="text-xl md:text-2xl font-black text-slate-900">
-                                        {studentAddMode === 'existing' ? 'Ajouter un étudiant' : 'Recruter un nouvel étudiant'}
-                                    </h2>
-                                    <p className="mt-1 text-xs font-medium text-slate-500">{selectedSessionLabel}</p>
-                                </div>
-                                <button
-                                    onClick={closeStudentPicker}
-                                    disabled={creatingStudent}
-                                    className="p-2 max-md:flex max-md:h-10 max-md:w-10 max-md:shrink-0 max-md:items-center max-md:justify-center rounded-xl bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-50"
-                                    title="Fermer"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="px-4 md:px-6 pt-4 md:pt-5 bg-slate-50">
-                                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white border border-slate-200 p-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => setStudentAddMode('existing')}
-                                        disabled={creatingStudent}
-                                        className={`rounded-xl px-4 py-3 max-md:min-h-10 text-[10px] font-black uppercase tracking-widest transition-all ${studentAddMode === 'existing'
-                                            ? 'bg-brand-green text-black shadow-sm'
-                                            : 'text-slate-500 hover:bg-slate-50'}`}
-                                    >
-                                        Étudiant existant
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setStudentAddMode('new')}
-                                        disabled={creatingStudent}
-                                        className={`rounded-xl px-4 py-3 max-md:min-h-10 text-[10px] font-black uppercase tracking-widest transition-all ${studentAddMode === 'new'
-                                            ? 'bg-brand-green text-black shadow-sm'
-                                            : 'text-slate-500 hover:bg-slate-50'}`}
-                                    >
-                                        Nouvel étudiant
-                                    </button>
-                                </div>
-                            </div>
-
-                            {studentAddMode === 'existing' ? (
-                                <>
-                            <div className="p-4 md:p-6 border-b border-slate-100 bg-slate-50">
-                                <div className="relative">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-                                    <input
-                                        type="text"
-                                        autoFocus
-                                        placeholder="Rechercher par nom, e-mail ou téléphone..."
-                                        value={studentSearchQuery}
-                                        onChange={(e) => setStudentSearchQuery(e.target.value)}
-                                        className="w-full bg-white border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
-                                {loadingStudents ? (
-                                    <div className="flex flex-col items-center justify-center py-20 gap-3">
-                                        <Loader2 className="animate-spin text-brand-green" size={30} />
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Chargement des étudiants...</p>
-                                    </div>
-                                ) : availableStudents.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {availableStudents.map(student => (
-                                            <div
-                                                key={student.id}
-                                                className="flex items-center justify-between gap-3 md:gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:border-brand-green/50 hover:bg-slate-50 transition-all"
-                                            >
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <div className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center text-xs font-black text-slate-600">
-                                                        {student.full_name?.charAt(0) || 'E'}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-black text-slate-900 truncate">{student.full_name || 'Sans nom'}</p>
-                                                        <p className="text-xs text-slate-500 truncate">{student.email || 'E-mail indisponible'}</p>
-                                                        <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                                                            <Phone size={12} className="text-brand-green" />
-                                                            {student.phone || 'Téléphone indisponible'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleAddStudent(student.id)}
-                                                    disabled={enrollingStudentId !== null}
-                                                    className="shrink-0 inline-flex max-md:min-h-10 items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-green text-black font-black text-[10px] uppercase tracking-wider hover:brightness-105 transition-all disabled:opacity-50"
-                                                >
-                                                    {enrollingStudentId === student.id
-                                                        ? <Loader2 size={14} className="animate-spin" />
-                                                        : <Plus size={14} />}
-                                                    Ajouter
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                                        <Users size={42} className="text-slate-300 mb-4" />
-                                        <p className="font-black text-slate-700">Aucun étudiant disponible</p>
-                                        <p className="mt-1 text-xs text-slate-500">Tous les étudiants correspondants sont déjà inscrits à cette session.</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="p-4 md:p-6 border-t border-slate-100 flex items-center justify-between gap-3 md:gap-0 bg-white">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                    {availableStudents.length} étudiant(s) disponible(s)
-                                </p>
-                                <button
-                                    onClick={closeStudentPicker}
-                                    className="max-md:min-h-10 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all"
-                                >
-                                    Fermer
-                                </button>
-                            </div>
-                                </>
-                            ) : (
-                                <form onSubmit={handleCreateAndEnrollStudent} className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">E-mail (identifiant)</label>
-                                            <div className="relative">
-                                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                                <input
-                                                    type="email"
-                                                    required
-                                                    autoFocus
-                                                    value={newStudentForm.email}
-                                                    onChange={(e) => setNewStudentForm(prev => ({ ...prev, email: e.target.value }))}
-                                                    placeholder="exemple@email.com"
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Mot de passe</label>
-                                            <input
-                                                type="text"
-                                                required
-                                                minLength={6}
-                                                value={newStudentForm.password}
-                                                onChange={(e) => setNewStudentForm(prev => ({ ...prev, password: e.target.value }))}
-                                                placeholder="••••••••"
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
-                                            />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Nom complet</label>
-                                            <input
-                                                type="text"
-                                                required
-                                                value={newStudentForm.full_name}
-                                                onChange={(e) => setNewStudentForm(prev => ({ ...prev, full_name: e.target.value }))}
-                                                placeholder="Nom & Prénom"
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Téléphone</label>
-                                            <div className="relative">
-                                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                                <input
-                                                    type="tel"
-                                                    value={newStudentForm.phone}
-                                                    onChange={(e) => setNewStudentForm(prev => ({ ...prev, phone: e.target.value }))}
-                                                    placeholder="55 123 456"
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Numéro CIN</label>
-                                            <input
-                                                type="text"
-                                                value={newStudentForm.cin_number}
-                                                onChange={(e) => setNewStudentForm(prev => ({ ...prev, cin_number: e.target.value }))}
-                                                placeholder="00123456"
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
-                                            />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Montant payé dans cette session</label>
-                                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
-                                                <div className="relative">
-                                                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        required
-                                                        value={newStudentForm.amountPaid}
-                                                        onChange={(e) => setNewStudentForm(prev => ({ ...prev, amountPaid: e.target.value }))}
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-14 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
-                                                    />
-                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">DT</span>
-                                                </div>
-                                                <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={newStudentIsUnpaid}
-                                                        onChange={() => setNewStudentForm(prev => ({ ...prev, amountPaid: '0' }))}
-                                                        className="h-4 w-4 accent-brand-green"
-                                                    />
-                                                    Non payé
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-3 border-t border-slate-100 pt-5">
+                                <div id="session-payment-amount-help" className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                                    <span>Maximum : <span className="font-medium text-slate-700 tabular-nums">{formatDT(paymentRemaining)}</span></span>
+                                    {paymentRemaining > 0 && (
                                         <button
                                             type="button"
-                                            onClick={closeStudentPicker}
-                                            disabled={creatingStudent}
-                                            className="max-md:min-h-11 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest transition-all disabled:opacity-50"
+                                            onClick={() => setPaymentAmount(String(paymentRemaining))}
+                                            className="text-xs font-medium text-brand-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
                                         >
-                                            Annuler
+                                            Solder le reste
                                         </button>
-                                        <button
-                                            type="submit"
-                                            disabled={creatingStudent}
-                                            className="inline-flex max-md:min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            {creatingStudent ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                                            Créer et inscrire
-                                        </button>
-                                    </div>
-                                </form>
-                            )}
-                        </motion.div>
-                    </div>
+                                    )}
+                                </div>
+                            </Field>
+
+                            <Field label={<>Reçu de paiement <span className="font-normal text-slate-500">(facultatif)</span></>}>
+                                <label className={cn(
+                                    'flex cursor-pointer items-center gap-3 rounded-lg border border-dashed p-3.5 transition-colors focus-within:ring-2 focus-within:ring-brand-green/30',
+                                    paymentReceipt ? 'border-slate-300 bg-white' : 'border-slate-300 bg-slate-50 hover:border-slate-400'
+                                )}>
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                                        className="sr-only"
+                                        onChange={(event) => setPaymentReceipt(event.target.files?.[0] || null)}
+                                    />
+                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                                        <Upload size={16} />
+                                    </span>
+                                    <span className="min-w-0">
+                                        <span className="block truncate text-sm font-medium text-slate-900">
+                                            {paymentReceipt ? paymentReceipt.name : 'Cliquer pour ajouter le reçu'}
+                                        </span>
+                                        <span className="mt-0.5 block text-xs text-slate-500">JPG, PNG, WEBP ou PDF · maximum 10 Mo</span>
+                                    </span>
+                                </label>
+                            </Field>
+
+                            <Field label="Remarque" htmlFor="session-payment-note">
+                                <textarea
+                                    id="session-payment-note"
+                                    rows={3}
+                                    maxLength={2000}
+                                    value={paymentNote}
+                                    onChange={(event) => setPaymentNote(event.target.value)}
+                                    placeholder="Exemple : paiement en espèces…"
+                                    className={cn(textareaClass, 'resize-none')}
+                                />
+                            </Field>
+                        </form>
+                    </Modal>
+                );
+            })()}
+
+            {/* STUDENT PICKER MODAL */}
+            <Modal
+                open={isManifestOpen && isAddingStudent}
+                onClose={() => { if (!creatingStudent) closeStudentPicker(); }}
+                title={studentAddMode === 'existing' ? 'Ajouter un étudiant' : 'Recruter un nouvel étudiant'}
+                description={selectedSessionLabel}
+                size="lg"
+                footer={studentAddMode === 'existing' ? (
+                    <>
+                        <p className="text-sm text-slate-500 tabular-nums sm:mr-auto">
+                            <span className="font-medium text-slate-900">{availableStudents.length}</span> étudiant(s) disponible(s)
+                        </p>
+                        <Button variant="secondary" onClick={closeStudentPicker}>Fermer</Button>
+                    </>
+                ) : (
+                    <>
+                        <Button variant="secondary" onClick={closeStudentPicker} disabled={creatingStudent}>Annuler</Button>
+                        <Button type="submit" form="new-student-form" variant="primary" icon={Plus} loading={creatingStudent}>
+                            Créer et inscrire
+                        </Button>
+                    </>
                 )}
-            </AnimatePresence>
+            >
+                <div className="-mx-5 -mt-4 space-y-3 border-b border-slate-200 bg-slate-50/60 px-5 py-3">
+                    <FilterTabs
+                        label="Type d’ajout"
+                        value={studentAddMode}
+                        onChange={(mode) => { if (!creatingStudent) setStudentAddMode(mode); }}
+                        options={[
+                            { value: 'existing', label: 'Étudiant existant' },
+                            { value: 'new', label: 'Nouvel étudiant' },
+                        ]}
+                    />
+                    {studentAddMode === 'existing' && (
+                        <SearchInput
+                            value={studentSearchQuery}
+                            onChange={setStudentSearchQuery}
+                            placeholder="Rechercher par nom, e-mail ou téléphone…"
+                            label="Rechercher un étudiant"
+                            className="sm:w-full"
+                        />
+                    )}
+                </div>
+
+                {studentAddMode === 'existing' ? (
+                    <div className="-mx-5 -mb-4">
+                        {loadingStudents ? (
+                            <LoadingState label="Chargement des étudiants…" />
+                        ) : availableStudents.length > 0 ? (
+                            <ul className="divide-y divide-slate-100">
+                                {availableStudents.map(student => (
+                                    <li key={student.id} className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-slate-50/70">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            {renderAvatar(student.full_name)}
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-medium text-slate-900">{student.full_name || 'Sans nom'}</p>
+                                                <p className="truncate text-xs text-slate-500">
+                                                    {student.email || 'E-mail indisponible'}
+                                                    <span className="text-slate-300"> · </span>
+                                                    <span className="tabular-nums">{student.phone || 'Téléphone indisponible'}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            icon={Plus}
+                                            loading={enrollingStudentId === student.id}
+                                            onClick={() => handleAddStudent(student.id)}
+                                            disabled={enrollingStudentId !== null}
+                                            aria-label={`Ajouter ${student.full_name || 'cet étudiant'} à la session`}
+                                            className="shrink-0"
+                                        >
+                                            Ajouter
+                                        </Button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <EmptyState
+                                icon={Users}
+                                title="Aucun étudiant disponible"
+                                description={studentSearchQuery.trim()
+                                    ? `Aucun étudiant non inscrit ne correspond à « ${studentSearchQuery} ».`
+                                    : 'Tous les étudiants correspondants sont déjà inscrits à cette session.'}
+                                action={<Button icon={Plus} onClick={() => setStudentAddMode('new')}>Créer un nouvel étudiant</Button>}
+                            />
+                        )}
+                    </div>
+                ) : (
+                    <form id="new-student-form" onSubmit={handleCreateAndEnrollStudent} className="space-y-6 pt-4">
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-semibold text-slate-900">Compte</h3>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <Field label="E-mail (identifiant)" htmlFor="new-student-email" required hint="Servira d’identifiant de connexion.">
+                                    <div className="relative">
+                                        <Mail className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                        <input
+                                            id="new-student-email"
+                                            type="email"
+                                            required
+                                            autoFocus
+                                            value={newStudentForm.email}
+                                            onChange={(e) => setNewStudentForm(prev => ({ ...prev, email: e.target.value }))}
+                                            placeholder="exemple@email.com"
+                                            className={`${inputClass} pl-9`}
+                                        />
+                                    </div>
+                                </Field>
+                                <Field label="Mot de passe" htmlFor="new-student-password" required hint="6 caractères minimum.">
+                                    <input
+                                        id="new-student-password"
+                                        type="text"
+                                        required
+                                        minLength={6}
+                                        value={newStudentForm.password}
+                                        onChange={(e) => setNewStudentForm(prev => ({ ...prev, password: e.target.value }))}
+                                        placeholder="••••••••"
+                                        className={inputClass}
+                                    />
+                                </Field>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 border-t border-slate-100 pt-5">
+                            <h3 className="text-sm font-semibold text-slate-900">Identité</h3>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <Field label="Nom complet" htmlFor="new-student-name" required className="sm:col-span-2">
+                                    <input
+                                        id="new-student-name"
+                                        type="text"
+                                        required
+                                        value={newStudentForm.full_name}
+                                        onChange={(e) => setNewStudentForm(prev => ({ ...prev, full_name: e.target.value }))}
+                                        placeholder="Nom & Prénom"
+                                        className={inputClass}
+                                    />
+                                </Field>
+                                <Field label="Téléphone" htmlFor="new-student-phone">
+                                    <div className="relative">
+                                        <Phone className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                        <input
+                                            id="new-student-phone"
+                                            type="tel"
+                                            value={newStudentForm.phone}
+                                            onChange={(e) => setNewStudentForm(prev => ({ ...prev, phone: e.target.value }))}
+                                            placeholder="55 123 456"
+                                            className={`${inputClass} pl-9 tabular-nums`}
+                                        />
+                                    </div>
+                                </Field>
+                                <Field label="Numéro CIN" htmlFor="new-student-cin">
+                                    <input
+                                        id="new-student-cin"
+                                        type="text"
+                                        value={newStudentForm.cin_number}
+                                        onChange={(e) => setNewStudentForm(prev => ({ ...prev, cin_number: e.target.value }))}
+                                        placeholder="00123456"
+                                        className={`${inputClass} tabular-nums`}
+                                    />
+                                </Field>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 border-t border-slate-100 pt-5">
+                            <h3 className="text-sm font-semibold text-slate-900">Paiement</h3>
+                            <Field label="Montant payé dans cette session" htmlFor="new-student-amount" required hint="Saisissez 0 si l’étudiant n’a encore rien versé.">
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+                                    <div className="relative">
+                                        <CreditCard className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                        <input
+                                            id="new-student-amount"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            required
+                                            value={newStudentForm.amountPaid}
+                                            onChange={(e) => setNewStudentForm(prev => ({ ...prev, amountPaid: e.target.value }))}
+                                            className={`${inputClass} pl-9 pr-12 tabular-nums`}
+                                        />
+                                        {dtSuffix}
+                                    </div>
+                                    <label className={cn(
+                                        'inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-brand-green/30',
+                                        newStudentIsUnpaid ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'
+                                    )}>
+                                        <input
+                                            type="checkbox"
+                                            checked={newStudentIsUnpaid}
+                                            onChange={() => setNewStudentForm(prev => ({ ...prev, amountPaid: '0' }))}
+                                            className="h-4 w-4 accent-slate-900"
+                                        />
+                                        Non payé
+                                    </label>
+                                </div>
+                            </Field>
+                        </div>
+                    </form>
+                )}
+            </Modal>
         </div>
     );
 }

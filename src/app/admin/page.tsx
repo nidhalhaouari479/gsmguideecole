@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -9,26 +10,14 @@ import {
     Users,
     BookOpen,
     CreditCard,
-    TrendingUp,
-    Loader2,
     GraduationCap,
     Calendar,
-    Activity,
     ArrowUpRight,
-    ArrowDownRight,
-    Clock,
     Target,
-    Filter,
     X,
-    Search,
-    ChevronRight,
-    ArrowUpDown,
     PieChart as PieIcon,
-    BarChart3,
     Layers,
-    MapPin,
-    Zap,
-    Briefcase,
+    Download,
     ShieldCheck,
     MessageSquare,
     CheckCircle2,
@@ -39,14 +28,13 @@ import {
     UsersRound,
     CircleHelp
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    AreaChart, 
-    Area, 
-    XAxis, 
-    YAxis, 
-    CartesianGrid, 
-    Tooltip, 
+import {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
     ResponsiveContainer,
     PieChart,
     Pie,
@@ -57,10 +45,48 @@ import {
     LineChart,
     Line
 } from 'recharts';
+import {
+    PageHeader,
+    Card,
+    CardHeader,
+    StatCard,
+    Badge,
+    Button,
+    IconButton,
+    FilterTabs,
+    EmptyState,
+    Skeleton,
+    table,
+    cn,
+    formatDT,
+} from '@/components/admin/ui';
 
-// --- COLORS & STYLES ---
-const COLORS = ['#a1b83e', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#f43f5e'];
-const DARK_COLORS = ['#88a030', '#2563eb', '#d97706', '#db2777', '#7c3aed', '#059669', '#e11d48'];
+// --- CHART SYSTEM ---
+// One accent (blue) for magnitude, slate for "rest", semantic colours only for status.
+const ACCENT = '#2563eb';
+const NEUTRAL_FILL = '#e2e8f0';
+const MUTED_SERIES = '#94a3b8';
+const STATUS_COLORS: Record<string, string> = { 'Validées': '#10b981', 'En attente': '#f59e0b', 'Refusées': '#f43f5e' };
+
+const GRID_STROKE = '#f1f5f9';
+const AXIS_TICK = { fill: '#64748b', fontSize: 12 };
+const AXIS_TICK_SMALL = { fill: '#64748b', fontSize: 12 };
+const LEGEND_STYLE: React.CSSProperties = { fontSize: 12, color: '#475569', paddingBottom: 8 };
+const TOOLTIP_STYLE: React.CSSProperties = {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: 8,
+    boxShadow: '0 4px 12px -4px rgba(15, 23, 42, 0.12)',
+    fontSize: 13,
+    color: '#0f172a',
+    padding: '8px 12px',
+};
+const TOOLTIP_LABEL_STYLE: React.CSSProperties = { color: '#0f172a', fontWeight: 600, marginBottom: 4 };
+const TOOLTIP_CURSOR = { fill: 'rgba(15,23,42,0.04)' };
+const truncateLabel = (value: string) => {
+    const text = String(value ?? '');
+    return text.length > 22 ? `${text.slice(0, 21)}…` : text;
+};
 
 const SOURCE_META: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     google: { label: 'Google', color: '#4285F4', icon: Chrome },
@@ -77,8 +103,8 @@ const SourceAxisTick = ({ x = 0, y = 0, payload }: { x?: number; y?: number; pay
     const Icon = meta.icon;
     return (
         <foreignObject x={x - 145} y={y - 14} width={140} height={28}>
-            <div className="flex h-full items-center justify-end gap-2 text-xs font-bold text-slate-600">
-                <Icon size={16} strokeWidth={2.4} style={{ color: meta.color }} />
+            <div className="flex h-full items-center justify-end gap-2 pr-1 text-xs text-slate-600">
+                <Icon size={14} className="text-slate-400" />
                 <span>{meta.label}</span>
             </div>
         </foreignObject>
@@ -509,522 +535,545 @@ export default function AdminDashboard() {
         }
     };
 
+    // UI-only: which measure the main trend chart shows (avoids a dual-axis chart).
+    const [trendView, setTrendView] = useState<'revenue' | 'students'>('revenue');
+
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center h-full min-h-[500px] gap-6">
-                <div className="relative">
-                    <Loader2 className="animate-spin text-brand-green" size={56} />
-                    <motion.div 
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="absolute inset-0 bg-brand-green/20 rounded-full blur-xl"
-                    />
+            <div className="admin-home-dashboard mx-auto max-w-[1600px] space-y-6" role="status" aria-live="polite">
+                <span className="sr-only">Chargement du tableau de bord…</span>
+                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+                    <div className="space-y-2">
+                        <Skeleton className="h-8 w-56" />
+                        <Skeleton className="h-4 w-72" />
+                    </div>
+                    <Skeleton className="h-10 w-full md:w-44" />
                 </div>
-                <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Chargement du tableau de bord...</p>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className={cn('space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm', i === 4 && 'col-span-2 md:col-span-1')}>
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-7 w-20" />
+                            <Skeleton className="h-3 w-28" />
+                        </div>
+                    ))}
+                </div>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <Skeleton className="h-80 rounded-xl lg:col-span-2" />
+                    <Skeleton className="h-80 rounded-xl" />
+                </div>
             </div>
         );
     }
 
-    return (
-        <div className="admin-home-dashboard space-y-5 md:space-y-10 pb-4 md:pb-20 max-w-[1600px] mx-auto">
-            {/* --- HEADER --- */}
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
-                <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.3em] text-[10px] mb-2">
-                        <Zap size={14} fill="currentColor" /> Centre de contrôle
-                    </div>
-                    <h1 className="admin-main-title text-white uppercase">
-                        TABLEAU <span className="text-brand-green">DE BORD</span>
-                    </h1>
-                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-2">GSM GUIDE ACADEMY • Tableau de contrôle opérationnel</p>
-                </div>
-                <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-                    <div className="px-6 py-2 bg-slate-900 border border-white/5 rounded-2xl flex items-center justify-center md:justify-start gap-3 shadow-2xl">
-                        <div className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
-                        <span className="text-xs font-black text-white uppercase tracking-widest">DONNÉES EN DIRECT</span>
-                    </div>
-                    <button 
-                        onClick={handleGenerateReport}
-                        disabled={isGenerating}
-                        className="btn-primary w-full md:w-auto justify-center md:justify-start py-3 px-8 rounded-2xl shadow-xl shadow-brand-green/20 flex items-center gap-2 text-xs font-black uppercase tracking-widest"
-                    >
-                        {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
-                        {isGenerating ? 'GEN...' : 'Exporter Rapport'}
-                    </button>
-                </div>
-            </header>
+    const kpiTiles = [
+        { label: 'Étudiants', value: stats.students.toLocaleString('fr-FR'), sub: `+${stats.newToday} aujourd'hui`, icon: Users, href: '/admin/students' },
+        { label: "Chiffre d'affaires", value: formatDT(stats.revenue), sub: 'Revenus confirmés', icon: CreditCard, href: '/admin/payments' },
+        { label: 'Sessions', value: stats.sessions.toLocaleString('fr-FR'), sub: 'Planning opérationnel', icon: Calendar, href: '/admin/sessions' },
+        { label: 'Professeurs', value: stats.teachers.toLocaleString('fr-FR'), sub: 'Professeurs actifs', icon: GraduationCap, href: '/admin/teachers' },
+        { label: 'Étudiants inscrits', value: stats.enrolledStudents.toLocaleString('fr-FR'), sub: 'Inscriptions validées', icon: BookOpen, href: '/admin/students' },
+    ];
 
-            {/* --- TOP STATS GRID --- */}
-            <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-5 gap-3 md:gap-6">
-                {[
-                    { label: 'Total Étudiants', value: stats.students, sub: `+${stats.newToday} aujourd'hui`, icon: Users, color: 'text-brand-blue', bg: 'bg-brand-blue/10' },
-                    { label: 'Chiffre d\'Affaires', value: `${stats.revenue.toLocaleString()} DT`, sub: 'Revenus confirmés', icon: CreditCard, color: 'text-brand-green', bg: 'bg-brand-green/10' },
-                    { label: 'Sessions Actives', value: stats.sessions, sub: 'Planning opérationnel', icon: Calendar, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-                    { label: 'Experts techniques', value: stats.teachers, sub: 'Professeurs actifs', icon: GraduationCap, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-                    { label: 'Étudiants inscrits', value: stats.enrolledStudents, sub: 'Inscriptions validées', icon: BookOpen, color: 'text-violet-500', bg: 'bg-violet-500/10' },
-                ].map((stat, i) => (
-                    <motion.div
-                        key={stat.label}
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        onClick={() => router.push(['/admin/students', '/admin/payments', '/admin/sessions', '/admin/teachers', '/admin/students'][i])}
-                        role="link"
-                        tabIndex={0}
-                        onKeyDown={(event) => event.key === 'Enter' && router.push(['/admin/students', '/admin/payments', '/admin/sessions', '/admin/teachers', '/admin/students'][i])}
-                        className={`premium-card p-4 md:p-8 group relative overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green min-w-0 ${i === 4 ? 'col-span-2 md:col-span-1' : ''}`}
-                    >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
-                        <div className="flex items-center justify-between mb-3 md:mb-6">
-                            <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center shadow-lg`}>
-                                <stat.icon size={28} className="w-5 h-5 md:w-7 md:h-7" />
-                            </div>
-                            <div className="hidden md:block text-[10px] font-black text-slate-500 uppercase tracking-widest">{stat.sub}</div>
-                            <ChevronRight size={16} className="md:hidden text-slate-400" />
-                        </div>
-                        <h3 className="text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest mb-1 truncate">{stat.label}</h3>
-                        <p className="text-2xl md:text-4xl font-black text-white tracking-tighter tabular-nums truncate">{stat.value}</p>
-                        <p className="md:hidden mt-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider truncate">{stat.sub}</p>
-                        <span className="mt-4 hidden md:inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-brand-green opacity-0 transition-opacity group-hover:opacity-100">Voir les détails <ChevronRight size={13} /></span>
-                    </motion.div>
+    const pendingRequests = sessionRequests.filter(request => request.status === 'pending').length;
+
+    const renderRequestTypeBadge = (request: any) => (
+        <Badge>{request.request_type === 'create_session' ? 'Créer une session' : 'Prochaine session'}</Badge>
+    );
+
+    const renderRequestActions = (request: any) => request.status === 'pending' ? (
+        <div className="flex gap-1">
+            <IconButton
+                icon={CheckCircle2}
+                onClick={() => updateSessionRequest(request.id, 'processed')}
+                title="Marquer comme traitée"
+                label={`Marquer la demande de ${request.full_name} comme traitée`}
+                className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+            />
+            <IconButton
+                icon={X}
+                onClick={() => updateSessionRequest(request.id, 'rejected')}
+                title="Refuser"
+                label={`Refuser la demande de ${request.full_name}`}
+                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+            />
+        </div>
+    ) : (
+        <Badge tone={request.status === 'processed' ? 'success' : 'danger'}>
+            {request.status === 'processed' ? 'Traitée' : 'Refusée'}
+        </Badge>
+    );
+
+    const hasStudentsByCourse = studentsByCourse.some(item => item.value > 0);
+    const hasEnrollmentStatus = enrollmentStatusData.some(item => item.value > 0);
+    const hasAgeData = ageDistribution.some(item => item.value > 0);
+    const hasSourceData = sourceDistribution.some(item => item.value > 0);
+
+    const attendanceItems = [
+        { label: 'Pointages', value: attendanceStats.total, className: 'text-slate-900' },
+        { label: 'Présents', value: attendanceStats.present, className: 'text-emerald-700' },
+        { label: 'Absents', value: attendanceStats.absent, className: 'text-rose-600' },
+        { label: 'Retards', value: attendanceStats.late, className: 'text-amber-700' },
+        { label: 'Excusés', value: attendanceStats.excused, className: 'text-slate-900' },
+    ];
+
+    return (
+        <div className="admin-home-dashboard mx-auto max-w-[1600px] space-y-6 pb-4 md:pb-10">
+            <PageHeader
+                title="Tableau de bord"
+                description="Vue d’ensemble de l’activité de GSM Guide Academy."
+                actions={
+                    <>
+                        <span className="inline-flex h-10 items-center gap-2 px-1 text-sm text-slate-500">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                            Données en direct
+                        </span>
+                        <Button
+                            variant="primary"
+                            icon={Download}
+                            onClick={handleGenerateReport}
+                            loading={isGenerating}
+                            title={isGenerating ? 'Génération du rapport en cours' : 'Télécharger le rapport PDF'}
+                            className="w-full sm:w-auto"
+                        >
+                            {isGenerating ? 'Génération…' : 'Exporter le rapport'}
+                        </Button>
+                    </>
+                }
+            />
+
+            {/* KPIs */}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+                {kpiTiles.map((stat, i) => (
+                    <div key={stat.label} className={cn('min-w-0', i === 4 && 'col-span-2 md:col-span-1')}>
+                        <StatCard
+                            label={stat.label}
+                            value={stat.value}
+                            hint={stat.sub}
+                            icon={stat.icon}
+                            onClick={() => router.push(stat.href)}
+                        />
+                    </div>
                 ))}
             </div>
 
-            <section
-                onClick={() => router.push('/admin/presence')}
-                role="link"
-                tabIndex={0}
-                onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/presence')}
-                className="premium-card cursor-pointer overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-green"
-            >
-                <div className="flex flex-col gap-3 md:gap-4 border-b border-slate-200 p-4 md:p-6 md:flex-row md:items-center md:justify-between">
-                    <div className="min-w-0">
-                        <h2 className="flex items-center gap-2 text-base md:text-lg font-black uppercase text-white"><CheckCircle2 size={20} className="text-brand-green shrink-0" /> Statistiques des présences</h2>
-                        <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Toutes les feuilles de présence enregistrées</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl md:text-3xl font-black text-brand-green">{attendanceStats.rate}%</span>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Taux de présence</span>
-                        <ChevronRight className="text-brand-green ml-auto md:ml-0" size={20} />
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 gap-px bg-slate-200 md:grid-cols-5">
-                    {[
-                        { label: 'Pointages', value: attendanceStats.total, color: 'text-brand-blue' },
-                        { label: 'Présents', value: attendanceStats.present, color: 'text-emerald-500' },
-                        { label: 'Absents', value: attendanceStats.absent, color: 'text-rose-500' },
-                        { label: 'Retards', value: attendanceStats.late, color: 'text-amber-500' },
-                        { label: 'Excusés', value: attendanceStats.excused, color: 'text-blue-500' }
-                    ].map((item, index) => (
-                        <div key={item.label} className={`bg-white p-4 md:p-6 text-center transition-colors hover:bg-slate-50 ${index === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
-                            <p className={`text-2xl md:text-3xl font-black tabular-nums ${item.color}`}>{item.value}</p>
-                            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">{item.label}</p>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            <section className="premium-card overflow-hidden">
-                <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:p-6 md:flex-row md:items-center md:justify-between">
-                    <div className="min-w-0">
-                        <h2 className="flex items-center gap-2 text-base md:text-lg font-black uppercase text-white"><MessageSquare size={20} className="text-brand-green shrink-0" /> Demandes d’étudiants</h2>
-                        <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Demandes de création et de prochaine session</p>
-                    </div>
-                    <span className="w-fit rounded-lg bg-brand-green/15 px-3 py-1.5 text-xs font-black text-brand-green">{sessionRequests.filter(request => request.status === 'pending').length} en attente</span>
-                </div>
-                <div className="md:hidden divide-y divide-slate-100">
-                    {sessionRequests.map(request => (
-                        <div key={request.id} className="p-4 space-y-3">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="font-black text-white truncate">{request.full_name}</p>
-                                    <p className="text-sm font-bold text-slate-700 truncate">{request.courses?.title_fr || 'Formation'}</p>
-                                </div>
-                                <span className="shrink-0 rounded-lg bg-brand-blue/10 px-2.5 py-1 text-[10px] font-black uppercase text-brand-blue">{request.request_type === 'create_session' ? 'Créer une session' : 'Prochaine session'}</span>
-                            </div>
-                            <div className="space-y-1 text-xs text-slate-500">
-                                <p className="break-words">{request.email} · {request.phone}</p>
-                                {request.availability && <p className="font-bold text-slate-600 break-words">{request.availability}</p>}
-                                {request.message && <p className="text-slate-400 break-words">{request.message}</p>}
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="text-xs font-bold text-slate-500">{new Date(request.created_at).toLocaleDateString('fr-FR')}</span>
-                                <div className="flex gap-2">{request.status === 'pending' ? <><button onClick={() => updateSessionRequest(request.id, 'processed')} className="flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50" title="Marquer comme traitée"><CheckCircle2 size={17} /></button><button onClick={() => updateSessionRequest(request.id, 'rejected')} className="flex h-10 w-10 items-center justify-center rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50" title="Refuser"><X size={17} /></button></> : <span className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase ${request.status === 'processed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>{request.status === 'processed' ? 'Traitée' : 'Refusée'}</span>}</div>
-                            </div>
-                        </div>
-                    ))}
-                    {sessionRequests.length === 0 && <p className="px-4 py-10 text-center text-sm font-bold text-slate-400">Aucune demande d’étudiant.</p>}
-                </div>
-                <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full min-w-[1000px] text-left">
-                        <thead className="bg-slate-50"><tr className="text-[10px] font-black uppercase tracking-widest text-slate-500"><th className="px-6 py-4">Étudiant</th><th className="px-5 py-4">Formation</th><th className="px-5 py-4">Demande</th><th className="px-5 py-4">Disponibilité</th><th className="px-5 py-4">Date</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {sessionRequests.map(request => (
-                                <tr key={request.id} className="hover:bg-brand-green/[0.04]">
-                                    <td className="px-6 py-4"><p className="font-black text-white">{request.full_name}</p><p className="text-xs text-slate-500">{request.email} · {request.phone}</p>{request.message && <p className="mt-1 max-w-xs truncate text-xs text-slate-400" title={request.message}>{request.message}</p>}</td>
-                                    <td className="px-5 py-4 text-sm font-bold text-slate-700">{request.courses?.title_fr || 'Formation'}</td>
-                                    <td className="px-5 py-4"><span className="rounded-lg bg-brand-blue/10 px-3 py-1.5 text-[10px] font-black uppercase text-brand-blue">{request.request_type === 'create_session' ? 'Créer une session' : 'Prochaine session'}</span></td>
-                                    <td className="px-5 py-4 text-sm font-bold text-slate-600">{request.availability}</td>
-                                    <td className="px-5 py-4 text-xs font-bold text-slate-500">{new Date(request.created_at).toLocaleDateString('fr-FR')}</td>
-                                    <td className="px-6 py-4"><div className="flex justify-end gap-2">{request.status === 'pending' ? <><button onClick={() => updateSessionRequest(request.id, 'processed')} className="rounded-lg border border-emerald-200 p-2 text-emerald-600 hover:bg-emerald-50" title="Marquer comme traitée"><CheckCircle2 size={17} /></button><button onClick={() => updateSessionRequest(request.id, 'rejected')} className="rounded-lg border border-rose-200 p-2 text-rose-500 hover:bg-rose-50" title="Refuser"><X size={17} /></button></> : <span className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase ${request.status === 'processed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>{request.status === 'processed' ? 'Traitée' : 'Refusée'}</span>}</div></td>
-                                </tr>
-                            ))}
-                            {sessionRequests.length === 0 && <tr><td colSpan={6} className="px-6 py-12 text-center text-sm font-bold text-slate-400">Aucune demande d’étudiant.</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            {/* --- MAIN CHARTS AREA --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
-
-                {/* Revenue & Growth Trend */}
-                <div onClick={() => router.push('/admin/payments')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/payments')} className="lg:col-span-2 premium-card p-4 md:p-8 flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green min-w-0">
-                    <div className="flex items-center justify-between mb-4 md:mb-10">
-                        <div className="min-w-0">
-                            <h3 className="text-base md:text-xl font-black text-white flex items-center gap-2 uppercase italic tracking-tight">
-                                <TrendingUp size={24} className="text-brand-green" />
-                                Évolution des revenus
-                            </h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Revenus, inscriptions au site et inscriptions en formation</p>
-                        </div>
-                    </div>
-                    
-                    <div className="h-64 md:h-[350px] w-full">
+            {/* Trend + side lists */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <Card className="min-w-0 lg:col-span-2">
+                    <CardHeader
+                        title={trendView === 'revenue' ? 'Évolution des revenus' : 'Évolution des inscriptions'}
+                        description="6 derniers mois"
+                        actions={
+                            <FilterTabs
+                                label="Mesure affichée"
+                                value={trendView}
+                                onChange={setTrendView}
+                                options={[
+                                    { value: 'revenue', label: 'Revenus' },
+                                    { value: 'students', label: 'Inscriptions' },
+                                ]}
+                            />
+                        }
+                    />
+                    <div className="mt-5 h-64 w-full md:h-[320px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={revenueTimeline} margin={isMobile ? { left: -20, right: -10 } : undefined}>
+                            {trendView === 'revenue' ? (
+                                <AreaChart data={revenueTimeline} margin={isMobile ? { left: -16, right: 4, top: 4 } : { top: 4, right: 8, left: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor={ACCENT} stopOpacity={0.12} />
+                                            <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+                                    <XAxis dataKey="name" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+                                    <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} tickFormatter={(val) => `${val / 1000}k`} />
+                                    <Tooltip
+                                        contentStyle={TOOLTIP_STYLE}
+                                        labelStyle={TOOLTIP_LABEL_STYLE}
+                                        cursor={{ stroke: '#cbd5e1' }}
+                                        formatter={(value) => [formatDT(Number(value)), 'Revenus']}
+                                    />
+                                    <Area type="monotone" dataKey="revenue" name="Revenus (DT)" stroke={ACCENT} strokeWidth={2} fill="url(#colorRev)" activeDot={{ r: 4 }} />
+                                </AreaChart>
+                            ) : (
+                                <LineChart data={revenueTimeline} margin={isMobile ? { left: -16, right: 4, top: 4 } : { top: 4, right: 8, left: -8 }}>
+                                    <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+                                    <XAxis dataKey="name" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+                                    <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} allowDecimals={false} />
+                                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={{ stroke: '#cbd5e1' }} />
+                                    <Legend verticalAlign="top" align="right" height={32} iconType="circle" iconSize={8} wrapperStyle={LEGEND_STYLE} />
+                                    <Line type="monotone" dataKey="siteStudents" name="Inscrits sur le site" stroke={ACCENT} strokeWidth={2} dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }} activeDot={{ r: 4 }} />
+                                    <Line type="monotone" dataKey="trainingStudents" name="Inscrits en formation" stroke={MUTED_SERIES} strokeWidth={2} dot={{ r: 3, fill: MUTED_SERIES, strokeWidth: 0 }} activeDot={{ r: 4 }} />
+                                </LineChart>
+                            )}
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
+
+                <div className="grid min-w-0 grid-cols-1 content-start gap-4">
+                    {/* Course popularity */}
+                    <Card className="min-w-0">
+                        <CardHeader title="Formations populaires" description="Top 5 des inscriptions validées" actions={<ViewLink href="/admin/courses" />} />
+                        {coursePerformance.length === 0 ? (
+                            <EmptyState icon={Layers} title="Aucune inscription validée" description="Les formations les plus suivies apparaîtront ici." className="py-8" />
+                        ) : (
+                            <ol className="mt-4 space-y-3.5">
+                                {coursePerformance.map((item, i) => (
+                                    <li key={item.name} className="space-y-1.5">
+                                        <div className="flex items-baseline justify-between gap-3 text-sm">
+                                            <span className="flex min-w-0 items-baseline gap-2">
+                                                <span className="text-xs text-slate-400 tabular-nums">{i + 1}</span>
+                                                <span className="truncate font-medium text-slate-700" title={item.name}>{item.name}</span>
+                                            </span>
+                                            <span className="shrink-0 text-xs text-slate-500 tabular-nums">{item.value} inscr.</span>
+                                        </div>
+                                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                                            <div
+                                                className="h-full rounded-full"
+                                                style={{ width: `${Math.min((item.value / Math.max(stats.enrollments, 1)) * 100, 100)}%`, backgroundColor: ACCENT }}
+                                            />
+                                        </div>
+                                    </li>
+                                ))}
+                            </ol>
+                        )}
+                    </Card>
+
+                    {/* Upcoming seances */}
+                    <Card className="min-w-0">
+                        <CardHeader title="Prochaines séances" description="Les 4 séances à venir" actions={<ViewLink href="/admin/sessions" />} />
+                        {upcomingSeances.length === 0 ? (
+                            <EmptyState icon={Calendar} title="Aucune séance planifiée" description="Les prochaines séances apparaîtront ici." className="py-8" />
+                        ) : (
+                            <ul className="mt-4 divide-y divide-slate-100">
+                                {upcomingSeances.map((s, i) => (
+                                    <li key={i} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                                        <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
+                                            <span className="text-sm font-semibold leading-none text-slate-900 tabular-nums">{s.date.getDate()}</span>
+                                            <span className="mt-0.5 text-[11px] leading-none text-slate-500">{s.date.toLocaleDateString('fr-FR', { month: 'short' })}</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-medium text-slate-900" title={s.title}>{s.title}</p>
+                                            <p className="truncate text-xs text-slate-500">
+                                                {s.label} · <span className="tabular-nums">{s.time}</span> · {s.room}
+                                            </p>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </Card>
+                </div>
+            </div>
+
+            {/* Attendance */}
+            <Card>
+                <CardHeader
+                    title="Présences"
+                    description="Toutes les feuilles de présence enregistrées"
+                    actions={<ViewLink href="/admin/presence" label="Ouvrir les présences" />}
+                />
+                <div className="mt-5 flex items-end justify-between gap-4">
+                    <div>
+                        <p className="text-sm text-slate-500">Taux de présence</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{attendanceStats.rate} %</p>
+                    </div>
+                </div>
+                <div
+                    className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100"
+                    role="progressbar"
+                    aria-label="Taux de présence"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={attendanceStats.rate}
+                >
+                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${attendanceStats.rate}%` }} />
+                </div>
+                <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-slate-100 pt-4 sm:grid-cols-5">
+                    {attendanceItems.map((item) => (
+                        <div key={item.label} className="min-w-0">
+                            <dt className="text-xs text-slate-500">{item.label}</dt>
+                            <dd className={cn('mt-0.5 text-lg font-semibold tabular-nums', item.className)}>{item.value.toLocaleString('fr-FR')}</dd>
+                        </div>
+                    ))}
+                </dl>
+            </Card>
+
+            {/* Student requests */}
+            <Card padded={false} className="overflow-hidden">
+                <CardHeader
+                    className="border-b border-slate-200 p-5"
+                    title="Demandes d’étudiants"
+                    description="Demandes de création et de prochaine session"
+                    actions={<Badge tone={pendingRequests > 0 ? 'warning' : 'neutral'}>{pendingRequests} en attente</Badge>}
+                />
+
+                {sessionRequests.length === 0 ? (
+                    <EmptyState icon={MessageSquare} title="Aucune demande d’étudiant" description="Les demandes envoyées depuis le site apparaîtront ici." />
+                ) : (
+                    <>
+                        <ul className="divide-y divide-slate-100 md:hidden">
+                            {sessionRequests.map(request => (
+                                <li key={request.id} className="space-y-2.5 p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="truncate font-medium text-slate-900">{request.full_name}</p>
+                                            <p className="truncate text-sm text-slate-500">{request.courses?.title_fr || 'Formation'}</p>
+                                        </div>
+                                        <span className="whitespace-nowrap text-xs text-slate-500 tabular-nums">{new Date(request.created_at).toLocaleDateString('fr-FR')}</span>
+                                    </div>
+                                    {renderRequestTypeBadge(request)}
+                                    <div className="space-y-1 text-sm">
+                                        <p className="flex min-w-0 flex-wrap gap-x-2 gap-y-1">
+                                            {request.email && <a href={`mailto:${request.email}`} className="break-all text-brand-blue hover:underline">{request.email}</a>}
+                                            {request.phone && <a href={`tel:${request.phone}`} className="whitespace-nowrap text-brand-blue hover:underline">{request.phone}</a>}
+                                        </p>
+                                        {request.availability && <p className="break-words text-slate-700"><span className="text-slate-500">Disponibilité : </span>{request.availability}</p>}
+                                        {request.message && <p className="break-words text-slate-500">{request.message}</p>}
+                                    </div>
+                                    <div className="flex justify-end">{renderRequestActions(request)}</div>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className={cn(table.wrapper, 'hidden max-h-[520px] overflow-y-auto custom-scrollbar md:block')}>
+                            <table className={cn(table.table, 'min-w-[900px]')}>
+                                <thead className={table.thead}>
+                                    <tr>
+                                        <th className={cn(table.th, 'pl-5')}>Étudiant</th>
+                                        <th className={table.th}>Formation</th>
+                                        <th className={table.th}>Demande</th>
+                                        <th className={table.th}>Disponibilité</th>
+                                        <th className={table.th}>Date</th>
+                                        <th className={cn(table.th, 'pr-5 text-right')}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={table.tbody}>
+                                    {sessionRequests.map(request => (
+                                        <tr key={request.id} className={table.tr}>
+                                            <td className={cn(table.td, 'pl-5')}>
+                                                <p className="font-medium text-slate-900">{request.full_name}</p>
+                                                <p className="text-xs text-slate-500">
+                                                    {request.email && <a href={`mailto:${request.email}`} className="text-brand-blue hover:underline">{request.email}</a>}
+                                                    {request.email && request.phone && ' · '}
+                                                    {request.phone && <a href={`tel:${request.phone}`} className="whitespace-nowrap text-brand-blue hover:underline">{request.phone}</a>}
+                                                </p>
+                                                {request.message && <p className="mt-1 max-w-xs truncate text-xs text-slate-500" title={request.message}>{request.message}</p>}
+                                            </td>
+                                            <td className={table.td}>{request.courses?.title_fr || 'Formation'}</td>
+                                            <td className={table.td}>{renderRequestTypeBadge(request)}</td>
+                                            <td className={cn(table.td, 'text-slate-500')}>{request.availability || <span className="text-slate-400">—</span>}</td>
+                                            <td className={cn(table.td, 'whitespace-nowrap text-slate-500 tabular-nums')}>{new Date(request.created_at).toLocaleDateString('fr-FR')}</td>
+                                            <td className={cn(table.td, 'pr-5')}><div className="flex justify-end">{renderRequestActions(request)}</div></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                )}
+            </Card>
+
+            {/* Analytics charts */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {/* Age distribution */}
+                <Card className="min-w-0">
+                    <CardHeader title="Âge des étudiants" description="Répartition par tranche d’âge" actions={<ViewLink href="/admin/students" />} />
+                    {!hasAgeData ? <ChartEmpty icon={Users} title="Aucun étudiant enregistré" /> : (
+                        <div className="mt-4 h-64 w-full md:h-[280px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={ageDistribution} margin={{ top: 4, right: 4, left: -24 }}>
+                                    <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+                                    <XAxis dataKey="name" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+                                    <YAxis allowDecimals={false} tick={AXIS_TICK} tickLine={false} axisLine={false} />
+                                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={TOOLTIP_CURSOR} labelFormatter={(label) => label === 'N/D' ? 'Âge non renseigné' : `${label} ans`} formatter={(value) => [value, 'Étudiants']} />
+                                    <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
+                                        {ageDistribution.map((entry) => (
+                                            <Cell key={entry.name} fill={entry.name === 'N/D' ? NEUTRAL_FILL : ACCENT} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </Card>
+
+                {/* Source distribution */}
+                <Card className="min-w-0">
+                    <CardHeader title="Origine des inscriptions" description="Comment les étudiants nous ont connus" actions={<ViewLink href="/admin/students" />} />
+                    {!hasSourceData ? <ChartEmpty icon={Target} title="Aucune source renseignée" /> : (
+                        <div className="mt-4 h-64 w-full md:h-[280px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={sourceDistribution} layout="vertical" margin={{ right: 12 }}>
+                                    <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" width={150} axisLine={false} tickLine={false} tick={<SourceAxisTick />} />
+                                    <Tooltip
+                                        contentStyle={TOOLTIP_STYLE}
+                                        labelStyle={TOOLTIP_LABEL_STYLE}
+                                        cursor={TOOLTIP_CURSOR}
+                                        labelFormatter={(source) => (SOURCE_META[String(source)] || SOURCE_META.unknown).label}
+                                        formatter={(value) => [value, 'Inscriptions']}
+                                    />
+                                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
+                                        {sourceDistribution.map((source) => (
+                                            <Cell key={source.name} fill={source.name === 'unknown' || source.name === 'other' ? MUTED_SERIES : ACCENT} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </Card>
+
+                {/* Enrollment status */}
+                <Card className="min-w-0">
+                    <CardHeader title="Statut des inscriptions" description="Validées, en attente et refusées" actions={<ViewLink href="/admin/students" />} />
+                    {!hasEnrollmentStatus ? <ChartEmpty icon={PieIcon} title="Aucune inscription pour le moment" /> : (
+                        <div className="mt-4 h-64 md:h-[280px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={enrollmentStatusData} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={isMobile ? 56 : 66} outerRadius={isMobile ? 80 : 92} paddingAngle={2} stroke="#fff" strokeWidth={2}>
+                                        {enrollmentStatusData.map((entry) => <Cell key={entry.name} fill={STATUS_COLORS[entry.name] || MUTED_SERIES} />)}
+                                    </Pie>
+                                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value) => [value, 'Inscriptions']} />
+                                    <Legend verticalAlign="bottom" iconType="circle" iconSize={8} formatter={(value) => <span className="ml-1 text-xs text-slate-600">{value}</span>} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </Card>
+
+                {/* Students by course */}
+                <Card className="min-w-0">
+                    <CardHeader title="Étudiants par formation" description="Inscriptions validées par formation" actions={<ViewLink href="/admin/courses" />} />
+                    {!hasStudentsByCourse ? <ChartEmpty icon={BookOpen} title="Aucune inscription validée par formation" /> : (
+                        <div className="mt-4 h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={studentsByCourse} layout="vertical" margin={{ left: 0, right: 12 }}>
+                                    <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
+                                    <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} axisLine={false} tickLine={false} />
+                                    <YAxis dataKey="name" type="category" width={isMobile ? 110 : 150} tick={AXIS_TICK_SMALL} tickFormatter={truncateLabel} axisLine={false} tickLine={false} />
+                                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={TOOLTIP_CURSOR} formatter={(value) => [value, 'Étudiants']} />
+                                    <Bar dataKey="value" fill={ACCENT} radius={[0, 4, 4, 0]} barSize={14} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </Card>
+
+                {/* Session occupancy */}
+                <Card className="min-w-0">
+                    <CardHeader title="Remplissage des sessions" description="Places occupées et encore disponibles" actions={<ViewLink href="/admin/sessions" />} />
+                    {sessionOccupancy.length === 0 ? <ChartEmpty icon={Calendar} title="Aucune session créée" /> : (
+                        <div className="mt-4 h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={sessionOccupancy} layout="vertical" margin={{ left: 0, right: 12 }}>
+                                    <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
+                                    <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} axisLine={false} tickLine={false} />
+                                    <YAxis dataKey="name" type="category" width={isMobile ? 120 : 170} tick={AXIS_TICK_SMALL} tickFormatter={truncateLabel} axisLine={false} tickLine={false} />
+                                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={TOOLTIP_CURSOR} />
+                                    <Legend verticalAlign="top" align="right" height={28} iconType="circle" iconSize={8} wrapperStyle={LEGEND_STYLE} />
+                                    <Bar dataKey="occupied" name="Places occupées" stackId="capacity" fill={ACCENT} barSize={14} />
+                                    <Bar dataKey="available" name="Places disponibles" stackId="capacity" fill={NEUTRAL_FILL} radius={[0, 4, 4, 0]} barSize={14} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </Card>
+
+                {/* New registrations */}
+                <Card className="min-w-0">
+                    <CardHeader title="Nouvelles inscriptions" description="Six derniers mois" actions={<ViewLink href="/admin/students" />} />
+                    <div className="mt-4 h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={studentTimeline} margin={{ top: 4, right: 8, left: isMobile ? -16 : -8 }}>
                                 <defs>
-                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#a1b83e" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#a1b83e" stopOpacity={0}/>
+                                    <linearGradient id="studentGrowth" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor={ACCENT} stopOpacity={0.12} />
+                                        <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                                <XAxis 
-                                    dataKey="name" 
-                                    stroke="#475569" 
-                                    fontSize={10} 
-                                    fontWeight="bold" 
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
-                                <YAxis 
-                                    yAxisId="revenue"
-                                    stroke="#475569" 
-                                    fontSize={10} 
-                                    fontWeight="bold" 
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(val) => `${val/1000}k`}
-                                />
-                                <YAxis
-                                    yAxisId="students"
-                                    orientation="right"
-                                    stroke="#475569"
-                                    fontSize={10}
-                                    fontWeight="bold"
-                                    tickLine={false}
-                                    axisLine={false}
-                                    allowDecimals={false}
-                                />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', fontWeight: 'bold' }}
-                                    formatter={(value, name) => [
-                                        name === 'Revenus (DT)' ? `${Number(value).toLocaleString('fr-FR')} DT` : value,
-                                        name,
-                                    ]}
-                                />
-                                <Legend verticalAlign="top" height={isMobile ? 48 : 34} iconType="circle" wrapperStyle={isMobile ? { fontSize: 10 } : undefined} />
-                                <Area 
-                                    type="monotone" 
-                                    yAxisId="revenue"
-                                    dataKey="revenue" 
-                                    name="Revenus (DT)"
-                                    stroke="#a1b83e" 
-                                    strokeWidth={4}
-                                    fillOpacity={1} 
-                                    fill="url(#colorRev)" 
-                                />
-                                <Line
-                                    type="monotone"
-                                    yAxisId="students"
-                                    dataKey="siteStudents"
-                                    name="Inscrits sur le site"
-                                    stroke="#2572B0"
-                                    strokeWidth={3}
-                                    dot={{ r: 4, fill: '#2572B0' }}
-                                />
-                                <Line
-                                    type="monotone"
-                                    yAxisId="students"
-                                    dataKey="trainingStudents"
-                                    name="Inscrits en formation"
-                                    stroke="#8B5CF6"
-                                    strokeWidth={3}
-                                    dot={{ r: 4, fill: '#8B5CF6' }}
-                                />
+                                <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+                                <XAxis dataKey="name" tick={AXIS_TICK} axisLine={false} tickLine={false} />
+                                <YAxis allowDecimals={false} tick={AXIS_TICK} axisLine={false} tickLine={false} />
+                                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={{ stroke: '#cbd5e1' }} formatter={(value) => [value, 'Nouveaux étudiants']} />
+                                <Area type="monotone" dataKey="value" stroke={ACCENT} strokeWidth={2} fill="url(#studentGrowth)" activeDot={{ r: 4 }} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
-                </div>
-
-                {/* Distribution Overview */}
-                <div className="space-y-4 md:space-y-8 min-w-0">
-                    {/* Course Popularity */}
-                    <div onClick={() => router.push('/admin/courses')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/courses')} className="premium-card p-4 md:p-6 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
-                        <h3 className="text-xs font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-                            <Layers size={16} className="text-brand-blue" /> Formations populaires
-                        </h3>
-                        <div className="space-y-4">
-                            {coursePerformance.map((item, i) => (
-                                <div key={item.name} className="space-y-2">
-                                    <div className="flex justify-between gap-2 text-[10px] font-black uppercase tracking-wider">
-                                        <span className="text-slate-400 truncate min-w-0 max-w-[150px]">{item.name}</span>
-                                        <span className="text-white shrink-0">{item.value} inscr.</span>
-                                    </div>
-                                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
-                                        <motion.div 
-                                            initial={{ width: 0 }} 
-                                            animate={{ width: `${(item.value / stats.enrollments) * 100}%` }} 
-                                            className="h-full bg-brand-blue rounded-full" 
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Upcoming Calendar */}
-                    <div onClick={() => router.push('/admin/sessions')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/sessions')} className="premium-card p-4 md:p-6 bg-gradient-to-br from-slate-900/50 to-brand-green/5 border-l-4 border-l-brand-green cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
-                        <h3 className="text-xs font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-                            <Clock size={16} className="text-brand-green" /> Événements Radar
-                        </h3>
-                        <div className="space-y-4">
-                            {upcomingSeances.map((s, i) => (
-                                <div key={i} className="flex gap-4 items-start">
-                                    <div className="w-12 h-12 rounded-xl bg-slate-950 flex flex-col items-center justify-center border border-white/5 shrink-0">
-                                        <span className="text-[10px] font-black text-brand-green leading-none">{s.date.getDate()}</span>
-                                        <span className="text-[8px] font-black text-slate-500 uppercase mt-1">{s.date.toLocaleDateString('fr-FR', { month: 'short' })}</span>
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-black text-white truncate uppercase tracking-tight">{s.title}</p>
-                                        <p className="text-[9px] font-bold text-slate-500 uppercase mt-1 leading-relaxed">
-                                            {s.label} • {s.time} • <span className="text-brand-green/80">{s.room}</span>
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                </Card>
             </div>
 
-            {/* --- ANALYTICS CHARTS: 3 columns on large screens, 2 rows for all six charts --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
-                {/* Age Distribution */}
-                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card p-4 md:p-8 cursor-pointer min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="flex items-center gap-3 mb-4 md:mb-8">
-                        <div className="p-3 rounded-2xl bg-brand-blue/10 text-brand-blue">
-                            <Users size={24} />
-                        </div>
-                        <div>
-                            <h3 className="text-base md:text-lg font-black text-white uppercase italic tracking-tight">Démographie Étudiante</h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Répartition par tranches d'âge</p>
-                        </div>
-                    </div>
-                    
-                    <div className="h-64 md:h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={ageDistribution}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={isMobile ? 60 : 80}
-                                    outerRadius={isMobile ? 80 : 100}
-                                    paddingAngle={8}
-                                    dataKey="value"
-                                    stroke="none"
-                                >
-                                    {ageDistribution.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: 'none', color: '#fff' }}
-                                />
-                                <Legend 
-                                    verticalAlign={isMobile ? "bottom" : "middle"}
-                                    align={isMobile ? "center" : "right"}
-                                    layout={isMobile ? "horizontal" : "vertical"}
-                                    iconType="circle"
-                                    formatter={(value) => <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{value}</span>}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Source Distribution */}
-                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card p-4 md:p-8 cursor-pointer min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="flex items-center gap-3 mb-4 md:mb-8">
-                        <div className="p-3 rounded-2xl bg-amber-400/10 text-amber-400">
-                            <Target size={24} />
-                        </div>
-                        <div>
-                            <h3 className="text-base md:text-lg font-black text-white uppercase italic tracking-tight">Origine des inscriptions</h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Répartition par source</p>
-                        </div>
-                    </div>
-
-                    <div className="h-64 md:h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={sourceDistribution} layout="vertical">
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
-                                <XAxis type="number" hide />
-                                <YAxis 
-                                    dataKey="name" 
-                                    type="category" 
-                                    width={160}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={<SourceAxisTick />}
-                                />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: 'none' }}
-                                    cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                                    labelFormatter={(source) => (SOURCE_META[String(source)] || SOURCE_META.unknown).label}
-                                    formatter={(value) => [value, 'Inscriptions']}
-                                />
-                                <Bar 
-                                    dataKey="value" 
-                                    fill="#a1b83e" 
-                                    radius={[0, 8, 8, 0]} 
-                                    barSize={20}
-                                >
-                                    {sourceDistribution.map((source) => (
-                                        <Cell key={source.name} fill={source.color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-                {/* --- OPERATIONAL DETAILS --- */}
-                <div onClick={() => router.push('/admin/courses')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/courses')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="mb-4 md:mb-6 flex items-center justify-between gap-3">
-                        <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Étudiants par formation</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Inscriptions validées par formation</p></div>
-                        <BookOpen className="text-brand-blue" size={24} />
-                    </div>
-                    <div className="h-[300px] md:h-[340px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={studentsByCourse} layout="vertical" margin={{ left: isMobile ? 0 : 25 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
-                                <XAxis type="number" allowDecimals={false} />
-                                <YAxis dataKey="name" type="category" width={isMobile ? 100 : 155} tick={{ fontSize: isMobile ? 9 : 10, fontWeight: 700 }} />
-                                <Tooltip formatter={(value) => [value, 'Étudiants']} />
-                                <Bar dataKey="value" fill="#2572B0" radius={[0, 8, 8, 0]} barSize={18} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="mb-4 md:mb-6 flex items-center justify-between gap-3">
-                        <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Statut des inscriptions</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Validées, en attente et refusées</p></div>
-                        <PieIcon className="text-brand-green" size={24} />
-                    </div>
-                    <div className="h-[300px] md:h-[340px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie data={enrollmentStatusData} dataKey="value" nameKey="name" cx="50%" cy="48%" innerRadius={isMobile ? 60 : 75} outerRadius={isMobile ? 90 : 115} paddingAngle={5}>
-                                    {enrollmentStatusData.map((entry, index) => <Cell key={entry.name} fill={['#10B981', '#F59E0B', '#F43F5E'][index]} />)}
-                                </Pie>
-                                <Tooltip formatter={(value) => [value, 'Inscriptions']} />
-                                <Legend verticalAlign="bottom" iconType="circle" />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div onClick={() => router.push('/admin/sessions')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/sessions')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="mb-4 md:mb-6 flex items-center justify-between gap-3">
-                        <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Remplissage des sessions</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Places occupées et encore disponibles</p></div>
-                        <Calendar className="text-amber-500" size={24} />
-                    </div>
-                    <div className="h-72 md:h-[360px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={sessionOccupancy} layout="vertical" margin={{ left: isMobile ? 0 : 25 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
-                                <XAxis type="number" allowDecimals={false} />
-                                <YAxis dataKey="name" type="category" width={isMobile ? 110 : 170} tick={{ fontSize: isMobile ? 8 : 9, fontWeight: 700 }} />
-                                <Tooltip />
-                                <Legend />
-                                <Bar dataKey="occupied" name="Places occupées" stackId="capacity" fill="#A1B83E" barSize={18} />
-                                <Bar dataKey="available" name="Places disponibles" stackId="capacity" fill="#CBD5E1" radius={[0, 8, 8, 0]} barSize={18} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div onClick={() => router.push('/admin/students')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/students')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                    <div className="mb-4 md:mb-6 flex items-center justify-between gap-3">
-                        <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Nouvelles inscriptions</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Évolution sur les six derniers mois</p></div>
-                        <TrendingUp className="text-brand-green" size={24} />
-                    </div>
-                    <div className="h-72 md:h-[360px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={studentTimeline}>
-                                <defs><linearGradient id="studentGrowth" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2572B0" stopOpacity={0.35} /><stop offset="95%" stopColor="#2572B0" stopOpacity={0} /></linearGradient></defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                                <XAxis dataKey="name" tick={isMobile ? { fontSize: 10 } : undefined} />
-                                <YAxis allowDecimals={false} width={isMobile ? 30 : undefined} tick={isMobile ? { fontSize: 10 } : undefined} />
-                                <Tooltip formatter={(value) => [value, 'Nouveaux étudiants']} />
-                                <Area type="monotone" dataKey="value" stroke="#2572B0" strokeWidth={4} fill="url(#studentGrowth)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </div>
-
-            <div onClick={() => router.push('/admin/presence')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/presence')} className="premium-card cursor-pointer p-4 md:p-8 min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-green">
-                <div className="mb-4 md:mb-7 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="min-w-0"><h3 className="text-base md:text-lg font-black uppercase text-white">Calendrier thermique des absences</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Les 12 dernières semaines · plus la case est foncée, plus les absences sont nombreuses</p></div>
-                    <Activity className="text-rose-500" size={26} />
-                </div>
-                <div className="overflow-x-auto pb-2">
-                    <div className="grid min-w-[720px] grid-flow-col grid-rows-7 gap-2">
+            {/* Absence heatmap */}
+            <Card className="min-w-0">
+                <CardHeader
+                    title="Calendrier des absences"
+                    description="12 dernières semaines — plus la case est foncée, plus il y a d’absences"
+                    actions={<ViewLink href="/admin/presence" />}
+                />
+                <div className="mt-5 overflow-x-auto pb-2 custom-scrollbar">
+                    <div className="grid min-w-[720px] grid-flow-col grid-rows-7 gap-1">
                         {absenceHeatmap.map(day => {
                             const intensity = day.value === 0 ? 'bg-slate-100' : day.value === 1 ? 'bg-rose-200' : day.value <= 3 ? 'bg-rose-400' : 'bg-rose-600';
-                            return <div key={day.key} title={`${day.date.toLocaleDateString('fr-FR')} : ${day.value} absence(s)`} className={`h-7 min-w-7 rounded-md ${intensity} transition-transform hover:scale-125`} />;
+                            return <div key={day.key} title={`${day.date.toLocaleDateString('fr-FR')} : ${day.value} absence(s)`} className={`h-6 min-w-6 rounded ${intensity}`} />;
                         })}
                     </div>
                 </div>
-                <div className="mt-5 flex items-center justify-end gap-2 text-[10px] font-bold uppercase text-slate-500"><span>Moins</span><span className="h-3 w-3 rounded-sm bg-slate-100" /><span className="h-3 w-3 rounded-sm bg-rose-200" /><span className="h-3 w-3 rounded-sm bg-rose-400" /><span className="h-3 w-3 rounded-sm bg-rose-600" /><span>Plus</span></div>
-            </div>
+                <div className="mt-3 flex items-center justify-end gap-1.5 text-xs text-slate-500">
+                    <span className="mr-1">Moins</span>
+                    <span className="h-3 w-3 rounded-sm bg-slate-100 ring-1 ring-inset ring-slate-200" />
+                    <span className="h-3 w-3 rounded-sm bg-rose-200" />
+                    <span className="h-3 w-3 rounded-sm bg-rose-400" />
+                    <span className="h-3 w-3 rounded-sm bg-rose-600" />
+                    <span className="ml-1">Plus</span>
+                </div>
+            </Card>
 
-            {/* --- SYSTEM HEALTH --- */}
-            <div onClick={() => router.push('/admin/analytics')} role="link" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && router.push('/admin/analytics')} className="premium-card p-5 md:p-10 bg-gradient-to-r from-slate-900 to-[#0a0f19] flex flex-col md:flex-row items-center justify-between gap-5 md:gap-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-green">
-                <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto min-w-0">
-                    <div className="w-12 h-12 md:w-16 md:h-16 shrink-0 rounded-full bg-brand-green/20 flex items-center justify-center text-brand-green shadow-[0_0_30px_rgba(161,184,62,0.1)]">
-                        <ShieldCheck size={32} />
-                    </div>
+            {/* System status */}
+            <Card className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                        <ShieldCheck size={18} />
+                    </span>
                     <div className="min-w-0">
-                        <h4 className="text-base md:text-xl font-black text-white italic uppercase tracking-tight">Intégrité du système optimisée</h4>
-                        <p className="text-xs text-slate-500 font-bold mt-1 uppercase tracking-widest">Connectivité Supabase stable • Disponibilité de 99,9 %</p>
+                        <h2 className="text-sm font-semibold text-slate-900">Système opérationnel</h2>
+                        <p className="text-sm text-slate-500">Connectivité Supabase stable · Disponibilité de 99,9 %</p>
                     </div>
                 </div>
-                <div className="flex gap-3 md:gap-4 w-full md:w-auto">
-                    <div className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-4 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col justify-center">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Latence</span>
-                        <span className="text-lg font-black text-white tabular-nums">14ms</span>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <div>
+                        <p className="text-xs text-slate-500">Latence</p>
+                        <p className="text-sm font-semibold text-slate-900 tabular-nums">14 ms</p>
                     </div>
-                    <div className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-4 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col justify-center">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Sauvegarde</span>
-                        <span className="text-lg font-black text-green-400 tabular-nums">SÉCURISÉE</span>
+                    <div>
+                        <p className="text-xs text-slate-500">Sauvegarde</p>
+                        <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />Sécurisée
+                        </p>
                     </div>
+                    <ViewLink href="/admin/analytics" label="Voir l’analyse du site" />
                 </div>
-            </div>
+            </Card>
+        </div>
+    );
+}
+
+function ViewLink({ href, label = 'Voir' }: { href: string; label?: string }) {
+    return (
+        <Link
+            href={href}
+            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+        >
+            {label}
+            <ArrowUpRight size={14} />
+        </Link>
+    );
+}
+
+function ChartEmpty({ icon, title }: { icon: React.ComponentProps<typeof EmptyState>['icon']; title: string }) {
+    return (
+        <div className="mt-4 flex h-64 items-center justify-center rounded-lg border border-dashed border-slate-200 md:h-[280px]">
+            <EmptyState icon={icon} title={title} className="py-0" />
         </div>
     );
 }

@@ -1,28 +1,23 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { Users, Search, Loader2, X, Edit2, Plus } from 'lucide-react';
 import {
-    Users,
-    Search,
-    Filter,
-    MoreVertical,
-    Mail,
-    Phone,
-    BookOpen,
-    Loader2,
-    ArrowUpDown,
-    Download,
-    X,
-    UserCheck,
-    UserX,
-    ShieldAlert,
-    Award,
-    Calendar,
-    ChevronRight,
-    Briefcase,
-    Edit2
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+    PageHeader,
+    Card,
+    Badge,
+    Button,
+    IconButton,
+    SearchInput,
+    Toolbar,
+    table,
+    EmptyState,
+    LoadingState,
+    Field,
+    inputClass,
+    Modal,
+    cn,
+} from '@/components/admin/ui';
 
 interface TeacherData {
     id: string;
@@ -142,303 +137,274 @@ export default function TeachersAdminPage() {
     );
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-                <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px] animate-pulse">Chargement du registre des professeurs...</p>
-            </div>
-        );
+        return <LoadingState label="Chargement des professeurs…" />;
     }
 
-    const statsCards = [
-        { label: 'Personnel Actif', value: teachers.length, color: 'text-brand-blue', bg: 'bg-brand-blue/10', icon: Users },
-        { label: 'Spécialités Couvertes', value: new Set(teachers.map(t => t.specialite).filter(Boolean)).size, color: 'text-brand-green', bg: 'bg-brand-green/10', icon: BookOpen },
-    ];
+    const specialtiesCount = new Set(teachers.map(t => t.specialite).filter(Boolean)).size;
+
+    const hasSearch = searchQuery.trim().length > 0;
+    const getInitials = (teacher: TeacherData) => `${teacher.prenom?.charAt(0) || ''}${teacher.nom?.charAt(0) || ''}`.toUpperCase() || '?';
+    const formatDate = (value: string) => value ? new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+    const passwordTooShort = formData.password.length > 0 && formData.password.length < 8;
+
+    const avatar = (teacher: TeacherData) => (
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600" aria-hidden="true">
+            {getInitials(teacher)}
+        </span>
+    );
+
+    const emailLine = (teacher: TeacherData) => teacher.email ? (
+        <a href={`mailto:${teacher.email}`} className="truncate text-xs text-slate-500 hover:text-brand-blue">{teacher.email}</a>
+    ) : (
+        <span className="text-xs text-slate-400">Email non renseigné</span>
+    );
+
+    const emptyState = hasSearch ? (
+        <EmptyState
+            icon={Search}
+            title="Aucun professeur ne correspond à votre recherche"
+            description={<>Aucun résultat pour « {searchQuery} ». Vérifiez l&apos;orthographe ou effacez la recherche.</>}
+            action={<Button variant="secondary" size="sm" icon={X} onClick={() => setSearchQuery('')}>Effacer la recherche</Button>}
+        />
+    ) : (
+        <EmptyState
+            icon={Users}
+            title="Aucun professeur pour le moment"
+            description="Ajoutez votre premier professeur pour l’assigner à des sessions."
+            action={<Button variant="primary" size="sm" icon={Plus} onClick={() => handleOpenModal()}>Ajouter un professeur</Button>}
+        />
+    );
 
     return (
-        <div className="space-y-6 md:space-y-10 pb-6 md:pb-20">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-                <div>
-                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <Briefcase size={14} /> Gestion des professeurs
-                    </div>
-                    <h1 className="text-4xl font-black text-white tracking-tighter">Registre <span className="text-slate-500">Professeurs</span></h1>
-                </div>
+        <div className="space-y-6 pb-6 md:pb-20">
+            <PageHeader
+                title={
+                    <span className="inline-flex items-center gap-2">
+                        Professeurs
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-600 tabular-nums">{teachers.length}</span>
+                    </span>
+                }
+                description={
+                    <>
+                        Comptes formateurs et spécialités
+                        {specialtiesCount > 0 && <> · <span className="tabular-nums">{specialtiesCount}</span> spécialité{specialtiesCount > 1 ? 's' : ''} couverte{specialtiesCount > 1 ? 's' : ''}</>}
+                    </>
+                }
+                actions={
+                    <Button variant="primary" icon={Plus} onClick={() => handleOpenModal()} className="w-full sm:w-auto">
+                        Ajouter un professeur
+                    </Button>
+                }
+            />
 
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4">
-                    <div className="relative md:max-w-md w-full">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Rechercher un professeur..."
+            <Card padded={false} className="overflow-hidden">
+                <section aria-label="Liste des professeurs">
+                    <Toolbar>
+                        <SearchInput
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
+                            onChange={setSearchQuery}
+                            placeholder="Nom, prénom ou spécialité…"
+                            label="Rechercher un professeur"
+                            className="sm:w-80"
                         />
-                    </div>
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="btn-primary py-3 px-6 h-auto min-h-11 md:min-h-0 shadow-none w-full sm:w-auto shrink-0"
-                    >
-                        AJOUTER
-                    </button>
-                </div>
-            </header>
+                        <p className="text-xs text-slate-500 tabular-nums" aria-live="polite">
+                            {hasSearch
+                                ? <><span className="font-medium text-slate-900">{filteredTeachers.length}</span> résultat{filteredTeachers.length > 1 ? 's' : ''} sur {teachers.length}</>
+                                : <><span className="font-medium text-slate-900">{teachers.length}</span> professeur{teachers.length > 1 ? 's' : ''}</>}
+                        </p>
+                    </Toolbar>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
-                {statsCards.map((stat, i) => (
-                    <motion.div
-                        key={stat.label}
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="premium-card p-4 md:p-6"
-                    >
-                        <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
-                            <div className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl ${stat.bg} ${stat.color}`}>
-                                <stat.icon size={24} />
-                            </div>
-                            <div className="min-w-0">
-                                <h3 className="text-2xl md:text-3xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{stat.label}</p>
-                            </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
-
-            {/* Mobile card list */}
-            <div className="md:hidden space-y-3">
-                {filteredTeachers.length > 0 ? (
-                    filteredTeachers.map((teacher, idx) => (
-                        <motion.div
-                            key={teacher.id}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.03 }}
-                            className="rounded-2xl bg-white border border-slate-200 p-4"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 border border-white/5 flex items-center justify-center text-white text-sm font-black overflow-hidden">
-                                    {teacher.nom.charAt(0)}{teacher.prenom.charAt(0)}
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                    <span className="font-black text-sm text-white truncate">{teacher.nom} {teacher.prenom}</span>
-                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ID: {teacher.id.slice(0, 8)}</span>
-                                </div>
-                            </div>
-                            <div className="mt-3 space-y-1.5">
-                                <div className="flex items-center justify-between gap-3">
-                                    <span className="shrink-0 text-[10px] font-black text-slate-500 uppercase tracking-widest">Spécialité</span>
-                                    <span className="min-w-0 truncate text-right text-sm font-bold text-slate-400">
-                                        {teacher.specialite || <span className="text-slate-600 italic">Non renseignée</span>}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between gap-3">
-                                    <span className="shrink-0 text-[10px] font-black text-slate-500 uppercase tracking-widest">Date d'ajout</span>
-                                    <span className="text-sm font-bold text-slate-400">{new Date(teacher.created_at).toLocaleDateString('fr-FR')}</span>
-                                </div>
-                            </div>
-                            <div className="mt-4 grid grid-cols-2 gap-2">
-                                <button
-                                    onClick={() => handleOpenModal(teacher)}
-                                    className="min-h-10 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider active:scale-[0.98] transition-all"
-                                >
-                                    <Edit2 size={16} /> Modifier
-                                </button>
-                                <button
-                                    onClick={() => handleAction(teacher.id, 'delete')}
-                                    disabled={actionLoading === teacher.id}
-                                    className="min-h-10 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider active:scale-[0.98] transition-all disabled:opacity-50"
-                                >
-                                    {actionLoading === teacher.id ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />} Révoquer
-                                </button>
-                            </div>
-                        </motion.div>
-                    ))
-                ) : (
-                    <div className="rounded-2xl bg-white border border-slate-200 px-4 py-16 text-center">
-                        <div className="flex flex-col items-center gap-4">
-                            <Users size={40} className="text-slate-800" />
-                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun professeur correspondant</p>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <div className="hidden md:block premium-card overflow-hidden">
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="bg-white/5 border-b border-white/5">
-                                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Professeur</th>
-                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Spécialité</th>
-                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Date d'ajout</th>
-                                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {filteredTeachers.length > 0 ? (
-                                filteredTeachers.map((teacher, idx) => (
-                                    <motion.tr
-                                        key={teacher.id}
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: idx * 0.05 }}
-                                        className="hover:bg-white/[0.02] transition-colors group"
-                                    >
-                                        <td className="px-8 py-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 border border-white/5 flex items-center justify-center text-white text-sm font-black shadow-lg group-hover:border-brand-green/40 transition-all overflow-hidden">
-                                                    {teacher.nom.charAt(0)}{teacher.prenom.charAt(0)}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-black text-sm text-white">{teacher.nom} {teacher.prenom}</span>
-                                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ID: {teacher.id.slice(0, 8)}</span>
-                                                </div>
+                    {filteredTeachers.length === 0 ? emptyState : (
+                        <>
+                            {/* Mobile card list */}
+                            <ul className="divide-y divide-slate-100 md:hidden">
+                                {filteredTeachers.map((teacher) => (
+                                    <li key={teacher.id} className="p-4">
+                                        <div className="flex items-start gap-3">
+                                            {avatar(teacher)}
+                                            <div className="flex min-w-0 flex-1 flex-col">
+                                                <span className="truncate text-sm font-medium text-slate-900">{teacher.prenom} {teacher.nom}</span>
+                                                {emailLine(teacher)}
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-sm font-bold text-slate-400">
-                                                {teacher.specialite || <span className="text-slate-600 italic">Non renseignée</span>}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-sm font-bold text-slate-400">
-                                                {new Date(teacher.created_at).toLocaleDateString('fr-FR')}
-                                            </span>
-                                        </td>
-                                        <td className="px-8 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {/* Edit Action */}
-                                                <button
+                                            <div className="-mr-2 -mt-1 flex shrink-0 items-center">
+                                                <IconButton
+                                                    label={`Modifier ${teacher.prenom} ${teacher.nom}`}
+                                                    icon={Edit2}
                                                     onClick={() => handleOpenModal(teacher)}
-                                                    title="Modifier"
-                                                    className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all border border-blue-500/20"
-                                                >
-                                                    <Edit2 size={18} />
-                                                </button>
-
-                                                {/* Delete Action */}
-                                                <button
+                                                />
+                                                <IconButton
+                                                    label={`Révoquer ${teacher.prenom} ${teacher.nom}`}
+                                                    icon={actionLoading === teacher.id ? Loader2 : X}
                                                     onClick={() => handleAction(teacher.id, 'delete')}
-                                                    title="Révoquer"
                                                     disabled={actionLoading === teacher.id}
-                                                    className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all border border-rose-500/20"
-                                                >
-                                                    <X size={18} />
-                                                </button>
+                                                    className={cn('text-rose-600 hover:bg-rose-50 hover:text-rose-700', actionLoading === teacher.id && '[&>svg]:animate-spin')}
+                                                />
                                             </div>
-                                        </td>
-                                    </motion.tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-32 text-center">
-                                        <div className="flex flex-col items-center gap-4">
-                                            <Users size={48} className="text-slate-800" />
-                                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun professeur correspondant</p>
                                         </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                        <dl className="mt-3 grid grid-cols-2 gap-3 pl-12 text-sm">
+                                            <div className="min-w-0">
+                                                <dt className="text-xs text-slate-500">Spécialité</dt>
+                                                <dd className="mt-0.5 truncate text-slate-900">
+                                                    {teacher.specialite || <span className="text-slate-400">Non renseignée</span>}
+                                                </dd>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <dt className="text-xs text-slate-500">Ajouté le</dt>
+                                                <dd className="mt-0.5 text-slate-900 tabular-nums">{formatDate(teacher.created_at)}</dd>
+                                            </div>
+                                        </dl>
+                                    </li>
+                                ))}
+                            </ul>
 
-            {/* Modal for Add/Edit */}
-            <AnimatePresence>
-                {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white border border-slate-200 p-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] md:p-6 rounded-2xl w-full max-w-md shadow-2xl max-h-[92dvh] overflow-y-auto md:max-h-none md:overflow-visible"
-                        >
-                            <div className="flex justify-between items-center gap-3 mb-4 md:mb-6">
-                                <h2 className="text-xl font-black text-slate-900">
-                                    {editingTeacher ? 'Modifier le Professeur' : 'Ajouter un Professeur'}
-                                </h2>
-                                <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 -mr-2 shrink-0 flex items-center justify-center rounded-xl md:w-auto md:h-auto md:mr-0 md:block text-slate-400 hover:text-white" aria-label="Fermer">
-                                    <X size={20} />
-                                </button>
+                            {/* Desktop table */}
+                            <div className={cn(table.wrapper, 'hidden md:block custom-scrollbar')}>
+                                <table className={table.table}>
+                                    <thead className={table.thead}>
+                                        <tr>
+                                            <th scope="col" className={cn(table.th, 'pl-5')}>Professeur</th>
+                                            <th scope="col" className={table.th}>Spécialité</th>
+                                            <th scope="col" className={table.th}>Date d&apos;ajout</th>
+                                            <th scope="col" className={cn(table.th, 'pr-5 text-right')}>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={table.tbody}>
+                                        {filteredTeachers.map((teacher) => (
+                                            <tr key={teacher.id} className={table.tr}>
+                                                <td className={cn(table.td, 'pl-5')}>
+                                                    <div className="flex min-w-[14rem] items-center gap-3">
+                                                        {avatar(teacher)}
+                                                        <div className="flex min-w-0 flex-col">
+                                                            <span className="font-medium text-slate-900">{teacher.prenom} {teacher.nom}</span>
+                                                            {emailLine(teacher)}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className={table.td}>
+                                                    {teacher.specialite ? (
+                                                        <Badge dot={false}>{teacher.specialite}</Badge>
+                                                    ) : (
+                                                        <span className="text-slate-400">Non renseignée</span>
+                                                    )}
+                                                </td>
+                                                <td className={cn(table.td, 'whitespace-nowrap tabular-nums text-slate-500')}>
+                                                    {formatDate(teacher.created_at)}
+                                                </td>
+                                                <td className={cn(table.td, 'pr-5 text-right')}>
+                                                    <div className="flex items-center justify-end gap-0.5">
+                                                        <IconButton
+                                                            label={`Modifier ${teacher.prenom} ${teacher.nom}`}
+                                                            title="Modifier"
+                                                            icon={Edit2}
+                                                            onClick={() => handleOpenModal(teacher)}
+                                                        />
+                                                        <IconButton
+                                                            label={`Révoquer ${teacher.prenom} ${teacher.nom}`}
+                                                            title="Révoquer"
+                                                            icon={actionLoading === teacher.id ? Loader2 : X}
+                                                            onClick={() => handleAction(teacher.id, 'delete')}
+                                                            disabled={actionLoading === teacher.id}
+                                                            className={cn('text-rose-600 hover:bg-rose-50 hover:text-rose-700', actionLoading === teacher.id && '[&>svg]:animate-spin')}
+                                                        />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
+                        </>
+                    )}
+                </section>
+            </Card>
 
-                            <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 mb-1">Nom *</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.nom}
-                                        onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                        placeholder="Nom du professeur"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 mb-1">Prénom *</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.prenom}
-                                        onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
-                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                        placeholder="Prénom du professeur"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 mb-1">Spécialité</label>
-                                    <input
-                                        type="text"
-                                        value={formData.specialite}
-                                        onChange={(e) => setFormData({ ...formData, specialite: e.target.value })}
-                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                        placeholder="Ex: Mathématiques"
-                                    />
-                                </div>
+            {/* Add / edit dialog */}
+            <Modal
+                open={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                title={editingTeacher ? 'Modifier le professeur' : 'Ajouter un professeur'}
+                description={editingTeacher ? 'Mettez à jour les informations et les identifiants.' : 'Un compte de connexion sera créé avec ces identifiants.'}
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="w-full sm:w-auto">
+                            Annuler
+                        </Button>
+                        <Button type="submit" form="teacher-form" variant="primary" loading={isSubmitting} className="w-full sm:w-auto">
+                            {isSubmitting ? 'Enregistrement…' : editingTeacher ? 'Enregistrer' : 'Créer le professeur'}
+                        </Button>
+                    </>
+                }
+            >
+                <form id="teacher-form" onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+                    <fieldset className="space-y-4">
+                        <legend className="mb-3 text-sm font-semibold text-slate-900">Identité</legend>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field label="Nom" htmlFor="teacher-nom" required>
+                                <input
+                                    id="teacher-nom"
+                                    type="text"
+                                    required
+                                    value={formData.nom}
+                                    onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                                    className={inputClass}
+                                    placeholder="Nom du professeur"
+                                />
+                            </Field>
+                            <Field label="Prénom" htmlFor="teacher-prenom" required>
+                                <input
+                                    id="teacher-prenom"
+                                    type="text"
+                                    required
+                                    value={formData.prenom}
+                                    onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                                    className={inputClass}
+                                    placeholder="Prénom du professeur"
+                                />
+                            </Field>
+                        </div>
+                        <Field label={<>Spécialité <span className="font-normal text-slate-400">(facultatif)</span></>} htmlFor="teacher-specialite">
+                            <input
+                                id="teacher-specialite"
+                                type="text"
+                                value={formData.specialite}
+                                onChange={(e) => setFormData({ ...formData, specialite: e.target.value })}
+                                className={inputClass}
+                                placeholder="Ex : Réparation smartphone"
+                            />
+                        </Field>
+                    </fieldset>
 
-                                <>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 mb-1">Email de connexion *</label>
-                                        <input type="email" required value={formData.email} name="teacher-account-email" autoComplete="off"
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                            placeholder="professeur@exemple.com" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 mb-1">{editingTeacher ? 'Nouveau mot de passe' : 'Mot de passe *'}</label>
-                                        <input type="password" required={!editingTeacher} minLength={8} value={formData.password} name="teacher-new-password" autoComplete="new-password"
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                            placeholder="8 caractères minimum" />
-                                    </div>
-                                </>
-
-                                <div className="flex flex-col-reverse md:flex-row md:justify-end gap-3 mt-6 md:mt-8">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="w-full md:w-auto min-h-11 md:min-h-0 px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-all"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className="btn-primary w-full md:w-auto min-h-11 md:min-h-0 px-5 py-2.5 flex items-center justify-center md:justify-start gap-2"
-                                    >
-                                        {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-                                        {editingTeacher ? 'Enregistrer' : 'Créer'}
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                    <fieldset className="space-y-4 border-t border-slate-200 pt-5">
+                        <legend className="sr-only">Accès au compte</legend>
+                        <p className="text-sm font-semibold text-slate-900">Accès au compte</p>
+                        <Field label="Email de connexion" htmlFor="teacher-email" required hint="Le professeur utilisera cette adresse pour se connecter.">
+                            <input id="teacher-email" type="email" required value={formData.email} name="teacher-account-email" autoComplete="off"
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className={inputClass}
+                                placeholder="professeur@exemple.com" />
+                        </Field>
+                        <div className="space-y-1.5">
+                            <label htmlFor="teacher-password" className="block text-sm font-medium text-slate-700">
+                                {editingTeacher ? 'Nouveau mot de passe' : <>Mot de passe <span className="ml-0.5 text-rose-600" aria-hidden="true">*</span></>}
+                            </label>
+                            <input id="teacher-password" type="password" required={!editingTeacher} minLength={8} value={formData.password} name="teacher-new-password" autoComplete="new-password"
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                aria-describedby="teacher-password-help"
+                                className={inputClass}
+                                placeholder="8 caractères minimum" />
+                            <p id="teacher-password-help" className={cn('text-xs', passwordTooShort ? 'text-rose-600' : 'text-slate-500')}>
+                                {passwordTooShort
+                                    ? `Encore ${8 - formData.password.length} caractère${8 - formData.password.length > 1 ? 's' : ''} minimum.`
+                                    : editingTeacher
+                                        ? 'Laissez vide pour conserver le mot de passe actuel. 8 caractères minimum.'
+                                        : '8 caractères minimum.'}
+                            </p>
+                        </div>
+                    </fieldset>
+                    <p className="text-xs text-slate-500"><span className="text-rose-600">*</span> Champs obligatoires</p>
+                </form>
+            </Modal>
         </div>
     );
 }

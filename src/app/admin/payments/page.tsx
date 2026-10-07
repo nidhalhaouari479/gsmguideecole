@@ -1,32 +1,52 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import {
-    CreditCard,
     Search,
     CheckCircle,
     XCircle,
     Clock,
-    MoreVertical,
     Download,
     Loader2,
-    Calendar,
     TrendingUp,
     Eye,
     Receipt,
-    ShieldCheck,
-    AlertCircle,
-    Target,
-    Activity,
-    DollarSign,
     PieChart,
     MessageSquare,
     Save,
     Plus,
-    X
+    X,
+    FileText,
+    Filter,
+    RotateCcw,
+    Wallet,
+    Info,
+    Hourglass,
+    ChevronDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+    PageHeader,
+    Card,
+    StatCard,
+    Badge,
+    ProgressBar,
+    formatDT,
+    Button,
+    IconButton,
+    SearchInput,
+    FilterTabs,
+    Toolbar,
+    table,
+    EmptyState,
+    LoadingState,
+    Field,
+    inputClass,
+    selectClass,
+    textareaClass,
+    Modal,
+    cn,
+} from '@/components/admin/ui';
 
 interface Enrollment {
     id: string;
@@ -89,14 +109,14 @@ const getLatestReceiptUrl = (en: Enrollment) => {
     return latestUrl;
 };
 
-const renderPaymentStatusBadge = (status: string) => (
-    <span className={`status-badge ${status?.toLowerCase() === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-        status?.toLowerCase() === 'rejected' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
-            'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-        }`}>
-        {status?.toLowerCase() === 'approved' ? 'VALIDÉ' : status?.toLowerCase() === 'rejected' ? 'REFUSÉ' : 'EN ATTENTE'}
-    </span>
-);
+const renderPaymentStatusBadge = (status: string) => {
+    const s = status?.toLowerCase();
+    const tone = s === 'approved' ? 'success' : s === 'rejected' ? 'danger' : 'warning';
+    return <Badge tone={tone}>{getPaymentStatusLabel(status)}</Badge>;
+};
+
+const formatDay = (value?: string | null) =>
+    value ? new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 export default function PaymentsAdminPage() {
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -112,7 +132,8 @@ export default function PaymentsAdminPage() {
         dateValue: ''
     });
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [openNoteId, setOpenNoteId] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [confirmAmount, setConfirmAmount] = useState<Record<string, string>>({});
     const [financeNotes, setFinanceNotes] = useState<Record<string, string>>({});
@@ -400,18 +421,16 @@ export default function PaymentsAdminPage() {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-                <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-extrabold uppercase tracking-[0.4em] text-[10px] animate-pulse">Chargement des opérations financières...</p>
+            <div className="space-y-6">
+                <PageHeader title="Paiements" description="Encaissements, tranches déclarées à vérifier et reçus." />
+                <Card padded={false}>
+                    <LoadingState label="Chargement des paiements…" />
+                </Card>
             </div>
         );
     }
 
-    const statCards = [
-        { label: 'Revenu Encaissé', value: `${stats.actualRevenue.toLocaleString()} DT`, icon: TrendingUp, color: 'text-brand-green', bg: 'bg-brand-green/10' },
-        { label: 'En attente Validation', value: stats.pendingCount, icon: Activity, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-        { label: 'Revenu Prévisionnel', value: `${stats.foreseenRevenue.toLocaleString()} DT`, icon: PieChart, color: 'text-brand-blue', bg: 'bg-brand-blue/10' },
-    ];
+    const remainingToCollect = Math.max(stats.foreseenRevenue - stats.actualRevenue, 0);
 
     const handleExportCSVList = () => {
         if (filteredEnrollments.length === 0) {
@@ -536,681 +555,760 @@ export default function PaymentsAdminPage() {
         doc.save(`Recu_${en.profiles?.full_name?.replace(/\s+/g, '_')}_${en.id.slice(0, 8)}.pdf`);
     };
 
-    return (
-        <div className="space-y-6 md:space-y-10 pb-20">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-                <div>
-                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <CreditCard size={14} /> Gestion financière
-                    </div>
-                    <h1 className="text-4xl font-black text-white tracking-tighter">Flux <span className="text-slate-500">Financiers</span></h1>
+    const statusCounts = {
+        all: enrollments.length,
+        pending: stats.pendingCount,
+        approved: enrollments.filter(e => e.status?.toLowerCase() === 'approved').length,
+        rejected: enrollments.filter(e => e.status?.toLowerCase() === 'rejected').length,
+    };
+    const hasActiveFilters = filterConfig.status !== 'all' || filterConfig.dateType !== 'all';
+    const hasDateFilter = filterConfig.dateType !== 'all';
+    const resetAllFilters = () => {
+        setSearchQuery('');
+        setFilterConfig({ status: 'all', dateType: 'all', dateValue: '' });
+    };
+    const closeAddPayment = () => {
+        setIsAddPaymentOpen(false);
+        resetPaymentForm();
+    };
+    const validatePendingPayment = (en: Enrollment) => {
+        const validatedTranche = confirmAmount[en.id] ? parseFloat(confirmAmount[en.id]) : (Number(en.declared_amount) || 0);
+        const currentPaid = Number(en.amount_paid) || 0;
+        const newTotal = currentPaid + validatedTranche;
+        handleUpdateStatus(en.id, 'approved', newTotal);
+    };
+    const updateFinanceNote = (id: string, value: string) => {
+        setFinanceNotes((current) => ({
+            ...current,
+            [id]: value,
+        }));
+        setNoteSaved(null);
+    };
+
+    const statusOptions: Array<{ value: 'all' | 'pending' | 'approved' | 'rejected'; label: string; count: number }> = [
+        { value: 'all', label: 'Tous', count: statusCounts.all },
+        { value: 'pending', label: 'En attente', count: statusCounts.pending },
+        { value: 'approved', label: 'Validés', count: statusCounts.approved },
+        { value: 'rejected', label: 'Refusés', count: statusCounts.rejected },
+    ];
+
+    const renderProgress = (en: Enrollment) => {
+        const paid = Number(en.amount_paid) || 0;
+        const total = Number(en.total_price) || 0;
+        const remaining = Math.max(total - paid, 0);
+        const isComplete = total > 0 && remaining === 0;
+        return (
+            <div className="min-w-[9rem] max-w-[12rem]">
+                <p className="whitespace-nowrap text-sm tabular-nums">
+                    <span className="font-medium text-slate-900">{formatDT(paid)}</span>
+                    <span className="text-slate-500"> / {formatDT(total)}</span>
+                </p>
+                <ProgressBar value={paid} max={total} className="mt-1.5" label="Progression du paiement" />
+                <p className={cn('mt-1 whitespace-nowrap text-xs tabular-nums', total === 0 ? 'text-slate-500' : isComplete ? 'text-emerald-700' : 'text-rose-600')}>
+                    {total === 0 ? 'Aucun montant dû' : isComplete ? 'Soldé' : `Reste : ${formatDT(remaining)}`}
+                </p>
+            </div>
+        );
+    };
+
+    const renderReceiptLink = (en: Enrollment) => {
+        const latestUrl = getLatestReceiptUrl(en);
+        return latestUrl ? (
+            <a
+                href={latestUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded text-sm font-medium text-brand-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/40"
+            >
+                <Eye size={14} /> Voir le reçu
+            </a>
+        ) : (
+            <span className="whitespace-nowrap text-sm text-slate-400">Aucun reçu</span>
+        );
+    };
+
+    const renderDeclaredAmount = (en: Enrollment) => (
+        en.declared_amount && en.status?.toLowerCase() === 'pending' ? (
+            <Badge tone="warning" dot={false} className="tabular-nums">
+                Déclaré : {formatDT(en.declared_amount)}
+            </Badge>
+        ) : null
+    );
+
+    const renderNoteEditor = (en: Enrollment, mobile = false) => {
+        const id = `${mobile ? 'm-' : ''}note-${en.id}`;
+        return (
+            <Field
+                label="Remarque interne"
+                htmlFor={id}
+                hint={noteSaved === en.id ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-700" role="status">
+                        <CheckCircle size={12} /> Remarque enregistrée
+                    </span>
+                ) : en.finance_note_updated_at ? (
+                    <span className="tabular-nums">Modifiée le {new Date(en.finance_note_updated_at).toLocaleDateString('fr-FR')}</span>
+                ) : undefined}
+            >
+                <div className="flex items-start gap-2">
+                    <textarea
+                        id={id}
+                        rows={2}
+                        maxLength={2000}
+                        value={financeNotes[en.id] || ''}
+                        onChange={(event) => updateFinanceNote(en.id, event.target.value)}
+                        placeholder="Visible uniquement par l’équipe…"
+                        className={cn(textareaClass, 'min-h-0 flex-1 resize-none')}
+                    />
+                    <IconButton
+                        label="Enregistrer la remarque"
+                        icon={noteLoading === en.id ? Loader2 : Save}
+                        variant="secondary"
+                        onClick={() => handleSaveFinanceNote(en.id)}
+                        disabled={noteLoading === en.id}
+                        className={cn('shrink-0', noteLoading === en.id && '[&>svg]:animate-spin')}
+                    />
                 </div>
+            </Field>
+        );
+    };
 
-                <div className="flex flex-wrap md:flex-nowrap items-center gap-3 md:gap-4">
-                    <button
-                        type="button"
-                        onClick={() => setIsAddPaymentOpen(true)}
-                        className="btn-primary flex h-auto w-full md:w-auto items-center justify-center gap-2 px-5 py-3 shadow-none"
-                    >
-                        <Plus size={18} /> Ajouter un paiement
-                    </button>
-                    <div className="relative max-w-none md:max-w-md w-full">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Rechercher une opération..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
-                        />
-                    </div>
+    const renderTrancheInput = (en: Enrollment, mobile = false) => (
+        mobile ? (
+            <Field
+                label="Montant de la tranche à valider (DT)"
+                htmlFor={`m-tranche-${en.id}`}
+                hint="Pré-rempli avec le montant déclaré ; il sera ajouté au montant déjà encaissé."
+            >
+                <input
+                    id={`m-tranche-${en.id}`}
+                    type="number"
+                    placeholder="Ex. : 300"
+                    defaultValue={en.declared_amount || ''}
+                    onChange={(e) => setConfirmAmount(prev => ({ ...prev, [en.id]: e.target.value }))}
+                    className={cn(inputClass, 'tabular-nums')}
+                />
+            </Field>
+        ) : (
+            <div>
+                <label htmlFor={`tranche-${en.id}`} className="sr-only">Montant de la tranche à valider (DT)</label>
+                <input
+                    id={`tranche-${en.id}`}
+                    type="number"
+                    placeholder="Tranche"
+                    defaultValue={en.declared_amount || ''}
+                    onChange={(e) => setConfirmAmount(prev => ({ ...prev, [en.id]: e.target.value }))}
+                    className={cn(inputClass, 'w-24 tabular-nums')}
+                    title="Montant de cette tranche (DT)"
+                />
+            </div>
+        )
+    );
 
-                    <div className="relative shrink-0">
-                        <button
-                            onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-                            className={`p-3 rounded-2xl border transition-all ${isFilterMenuOpen ? 'bg-brand-green/20 border-brand-green text-brand-green' : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white'}`}
-                        >
-                            <CreditCard size={20} />
-                        </button>
+    const validateLabel = (en: Enrollment) => (en.receipt_url ? 'Valider le paiement' : 'Valider la réservation à 0 DT');
 
-                        <AnimatePresence>
-                            {isFilterMenuOpen && (
-                                <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setIsFilterMenuOpen(false)} />
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        className="absolute left-0 md:left-auto md:right-0 mt-4 w-64 bg-slate-900 border border-white/10 rounded-3xl shadow-2xl p-6 z-50 space-y-6"
-                                    >
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Statut Paiement</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {[
-                                                    { id: 'all', label: 'Global' },
-                                                    { id: 'pending', label: 'Attente' },
-                                                    { id: 'approved', label: 'Validé' },
-                                                    { id: 'rejected', label: 'Rejeté' }
-                                                ].map((s) => (
-                                                    <button
-                                                        key={s.id}
-                                                        onClick={() => setFilterConfig(prev => ({ ...prev, status: s.id as any }))}
-                                                        className={`min-h-10 md:min-h-0 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterConfig.status === s.id ? 'bg-brand-green text-slate-950' : 'bg-white/5 text-slate-400 hover:text-white'}`}
-                                                    >
-                                                        {s.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
+    const renderStudent = (en: Enrollment) => (
+        <div className="min-w-0">
+            <p className="truncate font-medium text-slate-900">{en.profiles?.full_name || 'Sans nom'}</p>
+            {en.profiles?.phone ? (
+                <a href={`tel:${en.profiles.phone}`} className="block truncate text-xs text-slate-500 tabular-nums hover:text-slate-900">
+                    {en.profiles.phone}
+                </a>
+            ) : (
+                <p className="text-xs text-slate-400">Téléphone non renseigné</p>
+            )}
+            {en.profiles?.email && (
+                <a href={`mailto:${en.profiles.email}`} className="block truncate text-xs text-slate-500 hover:text-slate-900">
+                    {en.profiles.email}
+                </a>
+            )}
+        </div>
+    );
 
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Filtrage Temporel</p>
-                                            <div className="space-y-3">
+    const renderCourse = (en: Enrollment) => (
+        <div className="min-w-0">
+            <p className="font-medium leading-snug text-slate-900">{en.sessions?.courses?.title_fr || 'Formation inconnue'}</p>
+            <p className="mt-0.5 text-xs text-slate-500 tabular-nums">
+                {en.sessions?.start_date ? `Session du ${formatDay(en.sessions.start_date)}` : 'Date non définie'}
+                {en.sessions?.courses?.category ? ` · ${en.sessions.courses.category}` : ''}
+            </p>
+        </div>
+    );
+
+    return (
+        <div className="space-y-6 pb-20">
+            <PageHeader
+                title="Paiements"
+                description="Encaissements, tranches déclarées à vérifier et reçus."
+                actions={
+                    <>
+                        <div className="relative">
+                            <Button
+                                icon={Download}
+                                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                                aria-expanded={isExportMenuOpen}
+                                aria-haspopup="menu"
+                            >
+                                Exporter
+                                <ChevronDown size={14} className="text-slate-400" />
+                            </Button>
+                            <AnimatePresence>
+                                {isExportMenuOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setIsExportMenuOpen(false)} />
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 4 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 4 }}
+                                            transition={{ duration: 0.12 }}
+                                            role="menu"
+                                            className="absolute right-0 z-50 mt-1 w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg md:left-auto"
+                                        >
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={() => { setIsExportMenuOpen(false); handleExportCSVList(); }}
+                                                title="Exporter la liste filtrée en CSV"
+                                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                                            >
+                                                <Download size={16} className="text-slate-400" /> Liste filtrée (CSV)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={() => { setIsExportMenuOpen(false); handleExportPDFList(); }}
+                                                title="Générer un rapport PDF de la liste filtrée"
+                                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                                            >
+                                                <FileText size={16} className="text-slate-400" /> Rapport PDF
+                                            </button>
+                                        </motion.div>
+                                    </>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                        <Button variant="primary" icon={Plus} onClick={() => setIsAddPaymentOpen(true)}>
+                            Ajouter un paiement
+                        </Button>
+                    </>
+                }
+            />
+
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatCard label="Encaissé" value={formatDT(stats.actualRevenue)} hint="Paiements validés (vue filtrée)" icon={TrendingUp} tone="success" />
+                <StatCard label="Reste à percevoir" value={formatDT(remainingToCollect)} hint="Sur les inscriptions validées" icon={Hourglass} tone="danger" />
+                <StatCard
+                    label="En attente"
+                    value={stats.pendingCount}
+                    hint={`${formatDT(stats.pendingAmount)} déclarés à vérifier`}
+                    icon={Clock}
+                    tone={stats.pendingCount > 0 ? 'warning' : 'neutral'}
+                    onClick={() => setFilterConfig(prev => ({ ...prev, status: prev.status === 'pending' ? 'all' : 'pending' }))}
+                    active={filterConfig.status === 'pending'}
+                />
+                <StatCard label="Prévisionnel" value={formatDT(stats.foreseenRevenue)} hint="Total des formations validées" icon={PieChart} />
+            </div>
+
+            <Card padded={false}>
+                <Toolbar>
+                    <SearchInput
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        placeholder="Étudiant, e-mail ou formation…"
+                        label="Rechercher un paiement"
+                    />
+                    <div className="flex min-w-0 items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                            <FilterTabs
+                                options={statusOptions}
+                                value={filterConfig.status}
+                                onChange={(status) => setFilterConfig(prev => ({ ...prev, status }))}
+                                label="Filtrer par statut"
+                            />
+                        </div>
+
+                        <div className="relative shrink-0">
+                            <Button
+                                icon={Filter}
+                                onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+                                aria-expanded={isFilterMenuOpen}
+                                aria-haspopup="dialog"
+                                title="Filtrer par période"
+                                className={cn(hasDateFilter && 'border-slate-400 text-slate-900')}
+                            >
+                                <span className="hidden sm:inline">Période</span>
+                                {hasDateFilter && <span className="h-1.5 w-1.5 rounded-full bg-slate-900" aria-label="Filtre de période actif" />}
+                            </Button>
+
+                            <AnimatePresence>
+                                {isFilterMenuOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setIsFilterMenuOpen(false)} />
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 4 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 4 }}
+                                            transition={{ duration: 0.12 }}
+                                            role="dialog"
+                                            aria-label="Filtrer par période"
+                                            className="absolute right-0 z-50 mt-1 w-[min(18rem,calc(100vw-2rem))] space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-lg"
+                                        >
+                                            <Field label="Période de création" htmlFor="payments-date-type" hint="Filtre sur la date d’inscription de l’opération.">
                                                 <select
+                                                    id="payments-date-type"
                                                     value={filterConfig.dateType}
                                                     onChange={(e) => setFilterConfig(prev => ({ ...prev, dateType: e.target.value as any, dateValue: '' }))}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none focus:border-brand-green/50"
+                                                    className={selectClass}
                                                 >
                                                     <option value="all">Toutes les dates</option>
-                                                    <option value="year">Par Année</option>
-                                                    <option value="month">Par Mois</option>
-                                                    <option value="exact">Date Exacte</option>
+                                                    <option value="year">Par année</option>
+                                                    <option value="month">Par mois</option>
+                                                    <option value="exact">Date exacte</option>
                                                 </select>
+                                            </Field>
 
-                                                {filterConfig.dateType === 'year' && (
+                                            {filterConfig.dateType === 'year' && (
+                                                <Field label="Année" htmlFor="payments-date-value">
                                                     <input
+                                                        id="payments-date-value"
                                                         type="number"
-                                                        placeholder="Ex: 2024"
+                                                        placeholder="Ex. : 2024"
                                                         value={filterConfig.dateValue}
                                                         onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
+                                                        className={cn(inputClass, 'tabular-nums')}
                                                     />
-                                                )}
+                                                </Field>
+                                            )}
 
-                                                {filterConfig.dateType === 'month' && (
+                                            {filterConfig.dateType === 'month' && (
+                                                <Field label="Mois" htmlFor="payments-date-value">
                                                     <input
+                                                        id="payments-date-value"
                                                         type="month"
                                                         value={filterConfig.dateValue}
                                                         onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
+                                                        className={inputClass}
                                                     />
-                                                )}
+                                                </Field>
+                                            )}
 
-                                                {filterConfig.dateType === 'exact' && (
+                                            {filterConfig.dateType === 'exact' && (
+                                                <Field label="Jour" htmlFor="payments-date-value">
                                                     <input
+                                                        id="payments-date-value"
                                                         type="date"
                                                         value={filterConfig.dateValue}
                                                         onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
+                                                        className={inputClass}
                                                     />
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => {
-                                                setFilterConfig({ status: 'all', dateType: 'all', dateValue: '' });
-                                                setIsFilterMenuOpen(false);
-                                            }}
-                                            className="w-full min-h-10 md:min-h-0 py-2 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
-                                        >
-                                            Réinitialiser les filtres
-                                        </button>
-                                    </motion.div>
-                                </>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                    <button
-                        onClick={handleExportCSVList}
-                        className="shrink-0 p-3 bg-slate-900 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all shadow-lg"
-                        title="Exporter en CSV"
-                    >
-                        <Download size={20} />
-                    </button>
-                    <button
-                        onClick={handleExportPDFList}
-                        className="btn-primary flex-1 md:flex-none py-3 px-6 h-auto shadow-none"
-                    >
-                        RAPPORT PDF
-                    </button>
-                </div>
-            </header>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
-                {statCards.map((stat, i) => (
-                    <motion.div
-                        key={stat.label}
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className={`premium-card p-4 md:p-6 ${i === statCards.length - 1 && statCards.length % 2 === 1 ? 'col-span-2 md:col-span-1' : ''}`}
-                    >
-                        <div className="flex flex-col items-start gap-3 md:flex-row md:items-center md:gap-4">
-                            <div className={`p-2.5 md:p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
-                                <stat.icon size={24} />
-                            </div>
-                            <div className="min-w-0">
-                                <h3 className="text-xl md:text-3xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{stat.label}</p>
-                            </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
-
-            {stats.pendingCount > 0 && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-amber-500/10 border border-amber-500/20 rounded-3xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6"
-                >
-                    <div className="flex w-full md:w-auto items-center gap-4">
-                        <div className="w-12 h-12 shrink-0 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500">
-                            <Clock size={24} className="animate-pulse" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-black text-white capitalize">Vérification de Flux Requise</h3>
-                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                                {stats.pendingCount} transaction{stats.pendingCount > 1 ? 's' : ''} en attente • Total déclaré : <span className="text-amber-500 font-black">{stats.pendingAmount.toLocaleString()} DT</span>
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => setFilterConfig(prev => ({ ...prev, status: 'pending', date: '' }))}
-                        className="w-full md:w-auto min-h-10 md:min-h-0 px-6 py-2 bg-amber-500 text-black font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-amber-400 transition-all shadow-lg"
-                    >
-                        Filtrer les attentes
-                    </button>
-                </motion.div>
-            )}
-
-            <div className="premium-card overflow-hidden">
-                <div className="p-4 md:p-6 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 bg-white/[0.02]">
-                    <div className="flex items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                        Opérations financières correspondantes : <span className="text-brand-green ml-2">{filteredEnrollments.length}</span>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        {filterConfig.status !== 'all' || filterConfig.dateType !== 'all' ? (
-                            <button
-                                onClick={() => setFilterConfig({ status: 'all', dateType: 'all', dateValue: '' })}
-                                className="min-h-10 md:min-h-0 px-4 py-2 bg-rose-500/10 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20"
-                            >
-                                Effacer les filtres actifs
-                            </button>
-                        ) : null}
-                    </div>
-                </div>
-
-                <div className="hidden md:block overflow-x-auto custom-scrollbar">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="bg-white/[0.01] border-b border-white/5">
-                                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Étudiant</th>
-                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Formation</th>
-                                <th className="px-6 py-5 text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Justificatif</th>
-                                <th className="px-6 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Montant</th>
-                                <th className="px-6 py-5 text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">État de validation</th>
-                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Remarque</th>
-                                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {filteredEnrollments.map((en, idx) => (
-                                <motion.tr
-                                    key={en.id}
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    className="hover:bg-white/[0.02] transition-colors group"
-                                >
-                                    <td className="px-8 py-4">
-                                        <div className="flex items-center">
-                                            <div>
-                                                <p className="font-black text-sm text-white">{en.profiles?.full_name}</p>
-                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{en.profiles?.phone || 'Téléphone non renseigné'}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="space-y-1">
-                                            <p className="text-sm font-black text-slate-900 tracking-tight">{en.sessions?.courses?.title_fr || 'Formation inconnue'}</p>
-                                            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                                <Calendar size={12} className="text-brand-green/50" />
-                                                {en.sessions?.start_date ? new Date(en.sessions.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'N/D'}
-                                                <span className="w-1 h-1 rounded-full bg-white/10" />
-                                                {en.sessions?.courses?.category}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="flex flex-col items-center gap-2">
-                                            {(() => {
-                                                const latestUrl = getLatestReceiptUrl(en);
-
-                                                return latestUrl ? (
-                                                    <a
-                                                        href={latestUrl}
-                                                        target="_blank"
-                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-brand-green/10 text-brand-green border border-brand-green/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-green hover:text-black transition-all"
-                                                    >
-                                                        <Eye size={12} /> VOIR LE REÇU
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest flex items-center justify-center gap-1 opacity-50">
-                                                        <AlertCircle size={12} /> SANS REÇU
-                                                    </span>
-                                                );
-                                            })()}
-                                            {en.declared_amount && en.status?.toLowerCase() === 'pending' && (
-                                                <div className="text-[10px] font-black text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
-                                                    DÉCLARE: {en.declared_amount} DT
-                                                </div>
+                                                </Field>
                                             )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right tabular-nums">
-                                        <div className="flex flex-col items-end">
-                                            {en.status === 'pending' && en.declared_amount ? (
-                                                <>
-                                                    <p className="text-sm font-black text-amber-500">+{en.declared_amount.toLocaleString()} DT</p>
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest italic">TRANCHE DÉCLARÉE</p>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <p className="text-sm font-black text-white">{en.amount_paid.toLocaleString()} DT</p>
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">TOTAL : {en.total_price.toLocaleString()} DT</p>
-                                                </>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        {renderPaymentStatusBadge(en.status)}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex min-w-64 items-start gap-2">
-                                            <div className="relative flex-1">
-                                                <MessageSquare className="absolute left-3 top-3 text-slate-400" size={14} />
-                                                <textarea
-                                                    rows={2}
-                                                    maxLength={2000}
-                                                    value={financeNotes[en.id] || ''}
-                                                    onChange={(event) => {
-                                                        setFinanceNotes((current) => ({
-                                                            ...current,
-                                                            [en.id]: event.target.value,
-                                                        }));
-                                                        setNoteSaved(null);
-                                                    }}
-                                                    placeholder="Remarque interne…"
-                                                    className="w-full resize-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs text-slate-900 outline-none focus:border-brand-green/50"
-                                                />
-                                                {noteSaved === en.id && (
-                                                    <span className="mt-1 block text-[10px] font-bold text-emerald-500">
-                                                        Remarque enregistrée
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSaveFinanceNote(en.id)}
-                                                disabled={noteLoading === en.id}
-                                                title="Enregistrer la remarque"
-                                                className="rounded-xl border border-brand-blue/20 bg-brand-blue/10 p-2.5 text-brand-blue transition-all hover:bg-brand-blue hover:text-white disabled:opacity-60"
+
+                                            <Button
+                                                icon={RotateCcw}
+                                                size="sm"
+                                                className="w-full"
+                                                onClick={() => {
+                                                    setFilterConfig({ status: 'all', dateType: 'all', dateValue: '' });
+                                                    setIsFilterMenuOpen(false);
+                                                }}
                                             >
-                                                {noteLoading === en.id
-                                                    ? <Loader2 className="animate-spin" size={15} />
-                                                    : <Save size={15} />}
-                                            </button>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            {en.status?.toLowerCase() === 'pending' && (
-                                                <>
-                                                    <div className="flex items-center gap-2 mr-2">
-                                                        {en.receipt_url && (
-                                                            <input
-                                                                type="number"
-                                                                placeholder="Montant Tranche"
-                                                                defaultValue={en.declared_amount || ''}
-                                                                onChange={(e) => setConfirmAmount(prev => ({ ...prev, [en.id]: e.target.value }))}
-                                                                className="w-24 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                                                title="ENTRER LE MONTANT DE CETTE TRANCHE"
-                                                            />
-                                                        )}
-                                                        <button
-                                                            onClick={() => {
-                                                                const validatedTranche = confirmAmount[en.id] ? parseFloat(confirmAmount[en.id]) : (Number(en.declared_amount) || 0);
-                                                                const currentPaid = Number(en.amount_paid) || 0;
-                                                                const newTotal = currentPaid + validatedTranche;
-                                                                handleUpdateStatus(en.id, 'approved', newTotal);
-                                                            }}
-                                                            disabled={actionLoading === en.id}
-                                                            className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 transition-all flex items-center justify-center"
-                                                            title={en.receipt_url ? 'VALIDER LE PAIEMENT' : 'VALIDER LA RÉSERVATION À 0 DT'}
-                                                        >
-                                                            {actionLoading === en.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-                                                        </button>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => handleUpdateStatus(en.id, 'rejected')}
-                                                        disabled={actionLoading === en.id}
-                                                        className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/20 transition-all flex items-center justify-center"
-                                                        title="Refuser la demande"
-                                                    >
-                                                        {actionLoading === en.id ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
-                                                    </button>
-                                                </>
-                                            )}
-                                            <button
-                                                onClick={() => handleDownloadReceipt(en)}
-                                                className="p-2.5 rounded-xl bg-brand-green/10 text-brand-green hover:bg-brand-green hover:text-black border border-brand-green/20 transition-all flex items-center justify-center"
-                                                title="Générer le reçu"
-                                            >
-                                                <Receipt size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </motion.tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                                Réinitialiser les filtres
+                                            </Button>
+                                        </motion.div>
+                                    </>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </div>
+                </Toolbar>
 
+                {/* Desktop table */}
                 {filteredEnrollments.length > 0 && (
-                    <div className="md:hidden space-y-3 p-3">
+                    <div className={cn(table.wrapper, 'hidden lg:block custom-scrollbar')}>
+                        <table className={cn(table.table, 'min-w-[980px]')}>
+                            <thead className={table.thead}>
+                                <tr>
+                                    <th scope="col" className={table.th}>Étudiant</th>
+                                    <th scope="col" className={table.th}>Formation · session</th>
+                                    <th scope="col" className={table.th}>Paiement</th>
+                                    <th scope="col" className={table.th}>Justificatif</th>
+                                    <th scope="col" className={table.th}>Statut</th>
+                                    <th scope="col" className={table.th}>Date</th>
+                                    <th scope="col" className={cn(table.th, 'text-right')}><span className="sr-only">Actions</span></th>
+                                </tr>
+                            </thead>
+                            <tbody className={table.tbody}>
+                                {filteredEnrollments.map((en) => {
+                                    const isPending = en.status?.toLowerCase() === 'pending';
+                                    const noteOpen = openNoteId === en.id;
+                                    const hasNote = Boolean((financeNotes[en.id] || '').trim());
+                                    const busy = actionLoading === en.id;
+                                    return (
+                                        <React.Fragment key={en.id}>
+                                            <tr className={cn(table.tr, noteOpen && 'bg-slate-50/70')}>
+                                                <td className={cn(table.td, 'max-w-[14rem]')}>{renderStudent(en)}</td>
+                                                <td className={cn(table.td, 'max-w-[16rem]')}>{renderCourse(en)}</td>
+                                                <td className={table.td}>{renderProgress(en)}</td>
+                                                <td className={table.td}>
+                                                    <div className="flex flex-col items-start gap-1.5">
+                                                        {renderReceiptLink(en)}
+                                                        {renderDeclaredAmount(en)}
+                                                    </div>
+                                                </td>
+                                                <td className={table.td}>{renderPaymentStatusBadge(en.status)}</td>
+                                                <td className={cn(table.td, 'whitespace-nowrap text-slate-500 tabular-nums')}>{formatDay(en.created_at)}</td>
+                                                <td className={table.td}>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        {isPending && (
+                                                            <>
+                                                                {en.receipt_url && renderTrancheInput(en)}
+                                                                <IconButton
+                                                                    label={validateLabel(en)}
+                                                                    icon={busy ? Loader2 : CheckCircle}
+                                                                    onClick={() => validatePendingPayment(en)}
+                                                                    disabled={busy}
+                                                                    className={cn('text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700', busy && '[&>svg]:animate-spin')}
+                                                                />
+                                                                <IconButton
+                                                                    label="Refuser la demande"
+                                                                    icon={busy ? Loader2 : XCircle}
+                                                                    onClick={() => handleUpdateStatus(en.id, 'rejected')}
+                                                                    disabled={busy}
+                                                                    className={cn('text-rose-600 hover:bg-rose-50 hover:text-rose-700', busy && '[&>svg]:animate-spin')}
+                                                                />
+                                                            </>
+                                                        )}
+                                                        <span className="relative inline-flex">
+                                                            <IconButton
+                                                                label={noteOpen ? 'Masquer la remarque interne' : 'Remarque interne'}
+                                                                icon={MessageSquare}
+                                                                onClick={() => setOpenNoteId(noteOpen ? null : en.id)}
+                                                                aria-expanded={noteOpen}
+                                                                className={cn(noteOpen && 'bg-slate-100 text-slate-900')}
+                                                            />
+                                                            {hasNote && (
+                                                                <span className="pointer-events-none absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-slate-500" aria-hidden="true" />
+                                                            )}
+                                                        </span>
+                                                        <IconButton
+                                                            label="Générer le reçu PDF"
+                                                            icon={Receipt}
+                                                            onClick={() => handleDownloadReceipt(en)}
+                                                        />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {noteOpen && (
+                                                <tr className="bg-slate-50/70">
+                                                    <td colSpan={7} className="px-4 pb-4 pt-1">
+                                                        <div className="ml-auto max-w-xl">{renderNoteEditor(en)}</div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {/* Mobile / tablet cards */}
+                {filteredEnrollments.length > 0 && (
+                    <ul className="divide-y divide-slate-100 lg:hidden">
                         {filteredEnrollments.map((en) => {
-                            const latestUrl = getLatestReceiptUrl(en);
                             const isPending = en.status?.toLowerCase() === 'pending';
+                            const busy = actionLoading === en.id;
                             return (
-                                <div key={en.id} className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+                                <li key={en.id} className="space-y-4 p-4">
                                     <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <p className="font-black text-sm text-slate-900 truncate">{en.profiles?.full_name}</p>
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{en.profiles?.phone || 'Téléphone non renseigné'}</p>
-                                        </div>
+                                        {renderStudent(en)}
                                         <div className="shrink-0">{renderPaymentStatusBadge(en.status)}</div>
                                     </div>
 
-                                    <div className="space-y-1.5 text-xs">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Formation</span>
-                                            <span className="font-bold text-slate-900 text-right">{en.sessions?.courses?.title_fr || 'Formation inconnue'}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between gap-3">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Session</span>
-                                            <span className="flex items-center gap-1.5 font-bold text-slate-600">
-                                                <Calendar size={12} className="text-brand-green/50" />
-                                                {en.sessions?.start_date ? new Date(en.sessions.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'N/D'}
-                                                {en.sessions?.courses?.category ? ` · ${en.sessions.courses.category}` : ''}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center justify-between gap-3">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Montant</span>
-                                            {en.status === 'pending' && en.declared_amount ? (
-                                                <span className="font-black text-amber-500 tabular-nums">+{en.declared_amount.toLocaleString()} DT <span className="text-[10px] font-bold text-slate-500 italic">déclaré</span></span>
-                                            ) : (
-                                                <span className="font-black text-slate-900 tabular-nums">{en.amount_paid.toLocaleString()} DT <span className="text-[10px] font-bold text-slate-500">/ {en.total_price.toLocaleString()} DT</span></span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center justify-between gap-3">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Justificatif</span>
-                                            <div className="flex items-center gap-2">
-                                                {en.declared_amount && isPending && (
-                                                    <span className="text-[10px] font-black text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
-                                                        {en.declared_amount} DT
-                                                    </span>
-                                                )}
-                                                {latestUrl ? (
-                                                    <a
-                                                        href={latestUrl}
-                                                        target="_blank"
-                                                        className="inline-flex min-h-10 items-center gap-2 px-3 bg-brand-green/10 text-brand-green border border-brand-green/20 rounded-xl text-[10px] font-black uppercase tracking-widest"
-                                                    >
-                                                        <Eye size={12} /> VOIR LE REÇU
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-1">
-                                                        <AlertCircle size={12} /> SANS REÇU
-                                                    </span>
-                                                )}
-                                            </div>
+                                    {renderCourse(en)}
+
+                                    <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+                                        {renderProgress(en)}
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                            {renderReceiptLink(en)}
+                                            {renderDeclaredAmount(en)}
+                                            <span className="ml-auto text-xs text-slate-500 tabular-nums">{formatDay(en.created_at)}</span>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-start gap-2">
-                                        <div className="relative flex-1">
-                                            <MessageSquare className="absolute left-3 top-3.5 text-slate-400" size={14} />
-                                            <textarea
-                                                rows={2}
-                                                maxLength={2000}
-                                                value={financeNotes[en.id] || ''}
-                                                onChange={(event) => {
-                                                    setFinanceNotes((current) => ({
-                                                        ...current,
-                                                        [en.id]: event.target.value,
-                                                    }));
-                                                    setNoteSaved(null);
-                                                }}
-                                                placeholder="Remarque interne…"
-                                                className="w-full resize-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-base text-slate-900 outline-none focus:border-brand-green/50"
-                                            />
-                                            {noteSaved === en.id && (
-                                                <span className="mt-1 block text-[10px] font-bold text-emerald-500">
-                                                    Remarque enregistrée
-                                                </span>
-                                            )}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSaveFinanceNote(en.id)}
-                                            disabled={noteLoading === en.id}
-                                            title="Enregistrer la remarque"
-                                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-brand-blue/20 bg-brand-blue/10 text-brand-blue transition-all disabled:opacity-60"
-                                        >
-                                            {noteLoading === en.id
-                                                ? <Loader2 className="animate-spin" size={16} />
-                                                : <Save size={16} />}
-                                        </button>
-                                    </div>
+                                    {renderNoteEditor(en, true)}
 
-                                    {isPending && en.receipt_url && (
-                                        <input
-                                            type="number"
-                                            placeholder="Montant Tranche"
-                                            defaultValue={en.declared_amount || ''}
-                                            onChange={(e) => setConfirmAmount(prev => ({ ...prev, [en.id]: e.target.value }))}
-                                            className="w-full h-11 bg-white border border-slate-200 rounded-xl px-3 text-base text-slate-900 focus:outline-none focus:border-brand-green/50"
-                                            title="ENTRER LE MONTANT DE CETTE TRANCHE"
-                                        />
-                                    )}
+                                    {isPending && en.receipt_url && renderTrancheInput(en, true)}
 
-                                    <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         {isPending && (
                                             <>
-                                                <button
-                                                    onClick={() => {
-                                                        const validatedTranche = confirmAmount[en.id] ? parseFloat(confirmAmount[en.id]) : (Number(en.declared_amount) || 0);
-                                                        const currentPaid = Number(en.amount_paid) || 0;
-                                                        const newTotal = currentPaid + validatedTranche;
-                                                        handleUpdateStatus(en.id, 'approved', newTotal);
-                                                    }}
-                                                    disabled={actionLoading === en.id}
-                                                    className="flex-1 min-h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider"
-                                                    title={en.receipt_url ? 'VALIDER LE PAIEMENT' : 'VALIDER LA RÉSERVATION À 0 DT'}
+                                                <Button
+                                                    size="sm"
+                                                    icon={CheckCircle}
+                                                    loading={busy}
+                                                    onClick={() => validatePendingPayment(en)}
+                                                    title={validateLabel(en)}
+                                                    className="flex-1 text-emerald-700"
                                                 >
-                                                    {actionLoading === en.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
                                                     Valider
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    icon={XCircle}
+                                                    loading={busy}
                                                     onClick={() => handleUpdateStatus(en.id, 'rejected')}
-                                                    disabled={actionLoading === en.id}
-                                                    className="flex-1 min-h-10 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider"
                                                     title="Refuser la demande"
+                                                    className="flex-1 text-rose-700"
                                                 >
-                                                    {actionLoading === en.id ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
                                                     Refuser
-                                                </button>
+                                                </Button>
                                             </>
                                         )}
-                                        <button
-                                            onClick={() => handleDownloadReceipt(en)}
-                                            className="flex-1 min-h-10 rounded-xl bg-brand-green/10 text-brand-green border border-brand-green/20 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider"
-                                            title="Générer le reçu"
-                                        >
-                                            <Receipt size={16} />
-                                            Reçu
-                                        </button>
+                                        <Button size="sm" icon={Receipt} onClick={() => handleDownloadReceipt(en)} title="Générer le reçu PDF" className="flex-1">
+                                            Reçu PDF
+                                        </Button>
                                     </div>
-                                </div>
+                                </li>
                             );
                         })}
-                    </div>
+                    </ul>
                 )}
 
+                {/* Empty / no results */}
                 {filteredEnrollments.length === 0 && (
-                    <div className="py-16 md:py-32 px-4 text-center">
-                        <div className="flex flex-col items-center gap-4">
-                            <Target size={48} className="text-slate-800" />
-                            <h3 className="text-lg font-black text-white uppercase tracking-widest">Aucun flux détecté</h3>
-                            <p className="text-xs text-slate-500 font-medium max-w-xs mx-auto uppercase tracking-widest mb-4">Les paramètres actuels ne renvoient aucune transaction enregistrée.</p>
-                            <button
-                                onClick={() => {
-                                    setSearchQuery('');
-                                    setFilterConfig({ status: 'all', dateType: 'all', dateValue: '' });
-                                }}
-                                className="px-6 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase text-white hover:bg-white/10"
+                    enrollments.length === 0 ? (
+                        <EmptyState
+                            icon={Wallet}
+                            title="Aucun paiement enregistré"
+                            description="Les paiements déclarés par les étudiants ou saisis manuellement apparaîtront ici."
+                            action={<Button variant="primary" icon={Plus} onClick={() => setIsAddPaymentOpen(true)}>Ajouter un paiement</Button>}
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={Search}
+                            title="Aucun résultat"
+                            description={searchQuery
+                                ? <>Aucune opération ne correspond à « {searchQuery} » avec les filtres actuels.</>
+                                : 'Aucune opération ne correspond aux filtres actuels.'}
+                            action={<Button icon={RotateCcw} onClick={resetAllFilters}>Réinitialiser la recherche et les filtres</Button>}
+                        />
+                    )
+                )}
+
+                {/* Footer */}
+                {enrollments.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-3">
+                        <p className="text-xs text-slate-500 tabular-nums" aria-live="polite">
+                            <span className="font-medium text-slate-900">{filteredEnrollments.length}</span> opération{filteredEnrollments.length > 1 ? 's' : ''} affichée{filteredEnrollments.length > 1 ? 's' : ''}
+                            {filteredEnrollments.length !== enrollments.length && <> sur {enrollments.length}</>}
+                        </p>
+                        {hasActiveFilters && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={X}
+                                onClick={() => setFilterConfig({ status: 'all', dateType: 'all', dateValue: '' })}
                             >
-                                Réinitialiser les filtres
-                            </button>
-                        </div>
+                                Effacer les filtres
+                            </Button>
+                        )}
                     </div>
                 )}
-            </div>
+            </Card>
 
-            <AnimatePresence>
-                {isAddPaymentOpen && (
-                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl md:block md:max-h-none"
+            {/* Add payment dialog */}
+            <Modal
+                open={isAddPaymentOpen}
+                onClose={closeAddPayment}
+                size="lg"
+                title="Ajouter un paiement"
+                description="Le montant sera ajouté à ce qui a déjà été encaissé."
+                footer={
+                    <>
+                        <Button onClick={closeAddPayment} className="w-full sm:w-auto">Annuler</Button>
+                        <Button
+                            type="submit"
+                            form="add-payment-form"
+                            variant="primary"
+                            icon={Save}
+                            loading={paymentSubmitting}
+                            disabled={paymentSubmitting || !paymentForm.userId || !paymentForm.courseId || !paymentForm.sessionId || !paymentForm.amount}
+                            title={!paymentForm.userId || !paymentForm.courseId || !paymentForm.sessionId || !paymentForm.amount ? 'Renseignez l’étudiant, la formation, la session et le montant' : undefined}
+                            className="w-full sm:w-auto"
                         >
-                            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 p-5 md:p-7">
-                                <div>
-                                    <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-green">
-                                        <CreditCard size={13} /> Opération financière
-                                    </div>
-                                    <h2 className="text-xl md:text-2xl font-black text-slate-900">Ajouter un paiement</h2>
-                                    <p className="mt-1 text-xs font-medium text-slate-500">Le paiement sera ajouté au montant déjà encaissé.</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsAddPaymentOpen(false);
-                                        resetPaymentForm();
-                                    }}
-                                    className="shrink-0 rounded-xl bg-slate-100 p-2.5 md:p-2 text-slate-500 transition-colors hover:text-slate-900"
-                                    title="Fermer"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleAddPayment} className="flex-1 space-y-5 overflow-y-auto p-5 md:overflow-visible md:p-7">
-                                <div>
-                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Étudiant *</label>
-                                    <div className="relative mb-3">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                        <input
-                                            type="search"
-                                            value={paymentStudentSearch}
-                                            onChange={(event) => {
-                                                setPaymentStudentSearch(event.target.value);
-                                                setPaymentForm(current => ({
-                                                    ...current,
-                                                    userId: '',
-                                                    courseId: '',
-                                                    sessionId: '',
-                                                }));
-                                            }}
-                                            placeholder="Rechercher par nom, téléphone ou e-mail…"
-                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green focus:bg-white"
-                                        />
-                                    </div>
-                                    <select
-                                        required
-                                        value={paymentForm.userId}
-                                        onChange={(event) => setPaymentForm(current => ({
-                                            ...current,
-                                            userId: event.target.value,
-                                            courseId: '',
-                                            sessionId: '',
-                                        }))}
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green"
-                                    >
-                                        <option value="">
-                                            {filteredPaymentStudents.length > 0
-                                                ? `Choisir un étudiant (${filteredPaymentStudents.length})`
-                                                : 'Aucun étudiant trouvé'}
-                                        </option>
-                                        {filteredPaymentStudents.map(student => (
-                                            <option key={student.id} value={student.id}>
-                                                {student.name}{student.phone ? ` — ${student.phone}` : ''}{student.email ? ` — ${student.email}` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                                    <div>
-                                        <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Formation *</label>
-                                        <select
-                                            required
-                                            disabled={!paymentForm.userId}
-                                            value={paymentForm.courseId}
-                                            onChange={(event) => setPaymentForm(current => ({
-                                                ...current,
-                                                courseId: event.target.value,
-                                                sessionId: '',
-                                            }))}
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green disabled:cursor-not-allowed disabled:bg-slate-100"
-                                        >
-                                            <option value="">Choisir une formation</option>
-                                            {paymentCourses.map(course => (
-                                                <option key={course.id} value={course.id}>
-                                                    {course.title}{course.enrolled ? ' (inscrit)' : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Session *</label>
-                                        <select
-                                            required
-                                            disabled={!paymentForm.courseId}
-                                            value={paymentForm.sessionId}
-                                            onChange={(event) => setPaymentForm(current => ({ ...current, sessionId: event.target.value }))}
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green disabled:cursor-not-allowed disabled:bg-slate-100"
-                                        >
-                                            <option value="">Choisir une session</option>
-                                            {paymentSessions.map(session => (
-                                                <option key={session.id} value={session.id} disabled={session.isSettled || session.isFull}>
-                                                    {session.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Montant payé (DT) *</label>
+                            Enregistrer le paiement
+                        </Button>
+                    </>
+                }
+            >
+                <form id="add-payment-form" onSubmit={handleAddPayment} className="space-y-6">
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-semibold text-slate-900">Étudiant</h3>
+                        <Field label="Étudiant" htmlFor="payment-student" required hint="Filtrez la liste puis sélectionnez l’étudiant concerné.">
+                            <div className="space-y-2">
+                                <label className="relative block">
+                                    <span className="sr-only">Rechercher un étudiant</span>
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                     <input
+                                        type="search"
+                                        value={paymentStudentSearch}
+                                        onChange={(event) => {
+                                            setPaymentStudentSearch(event.target.value);
+                                            setPaymentForm(current => ({
+                                                ...current,
+                                                userId: '',
+                                                courseId: '',
+                                                sessionId: '',
+                                            }));
+                                        }}
+                                        placeholder="Nom, téléphone ou e-mail…"
+                                        className={cn(inputClass, 'pl-9')}
+                                    />
+                                </label>
+                                <select
+                                    id="payment-student"
+                                    required
+                                    value={paymentForm.userId}
+                                    onChange={(event) => setPaymentForm(current => ({
+                                        ...current,
+                                        userId: event.target.value,
+                                        courseId: '',
+                                        sessionId: '',
+                                    }))}
+                                    className={selectClass}
+                                >
+                                    <option value="">
+                                        {filteredPaymentStudents.length > 0
+                                            ? `Choisir un étudiant (${filteredPaymentStudents.length})`
+                                            : 'Aucun étudiant trouvé'}
+                                    </option>
+                                    {filteredPaymentStudents.map(student => (
+                                        <option key={student.id} value={student.id}>
+                                            {student.name}{student.phone ? ` — ${student.phone}` : ''}{student.email ? ` — ${student.email}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </Field>
+                    </section>
+
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-semibold text-slate-900">Inscription</h3>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Field
+                                label="Formation"
+                                htmlFor="payment-course"
+                                required
+                                hint={!paymentForm.userId ? 'Choisissez d’abord un étudiant.' : undefined}
+                                className="min-w-0"
+                            >
+                                <select
+                                    id="payment-course"
+                                    required
+                                    disabled={!paymentForm.userId}
+                                    value={paymentForm.courseId}
+                                    onChange={(event) => setPaymentForm(current => ({
+                                        ...current,
+                                        courseId: event.target.value,
+                                        sessionId: '',
+                                    }))}
+                                    className={selectClass}
+                                    title={!paymentForm.userId ? 'Choisissez d’abord un étudiant' : undefined}
+                                >
+                                    <option value="">Choisir une formation</option>
+                                    {paymentCourses.map(course => (
+                                        <option key={course.id} value={course.id}>
+                                            {course.title}{course.enrolled ? ' (inscrit)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
+
+                            <Field
+                                label="Session"
+                                htmlFor="payment-session"
+                                required
+                                hint={paymentForm.userId && !paymentForm.courseId ? 'Choisissez d’abord une formation.' : undefined}
+                                className="min-w-0"
+                            >
+                                <select
+                                    id="payment-session"
+                                    required
+                                    disabled={!paymentForm.courseId}
+                                    value={paymentForm.sessionId}
+                                    onChange={(event) => setPaymentForm(current => ({ ...current, sessionId: event.target.value }))}
+                                    className={selectClass}
+                                    title={!paymentForm.courseId ? 'Choisissez d’abord une formation' : undefined}
+                                >
+                                    <option value="">Choisir une session</option>
+                                    {paymentSessions.map(session => (
+                                        <option key={session.id} value={session.id} disabled={session.isSettled || session.isFull}>
+                                            {session.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
+                        </div>
+                    </section>
+
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-semibold text-slate-900">Paiement</h3>
+
+                        {selectedPaymentSession && (() => {
+                            const amount = Number(paymentForm.amount) || 0;
+                            const projectedPaid = selectedPaymentSession.paid + Math.min(amount, selectedPaymentSession.remaining);
+                            return (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                                    {!selectedPaymentSession.enrollment && (
+                                        <p className="mb-3 flex items-start gap-2 text-sm text-slate-700">
+                                            <Info size={16} className="mt-0.5 shrink-0 text-sky-600" />
+                                            <span>Nouvelle inscription : l’étudiant sera inscrit à cette session ({formatDT(selectedPaymentSession.totalPrice)}).</span>
+                                        </p>
+                                    )}
+                                    <dl className="grid grid-cols-3 gap-3">
+                                        <div className="min-w-0">
+                                            <dt className="text-xs text-slate-500">Prix</dt>
+                                            <dd className="mt-0.5 text-sm font-semibold text-slate-900 tabular-nums">{formatDT(selectedPaymentSession.totalPrice)}</dd>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <dt className="text-xs text-slate-500">Déjà payé</dt>
+                                            <dd className="mt-0.5 text-sm font-semibold text-emerald-700 tabular-nums">{formatDT(selectedPaymentSession.paid)}</dd>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <dt className="text-xs text-slate-500">Reste</dt>
+                                            <dd className="mt-0.5 text-sm font-semibold text-rose-600 tabular-nums">{formatDT(selectedPaymentSession.remaining)}</dd>
+                                        </div>
+                                    </dl>
+                                    <ProgressBar
+                                        value={projectedPaid}
+                                        max={selectedPaymentSession.totalPrice}
+                                        className="mt-3 bg-slate-200/70"
+                                        label="Progression après ce paiement"
+                                    />
+                                </div>
+                            );
+                        })()}
+
+                        {(() => {
+                            const amount = Number(paymentForm.amount) || 0;
+                            const exceeds = Boolean(selectedPaymentSession) && amount > (selectedPaymentSession?.remaining ?? 0) && (selectedPaymentSession?.totalPrice ?? 0) > 0;
+                            const help = !selectedPaymentSession
+                                ? 'Choisissez une session pour voir le reste à payer.'
+                                : amount > 0 && amount <= selectedPaymentSession.remaining
+                                    ? <span className="font-medium text-emerald-700">Après ce paiement : reste {formatDT(Math.max(selectedPaymentSession.remaining - amount, 0))}</span>
+                                    : `Reste à payer : ${formatDT(selectedPaymentSession.remaining)}.`;
+                            return (
+                                <Field
+                                    label="Montant payé (DT)"
+                                    htmlFor="payment-amount"
+                                    required
+                                    hint={<span id="payment-amount-help" className="tabular-nums">{help}</span>}
+                                    error={exceeds ? <span id="payment-amount-help" className="tabular-nums">Le montant dépasse le reste à payer ({formatDT(selectedPaymentSession?.remaining)}).</span> : undefined}
+                                >
+                                    <input
+                                        id="payment-amount"
                                         required
                                         type="number"
                                         min="0.001"
@@ -1220,69 +1318,33 @@ export default function PaymentsAdminPage() {
                                             : undefined}
                                         value={paymentForm.amount}
                                         onChange={(event) => setPaymentForm(current => ({ ...current, amount: event.target.value }))}
-                                        placeholder="Exemple : 300"
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm font-bold text-slate-900 outline-none focus:border-brand-green"
+                                        placeholder="Ex. : 300"
+                                        aria-describedby="payment-amount-help"
+                                        aria-invalid={exceeds || undefined}
+                                        className={cn(inputClass, 'tabular-nums')}
                                     />
-                                    {selectedPaymentSession && (() => {
-                                        const amount = Number(paymentForm.amount) || 0;
-                                        const remainingAfter = Math.max(selectedPaymentSession.remaining - amount, 0);
-                                        return (
-                                            <div className="mt-2 space-y-1 text-xs font-bold text-slate-500">
-                                                {!selectedPaymentSession.enrollment && (
-                                                    <p className="text-brand-blue">
-                                                        Nouvelle inscription : l’étudiant sera inscrit à cette session ({selectedPaymentSession.totalPrice.toLocaleString('fr-FR')} DT).
-                                                    </p>
-                                                )}
-                                                <p>
-                                                    Prix : {selectedPaymentSession.totalPrice.toLocaleString('fr-FR')} DT · Déjà payé : {selectedPaymentSession.paid.toLocaleString('fr-FR')} DT · Reste : {selectedPaymentSession.remaining.toLocaleString('fr-FR')} DT
-                                                </p>
-                                                {amount > 0 && amount <= selectedPaymentSession.remaining && (
-                                                    <p className="text-emerald-600">
-                                                        Après ce paiement : reste {remainingAfter.toLocaleString('fr-FR')} DT
-                                                    </p>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
+                                </Field>
+                            );
+                        })()}
 
-                                <div>
-                                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Remarque</label>
-                                    <textarea
-                                        rows={3}
-                                        maxLength={2000}
-                                        value={paymentForm.note}
-                                        onChange={(event) => setPaymentForm(current => ({ ...current, note: event.target.value }))}
-                                        placeholder="Ajouter une remarque interne sur ce paiement…"
-                                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-base md:text-sm text-slate-900 outline-none focus:border-brand-green"
-                                    />
-                                </div>
-
-                                <div className="sticky bottom-0 -mx-5 -mb-5 flex flex-col-reverse gap-3 border-t border-slate-100 bg-white p-5 md:static md:mx-0 md:mb-0 md:flex-row md:justify-end md:p-0 md:pt-5">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setIsAddPaymentOpen(false);
-                                            resetPaymentForm();
-                                        }}
-                                        className="w-full md:w-auto rounded-xl border border-slate-200 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={paymentSubmitting || !paymentForm.userId || !paymentForm.courseId || !paymentForm.sessionId || !paymentForm.amount}
-                                        className="btn-primary flex h-auto w-full md:w-auto items-center justify-center gap-2 px-6 py-3 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {paymentSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                        Enregistrer le paiement
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                        <Field
+                            label={<>Remarque <span className="font-normal text-slate-500">(facultatif)</span></>}
+                            htmlFor="payment-note"
+                            hint="Visible uniquement par l’équipe d’administration."
+                        >
+                            <textarea
+                                id="payment-note"
+                                rows={3}
+                                maxLength={2000}
+                                value={paymentForm.note}
+                                onChange={(event) => setPaymentForm(current => ({ ...current, note: event.target.value }))}
+                                placeholder="Ajouter une remarque interne sur ce paiement…"
+                                className={cn(textareaClass, 'resize-none')}
+                            />
+                        </Field>
+                    </section>
+                </form>
+            </Modal>
         </div>
     );
 }

@@ -78,10 +78,8 @@ body {
 
 /* Dashboard type scale */
 .admin-dashboard main h1 {
-  font-size: clamp(30px, 2.2vw, 36px) !important;
-  font-weight: 700 !important;
-  line-height: 1.15;
-  letter-spacing: -0.025em !important;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .admin-dashboard main .admin-main-title {
@@ -130,18 +128,6 @@ body {
   font-weight: 700 !important;
 }
 
-.admin-dashboard .font-bold,
-.admin-dashboard .font-semibold {
-  font-weight: 600 !important;
-}
-
-.admin-dashboard button,
-.admin-dashboard .btn-primary,
-.admin-dashboard .btn-secondary,
-.admin-dashboard .admin-sidebar-link {
-  font-size: clamp(14px, 1vw, 16px);
-  font-weight: 600 !important;
-}
 
 @utility premium-card {
   background-color: var(--color-card);
@@ -233,14 +219,13 @@ body {
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: rgba(161, 184, 62, 0.1);
-    color: var(--color-brand-green);
+    background-color: #f1f5f9;
+    color: #0f172a;
   }
 
   &.active {
-    background-color: var(--color-brand-green);
-    color: #000;
-    box-shadow: 0 4px 12px rgba(161, 184, 62, 0.3);
+    background-color: #f1f5f9;
+    color: #0f172a;
   }
 }
 
@@ -264,31 +249,11 @@ body {
   background: #cbd5e1;
 }
 
-/* Command palette in light mode */
-[data-theme='light'] .bg-\[\#0f172a\] {
-  background-color: #ffffff !important;
-}
-
-[data-theme='light'] .bg-slate-950 {
-  background-color: #f8fafc !important;
-}
-
-[data-theme='light'] .border-white\/5 {
-  border-color: rgba(0, 0, 0, 0.07) !important;
-}
-
-[data-theme='light'] .border-white\/10 {
-  border-color: rgba(0, 0, 0, 0.1) !important;
-}
-
-[data-theme='light'] .text-white {
-  color: #0f172a !important;
-}
-
+/* Contrast bumps only. Colour inversions (text-white -> dark, bg-slate-900 -> white, ...)
+   were removed: they broke white text on coloured buttons and turned modal backdrops opaque. */
 [data-theme='light'] .placeholder-text-slate-600::placeholder {
   color: #94a3b8 !important;
 }
-
 
 [data-theme='light'] .text-slate-400 {
   color: #64748b !important;
@@ -300,39 +265,6 @@ body {
 
 [data-theme='light'] .text-slate-600 {
   color: #334155 !important;
-}
-
-[data-theme='light'] .text-slate-300 {
-  color: #334155 !important;
-}
-
-[data-theme='light'] .bg-slate-900 {
-  background-color: #ffffff !important;
-}
-
-[data-theme='light'] .bg-slate-800 {
-  background-color: #ffffff !important;
-}
-
-[data-theme='light'] .bg-slate-900\/50 {
-  background-color: #ffffff !important;
-}
-
-[data-theme='light'] .bg-slate-800\/50 {
-  background-color: #ffffff !important;
-}
-
-
-[data-theme='light'] .bg-white\/\[0\.02\] {
-  background-color: rgba(0, 0, 0, 0.02) !important;
-}
-
-[data-theme='light'] .bg-\[\#0a0f19\] {
-  background-color: #f0f4f8 !important;
-}
-
-[data-theme='light'] .shadow-brand-green\/10 {
-  box-shadow: 0 25px 50px -12px rgba(37, 114, 176, 0.12) !important;
 }
 
 /* ===== ADMIN MOBILE APP SHELL (< 768px) ===== */
@@ -373,8 +305,7 @@ body {
   }
 
   .admin-dashboard main h1 {
-    font-size: 26px !important;
-    letter-spacing: -0.02em !important;
+    font-size: 22px;
   }
 
   .admin-dashboard main .admin-main-title {
@@ -418,6 +349,18 @@ body {
   .admin-dashboard .fixed.inset-0.flex.items-center.justify-center {
     z-index: 90 !important;
   }
+}
+
+/* Data screens stay still: no lift/scale on hover in the back office */
+.admin-dashboard .premium-card:hover {
+  transform: none;
+  box-shadow: var(--shadow-premium);
+  border-color: var(--color-border);
+}
+
+.admin-dashboard .btn-primary:hover,
+.admin-dashboard .btn-primary:active {
+  scale: 1;
 }
 
 /* No lift-on-hover on touch devices (sticky hover looks broken) */

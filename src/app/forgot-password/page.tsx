@@ -34,8 +34,9 @@ export default function ForgotPasswordPage() {
     const [error, setError] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
 
-    const inputClass = "w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 outline-none transition-all";
-    const labelClass = "block text-sm font-bold mb-2 ml-1";
+    const inputClass = "h-11 w-full rounded-xl border bg-white pl-11 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2";
+    const labelClass = "mb-1.5 block text-sm font-semibold text-slate-900";
+    const primaryBtn = "flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-green text-base font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
     const handleSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -118,184 +119,232 @@ export default function ForgotPasswordPage() {
         }
     };
 
+    const okBorder = 'border-slate-200 focus:border-brand-green focus:ring-brand-green/20';
+    const errBorder = 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20';
+    const errText = 'mt-1.5 flex items-center gap-1 text-xs font-medium text-rose-700';
+    const iconClass = (bad: boolean) => `pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${bad ? 'text-rose-500' : 'text-slate-400'}`;
+    const steps = ['Email', 'Code', 'Nouveau mot de passe'];
+    const errorBox = error && (
+        <div role="alert" className="mt-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-800">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+        </div>
+    );
+
     return (
-        <div className="min-h-screen flex items-center justify-center py-16 px-6 bg-slate-50">
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
+        <div className="flex min-h-[80vh] items-center justify-center bg-slate-50 px-4 py-10 md:py-16">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
                 className="w-full max-w-md"
             >
-                <div className="premium-card p-10 bg-white">
-                    <div className="text-center mb-8">
-                        <div className="w-16 h-16 rounded-2xl bg-brand-blue/10 flex items-center justify-center mx-auto mb-4">
-                            <KeyRound className="text-brand-blue" size={32} />
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+                    <div className="mb-6 text-center">
+                        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-blue/10">
+                            <KeyRound className="text-brand-blue" size={24} />
                         </div>
-                        <h1 className="text-3xl font-black mb-2">Récupération</h1>
-                        <p className="text-slate-500 text-sm">Réinitialisez votre accès en toute sécurité.</p>
+                        <h1 className="mb-1 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">Récupération</h1>
+                        <p className="text-sm text-slate-600">Réinitialisez votre accès en toute sécurité.</p>
                     </div>
+
+                    {step < 3 && (
+                        <ol className="mb-6 flex items-center gap-2" aria-label="Étapes de récupération">
+                            {steps.map((label, i) => (
+                                <li key={label} className="flex min-w-0 flex-1 flex-col gap-1.5" aria-current={i === step ? 'step' : undefined}>
+                                    <span className={`h-1.5 rounded-full ${i < step ? 'bg-emerald-600' : i === step ? 'bg-brand-green' : 'bg-slate-200'}`} />
+                                    <span className={`truncate text-[11px] font-bold ${i <= step ? 'text-slate-900' : 'text-slate-500'}`}>{i + 1}. {label}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    )}
 
                     <AnimatePresence mode="wait">
                         {step === 0 && (
-                            <motion.form 
+                            <motion.form
                                 key="step0"
-                                initial={{ opacity: 0, x: 20 }}
+                                initial={{ opacity: 0, x: 10 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                transition={{ duration: 0.2 }}
                                 onSubmit={handleSendCode}
-                                className="space-y-6"
+                                className="space-y-5"
                                 noValidate
                             >
                                 <div>
-                                    <label className={`${labelClass} ${showErrors && !email ? 'text-red-500' : ''}`}>Votre Email</label>
+                                    <label htmlFor="fp-email" className={labelClass}>Votre email</label>
                                     <div className="relative">
-                                        <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 ${showErrors && !email ? 'text-red-500' : 'text-slate-400'}`} size={18} />
-                                        <input 
-                                            type="email" 
+                                        <Mail className={iconClass(showErrors && !email)} size={18} />
+                                        <input
+                                            id="fp-email"
+                                            type="email"
+                                            autoComplete="email"
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
-                                            className={`${inputClass} ${showErrors && !email ? 'border-red-500 ring-red-100' : 'border-slate-200'}`}
+                                            className={`${inputClass} ${showErrors && !email ? errBorder : okBorder}`}
                                             placeholder="nom@exemple.com"
+                                            aria-invalid={(showErrors && !email) || undefined}
                                         />
                                     </div>
-                                    {showErrors && !email && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">L'email est requis</p>}
-                                    {error && <div className="mt-4 p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs flex gap-2">
-                                        <AlertCircle size={14} className="shrink-0" /> {error}
-                                    </div>}
+                                    <p className="mt-1.5 text-xs text-slate-600">Nous vous enverrons un code de vérification à 6 chiffres.</p>
+                                    {showErrors && !email && <p className={errText}><AlertCircle size={13} /> L&apos;email est requis</p>}
+                                    {errorBox}
                                 </div>
-                                <button type="submit" disabled={loading} className="btn-primary w-full py-4 flex items-center justify-center gap-2">
+                                <button type="submit" disabled={loading} className={primaryBtn}>
                                     {loading ? <Loader2 className="animate-spin" size={20} /> : <><ArrowRight size={20} /> Envoyer le code</>}
                                 </button>
                             </motion.form>
                         )}
 
                         {step === 1 && (
-                            <motion.form 
+                            <motion.form
                                 key="step1"
-                                initial={{ opacity: 0, x: 20 }}
+                                initial={{ opacity: 0, x: 10 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                transition={{ duration: 0.2 }}
                                 onSubmit={handleVerifyCode}
-                                className="space-y-6"
+                                className="space-y-5"
                                 noValidate
                             >
                                 <div>
-                                    <label className={`${labelClass} ${showErrors && code.length !== 6 ? 'text-red-500' : ''}`}>Code de Vérification</label>
+                                    <label htmlFor="fp-code" className={labelClass}>Code de vérification</label>
                                     <div className="relative">
-                                        <ShieldCheck className={`absolute left-4 top-1/2 -translate-y-1/2 ${showErrors && code.length !== 6 ? 'text-red-500' : 'text-slate-400'}`} size={18} />
-                                        <input 
-                                            type="text" 
+                                        <ShieldCheck className={iconClass(showErrors && code.length !== 6)} size={18} />
+                                        <input
+                                            id="fp-code"
+                                            type="text"
+                                            inputMode="numeric"
+                                            autoComplete="one-time-code"
                                             maxLength={6}
                                             value={code}
                                             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                                            className={`${inputClass} tracking-[0.5em] text-center font-black ${showErrors && code.length !== 6 ? 'border-red-500 ring-red-100' : 'border-slate-200'}`}
+                                            className={`${inputClass} h-12 text-center text-lg font-black tabular-nums tracking-[0.4em] ${showErrors && code.length !== 6 ? errBorder : okBorder}`}
                                             placeholder="000000"
+                                            aria-invalid={(showErrors && code.length !== 6) || undefined}
                                         />
                                     </div>
-                                    <p className="text-[10px] text-slate-500 mt-2 text-center">Un code a été envoyé à <b>{email}</b></p>
-                                    {showErrors && code.length !== 6 && <p className="text-[10px] text-red-500 font-bold mt-1 text-center">Code incomplet (6 chiffres)</p>}
-                                    {error && <div className="mt-4 p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs flex gap-2">
-                                        <AlertCircle size={14} className="shrink-0" /> {error}
-                                    </div>}
+                                    <p className="mt-2 text-center text-xs text-slate-600">Un code a été envoyé à <b className="text-slate-900">{email}</b></p>
+                                    {showErrors && code.length !== 6 && <p className={`${errText} justify-center`}><AlertCircle size={13} /> Code incomplet (6 chiffres)</p>}
+                                    {errorBox}
                                 </div>
-                                <button type="submit" disabled={loading} className="btn-primary w-full py-4 flex items-center justify-center gap-2">
+                                <button type="submit" disabled={loading} className={primaryBtn}>
                                     {loading ? <Loader2 className="animate-spin" size={20} /> : <><CheckCircle2 size={20} /> Continuer</>}
                                 </button>
                             </motion.form>
                         )}
 
                         {step === 2 && (
-                            <motion.form 
+                            <motion.form
                                 key="step2"
-                                initial={{ opacity: 0, x: 20 }}
+                                initial={{ opacity: 0, x: 10 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                transition={{ duration: 0.2 }}
                                 onSubmit={handleResetPassword}
                                 className="space-y-5"
                                 noValidate
                             >
                                 <div>
-                                    <label className={`${labelClass} ${showErrors && cinNumber.length !== 8 ? 'text-red-500' : ''}`}>Numéro de CIN *</label>
+                                    <label htmlFor="fp-cin" className={labelClass}>Numéro de CIN <span className="text-rose-600">*</span></label>
                                     <div className="relative">
-                                        <CreditCard className={`absolute left-4 top-1/2 -translate-y-1/2 ${showErrors && cinNumber.length !== 8 ? 'text-red-500' : 'text-slate-400'}`} size={18} />
-                                        <input 
-                                            type="text" 
+                                        <CreditCard className={iconClass(showErrors && cinNumber.length !== 8)} size={18} />
+                                        <input
+                                            id="fp-cin"
+                                            type="text"
+                                            inputMode="numeric"
                                             maxLength={8}
                                             value={cinNumber}
                                             onChange={(e) => setCinNumber(e.target.value.replace(/\D/g, ''))}
-                                            className={`${inputClass} ${showErrors && cinNumber.length !== 8 ? 'border-red-500 ring-red-100' : 'border-slate-200'}`}
+                                            className={`${inputClass} tabular-nums ${showErrors && cinNumber.length !== 8 ? errBorder : okBorder}`}
                                             placeholder="CIN (8 chiffres)"
+                                            aria-invalid={(showErrors && cinNumber.length !== 8) || undefined}
                                         />
                                     </div>
-                                    {showErrors && cinNumber.length !== 8 && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">Doit contenir 8 chiffres</p>}
+                                    {showErrors && cinNumber.length !== 8 && <p className={errText}><AlertCircle size={13} /> Doit contenir 8 chiffres</p>}
                                 </div>
 
                                 <div>
-                                    <label className={`${labelClass} ${showErrors && newPassword.length < 8 ? 'text-red-500' : ''}`}>Nouveau Mot de passe</label>
+                                    <label htmlFor="fp-new" className={labelClass}>Nouveau mot de passe</label>
                                     <div className="relative">
-                                        <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 ${showErrors && newPassword.length < 8 ? 'text-red-500' : 'text-slate-400'}`} size={18} />
-                                        <input 
+                                        <Lock className={iconClass(showErrors && newPassword.length < 8)} size={18} />
+                                        <input
+                                            id="fp-new"
                                             type={showPassword ? 'text' : 'password'}
+                                            autoComplete="new-password"
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
-                                            className={`${inputClass} ${showErrors && newPassword.length < 8 ? 'border-red-500 ring-red-100' : 'border-slate-200'}`}
+                                            className={`${inputClass} pr-12 ${showErrors && newPassword.length < 8 ? errBorder : okBorder}`}
                                             placeholder="••••••••"
+                                            aria-invalid={(showErrors && newPassword.length < 8) || undefined}
                                         />
-                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                                            aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                                            title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                                            aria-pressed={showPassword}
+                                        >
                                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                         </button>
                                     </div>
-                                    {showErrors && newPassword.length < 8 && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">Min. 8 caractères</p>}
+                                    {showErrors && newPassword.length < 8
+                                        ? <p className={errText}><AlertCircle size={13} /> Min. 8 caractères</p>
+                                        : <p className="mt-1.5 text-xs text-slate-600">Au moins 8 caractères.</p>}
                                 </div>
 
                                 <div>
-                                    <label className={`${labelClass} ${showErrors && confirmPassword !== newPassword ? 'text-red-500' : ''}`}>Conffirmez le Mot de passe</label>
+                                    <label htmlFor="fp-confirm" className={labelClass}>Confirmez le mot de passe</label>
                                     <div className="relative">
-                                        <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 ${showErrors && confirmPassword !== newPassword ? 'text-red-500' : 'text-slate-400'}`} size={18} />
-                                        <input 
-                                            type="password" 
+                                        <Lock className={iconClass(showErrors && confirmPassword !== newPassword)} size={18} />
+                                        <input
+                                            id="fp-confirm"
+                                            type={showPassword ? 'text' : 'password'}
+                                            autoComplete="new-password"
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className={`${inputClass} ${showErrors && confirmPassword !== newPassword ? 'border-red-500 ring-red-100' : 'border-slate-200'}`}
+                                            className={`${inputClass} ${showErrors && confirmPassword !== newPassword ? errBorder : okBorder}`}
                                             placeholder="••••••••"
+                                            aria-invalid={(showErrors && confirmPassword !== newPassword) || undefined}
                                         />
                                     </div>
-                                    {showErrors && confirmPassword !== newPassword && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">Les mots de passe ne correspondent pas</p>}
-                                    {error && <div className="mt-4 p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs flex gap-2 text-center">
-                                         {error}
-                                    </div>}
+                                    {showErrors && confirmPassword !== newPassword && <p className={errText}><AlertCircle size={13} /> Les mots de passe ne correspondent pas</p>}
+                                    {errorBox}
                                 </div>
 
-                                <button type="submit" disabled={loading} className="btn-primary w-full py-4 flex items-center justify-center gap-2 mt-4">
+                                <button type="submit" disabled={loading} className={primaryBtn}>
                                     {loading ? <Loader2 className="animate-spin" size={20} /> : <><ShieldCheck size={20} /> Réinitialiser</>}
                                 </button>
                             </motion.form>
                         )}
 
                         {step === 3 && (
-                            <motion.div 
+                            <motion.div
                                 key="step3"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="text-center py-6"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="py-4 text-center"
+                                role="status"
                             >
-                                <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-                                    <CheckCircle2 size={40} className="text-green-500" />
+                                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+                                    <CheckCircle2 size={36} className="text-emerald-600" />
                                 </div>
-                                <h2 className="text-2xl font-black mb-2">Succès !</h2>
-                                <p className="text-slate-500 mb-10">Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter.</p>
-                                <button 
+                                <h2 className="mb-2 text-2xl font-black text-slate-900">Succès !</h2>
+                                <p className="mb-8 text-sm text-slate-600">Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter.</p>
+                                <button
                                     onClick={() => router.push('/login')}
-                                    className="btn-primary w-full py-4 flex items-center justify-center gap-2"
+                                    className={primaryBtn}
                                 >
-                                    Se Connecter
+                                    Se connecter
                                 </button>
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </div>
 
-                <div className="text-center mt-8">
-                    <Link href="/login" className="text-sm font-bold text-brand-blue hover:underline">
+                <div className="mt-6 text-center">
+                    <Link href="/login" className="inline-flex h-10 items-center text-sm font-bold text-brand-blue hover:underline">
                         Retour à la connexion
                     </Link>
                 </div>

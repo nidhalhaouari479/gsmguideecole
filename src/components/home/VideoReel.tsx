@@ -25,43 +25,44 @@ const VideoReel = () => {
     ];
 
     return (
-        <section className="py-24 bg-slate-950 text-white overflow-hidden">
-            <div className="container mx-auto px-6">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-12 mb-16">
+        // Explicit hex colors: the public site runs under data-theme="light", which forces
+        // `.text-white` / `.bg-slate-950` to light colors (see globals.css).
+        <section className="overflow-hidden bg-[#0b1220] py-16 text-[#fff] md:py-24">
+            <div className="container mx-auto px-4 sm:px-6">
+                <div className="mb-10 flex flex-col justify-between gap-8 md:mb-14 lg:flex-row lg:items-end">
                     <div className="max-w-2xl">
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20 font-black text-xs uppercase tracking-widest mb-6">
-                            <TrendingUp size={14} /> Points Forts de la Formation
+                        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-green/30 bg-brand-green/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-brand-green">
+                            <TrendingUp size={14} /> Points forts de la formation
                         </div>
-                        <h2 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
-                            Apprendre à Travers des <span className="text-brand-blue">Leçons Rapides</span>
+                        <h2 className="mb-4 text-3xl font-black leading-tight tracking-tight text-[#fff] md:text-5xl">
+                            Apprendre à travers des <span className="text-[#5ea8e6]">leçons rapides</span>
                         </h2>
-                        <p className="text-lg text-slate-400 font-medium leading-relaxed">
+                        <p className="text-base leading-relaxed text-[#cbd5e1] md:text-lg">
                             Regardez nos ingénieurs en action. Des extraits de formation courts, précis et professionnels de nos laboratoires quotidiens.
                         </p>
                     </div>
 
-                    <div className="flex gap-8 items-center border-l-4 border-brand-blue pl-8 py-4">
-                        <div className="text-center">
-                            <div className="text-3xl font-black text-white">4</div>
-                            <div className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Nouvelles Leçons</div>
-                        </div>
+                    <div className="flex items-center gap-4 border-l-4 border-brand-blue py-2 pl-5">
+                        <div className="text-3xl font-black tabular-nums text-[#fff]">{shorts.length}</div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-[#94a3b8]">Nouvelles<br />leçons</div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {/* Mobile: horizontal snap carousel. Desktop: grid. */}
+                <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
                     {shorts.map((short, index) => (
                         <motion.div
                             key={index}
-                            initial={{ opacity: 0, y: 30 }}
+                            initial={{ opacity: 0, y: 10 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            transition={{ delay: index * 0.1 }}
-                            className="group relative"
+                            transition={{ delay: Math.min(index * 0.03, 0.12), duration: 0.3 }}
+                            className="group relative w-[72%] shrink-0 snap-center sm:w-auto"
                         >
                             {/* Smartphone Container Mockup */}
-                            <div className="aspect-[9/16] relative bg-black rounded-[40px] overflow-hidden border-2 border-slate-800 shadow-2xl group-hover:border-brand-blue/50 transition-all duration-500">
+                            <div className="relative aspect-[9/16] overflow-hidden rounded-[32px] border-2 border-[#1e293b] bg-black shadow-2xl transition-colors duration-300 group-hover:border-brand-blue/60">
 
-                                {/* 
+                                {/*
                                     YouTube Background Video Technique:
                                     - autoplay=1
                                     - mute=1 (required for autoplay)
@@ -74,18 +75,19 @@ const VideoReel = () => {
                                     title={short.title}
                                     frameBorder="0"
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    loading="lazy"
                                 />
 
                                 {/* Transparent Overlay to block all interactions (No Pause/Play) */}
                                 <div className="absolute inset-0 z-20 pointer-events-auto cursor-default" />
 
-                                {/* Visual masking to hide top/bottom YT UI elements further (Blocker pour cacher le titre complètement) */}
+                                {/* Visual masking to hide top/bottom YT UI elements */}
                                 <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black via-black/90 to-transparent z-20 pointer-events-none" />
-                                <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-black/80 to-transparent z-10 pointer-events-none" />
+                                <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-black/90 to-transparent z-10 pointer-events-none" />
 
-                                <div className="absolute bottom-10 left-8 right-8 z-30 pointer-events-none">
-                                    <div className="text-brand-green font-black text-[10px] uppercase tracking-[0.2em] mb-2">Leçon n°{index + 1}</div>
-                                    <h4 className="font-bold text-xl text-white leading-tight">{short.title}</h4>
+                                <div className="pointer-events-none absolute bottom-6 left-5 right-5 z-30">
+                                    <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-brand-green">Leçon n°{index + 1}</div>
+                                    <h3 className="text-lg font-bold leading-tight text-[#fff]">{short.title}</h3>
                                 </div>
                             </div>
                         </motion.div>

@@ -5,12 +5,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { motion } from 'framer-motion';
 import {
-    Clock, Tag, Calendar, Users, BookOpen,
-    CheckCircle2,
+    Clock, Calendar, Users, BookOpen,
     CheckCircle,
-    ArrowLeft,
+    ArrowLeft, ChevronRight,
     ShieldCheck, Award, AlertCircle,
-    Star, StarOff, MessageSquare
+    Star, MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -199,231 +198,339 @@ export default function FormationDetail() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-                <div className="w-16 h-16 border-4 border-brand-blue border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 bg-slate-50" role="status">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-blue border-t-transparent"></div>
+                <p className="text-sm font-medium text-slate-600">Chargement de la formation...</p>
             </div>
         );
     }
 
     if (!formation) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
-                <h2 className="text-2xl font-bold mb-4">Formation not found</h2>
-                <button onClick={() => router.push('/formations')} className="btn-primary px-6 py-2">Retour aux formations</button>
+            <div className="flex min-h-[60vh] flex-col items-center justify-center bg-slate-50 px-4 text-center">
+                <BookOpen size={40} className="mb-4 text-[#cbd5e1]" />
+                <h2 className="mb-2 text-2xl font-black text-slate-900">Formation introuvable</h2>
+                <p className="mb-6 text-sm text-slate-600">Cette formation n&apos;existe pas ou n&apos;est plus disponible.</p>
+                <button onClick={() => router.push('/formations')} className="inline-flex h-11 items-center rounded-xl bg-brand-green px-5 text-sm font-bold text-black hover:brightness-95">Retour aux formations</button>
             </div>
         );
     }
 
-    return (
-        <div className="pb-32 bg-slate-50 dark:bg-slate-950 min-h-screen">
-            {/* Hero Section */}
-            <div className="relative h-[500px] w-full overflow-hidden">
-                <img src={formation.image} alt={formation.title[language]} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent" />
+    // ---- Presentation helpers (display only) ----
+    const dateLocale = language === 'en' ? 'en-US' : 'fr-FR';
+    const now = new Date();
+    const scheduleLabel = (schedule: string) => {
+        try {
+            const p = JSON.parse(schedule);
+            return p.label || schedule;
+        } catch (e) { return schedule; }
+    };
+    const isSessionOpen = (s: any) => new Date(s.start) >= now;
+    const nextSession = [...formation.sessions]
+        .filter((s: any) => isSessionOpen(s) && s.seats > 0)
+        .sort((a: any, b: any) => new Date(a.start).getTime() - new Date(b.start).getTime())[0];
+    const priceBlock = (size: 'lg' | 'sm') => (
+        <div className="flex flex-wrap items-baseline gap-x-2">
+            {formation.sold_price ? (
+                <>
+                    <span className={`${size === 'lg' ? 'text-3xl md:text-4xl' : 'text-xl'} font-black tabular-nums text-slate-900`}>{formation.sold_price} DT</span>
+                    <span className={`${size === 'lg' ? 'text-lg' : 'text-sm'} font-semibold tabular-nums text-slate-500 line-through`}>{formation.base_price} DT</span>
+                </>
+            ) : (
+                <span className={`${size === 'lg' ? 'text-3xl md:text-4xl' : 'text-xl'} font-black tabular-nums text-slate-900`}>{formation.base_price} DT</span>
+            )}
+        </div>
+    );
 
-                <div className="absolute inset-0 flex items-end">
-                    <div className="container mx-auto px-6 pb-16">
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.6 }}
-                        >
-                            <button
-                                onClick={() => router.back()}
-                                className="flex items-center gap-2 text-white/70 hover:text-white mb-8 transition-colors bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 w-fit"
+    const sessionsCard = (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+            <div className="mb-5 flex items-center justify-between gap-3">
+                <h3 className="text-lg font-bold text-slate-900">Toutes les sessions</h3>
+                <span className="text-xs font-semibold tabular-nums text-slate-500">{formation.sessions.length} session{formation.sessions.length > 1 ? 's' : ''}</span>
+            </div>
+            {formation.sessions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
+                    <Calendar size={28} className="mx-auto mb-2 text-[#cbd5e1]" />
+                    <p className="text-sm font-semibold text-slate-900">Aucune session programmée</p>
+                    <p className="mt-1 text-xs text-slate-600">Réservez pour demander l&apos;ouverture d&apos;une nouvelle session.</p>
+                </div>
+            ) : (
+                <ul className="space-y-3">
+                    {formation.sessions.map((s: any, i: number) => {
+                        const open = isSessionOpen(s);
+                        const full = s.seats <= 0;
+                        return (
+                            <li
+                                key={i}
+                                className={`rounded-xl border p-4 transition-colors ${open ? 'border-slate-200 hover:border-brand-blue/40' : 'border-slate-200 bg-slate-50'}`}
                             >
-                                <ArrowLeft size={18} /> {t.common.back}
-                            </button>
-
-                            <div className="flex flex-col gap-4">
-                                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-blue/20 backdrop-blur-md text-brand-blue border border-brand-blue/30 font-bold text-xs uppercase tracking-widest w-fit">
-                                    <BookOpen size={14} /> Meilleure vente
-                                </div>
-                                <h1 className="text-4xl md:text-6xl font-black text-white leading-tight max-w-4xl tracking-tight">
-                                    {formation.title[language]}
-                                </h1>
-                                {ratingStats.total > 0 && (
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <div className="flex items-center gap-1">
-                                            {[1, 2, 3, 4, 5].map((s) => (
-                                                <Star
-                                                    key={s}
-                                                    size={16}
-                                                    className={s <= Math.round(ratingStats.average) ? "fill-brand-green text-brand-green" : "text-slate-400"}
-                                                />
-                                            ))}
-                                        </div>
-                                        <span className="text-white font-bold">{ratingStats.average}</span>
-                                        <span className="text-slate-400 text-sm">({ratingStats.total} avis)</span>
+                                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                                    <div className={`font-bold tabular-nums ${open ? 'text-slate-900' : 'text-slate-500'}`}>
+                                        {new Date(s.start).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })} – {new Date(s.end).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' })}
                                     </div>
+                                    {open ? (
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${full
+                                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                                            : s.seats <= 5
+                                                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                                                : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                            }`}>
+                                            <span className={`h-1.5 w-1.5 rounded-full ${full ? 'bg-rose-500' : s.seats <= 5 ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                            {full ? 'Complet' : <><span className="tabular-nums">{s.seats}</span> {t.sessions.seatsLeft}</>}
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                                            Terminée
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex min-w-0 items-center gap-2 text-sm text-slate-600">
+                                        <Clock size={14} className="shrink-0 text-brand-blue" />
+                                        <span className="truncate">{scheduleLabel(s.schedule)}</span>
+                                    </div>
+                                    {open && !full && (
+                                        <button
+                                            type="button"
+                                            onClick={() => bookSession(s.id)}
+                                            className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-brand-green px-3 text-xs font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-1"
+                                        >
+                                            Réserver <ChevronRight size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+
+            <div className="mt-5 flex items-start gap-3 rounded-xl bg-sky-50 p-4">
+                <AlertCircle size={18} className="mt-0.5 shrink-0 text-sky-700" />
+                <p className="text-xs leading-relaxed text-sky-900">
+                    Remarque : vous pouvez réserver votre place sans acompte et effectuer le paiement plus tard depuis votre espace étudiant.
+                </p>
+            </div>
+        </div>
+    );
+
+    const helpBox = (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+                <h4 className="mb-1 text-lg font-bold text-slate-900">Besoin d&apos;aide ?</h4>
+                <p className="mb-4 text-sm text-slate-600">Parlez à notre conseiller en carrière avant de vous inscrire.</p>
+                <Link
+                    href="/#contact"
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-900 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                >
+                    <MessageSquare size={16} className="text-brand-blue" /> Support WhatsApp
+                </Link>
+            </div>
+    );
+
+    return (
+        <div className="min-h-screen bg-slate-50 pb-28 lg:pb-24">
+            {/* Hero Section */}
+            {/* Explicit hex text colors: the public site runs under data-theme="light", which forces `.text-white` to dark. */}
+            <div className="relative flex min-h-[400px] w-full items-end overflow-hidden bg-[#0b1220] md:min-h-[460px]">
+                {formation.image && (
+                    <img src={formation.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1220] via-[#0b1220cc] to-[#0b122033]" />
+
+                <div className="container relative mx-auto px-4 pt-10 pb-24 sm:px-6 md:pb-28">
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <button
+                            onClick={() => router.back()}
+                            className="mb-6 inline-flex h-10 items-center gap-2 rounded-xl border border-[#ffffff33] bg-[#ffffff1a] px-3.5 text-sm font-semibold text-[#fff] backdrop-blur-md transition-colors hover:bg-[#ffffff33] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fff]"
+                        >
+                            <ArrowLeft size={18} /> {t.common.back}
+                        </button>
+
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-wrap gap-2">
+                                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-brand-green px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-black">
+                                    <BookOpen size={13} /> Meilleure vente
+                                </span>
+                                {formation.category && (
+                                    <span className="inline-flex w-fit items-center rounded-full border border-[#ffffff4d] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#fff]">
+                                        {formation.category}
+                                    </span>
+                                )}
+                                {formation.level && (
+                                    <span className="inline-flex w-fit items-center rounded-full border border-[#ffffff4d] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#fff]">
+                                        {formation.level}
+                                    </span>
                                 )}
                             </div>
-
-                            <div className="flex flex-wrap gap-4 mt-8">
-                                <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/10 px-6 py-3 rounded-2xl text-white">
-                                    <Clock size={20} className="text-brand-green" />
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] uppercase font-bold opacity-60">Durée</span>
-                                        <span className="font-bold">{formation.duration}</span>
+                            <h1 className="max-w-4xl text-3xl font-black leading-tight tracking-tight text-[#fff] md:text-5xl">
+                                {formation.title[language]}
+                            </h1>
+                            {ratingStats.total > 0 && (
+                                <div className="flex items-center gap-2" aria-label={`Note ${ratingStats.average} sur 5, ${ratingStats.total} avis`}>
+                                    <div className="flex items-center gap-0.5">
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <Star
+                                                key={s}
+                                                size={16}
+                                                className={s <= Math.round(ratingStats.average) ? "fill-amber-400 text-amber-400" : "text-[#64748b]"}
+                                            />
+                                        ))}
                                     </div>
+                                    <span className="font-bold tabular-nums text-[#fff]">{ratingStats.average}</span>
+                                    <span className="text-sm text-[#cbd5e1]">({ratingStats.total} avis)</span>
                                 </div>
-                                <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/10 px-6 py-3 rounded-2xl text-white">
-                                    <Award size={20} className="text-brand-green" />
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] uppercase font-bold opacity-60">Formateur</span>
-                                        <span className="font-bold">{formation.instructor || "Ing. Academy"}</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/10 px-6 py-3 rounded-2xl text-white">
-                                    <Tag size={20} className="text-brand-green" />
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] uppercase font-bold opacity-60">Investissement</span>
-                                        <div className="flex items-center gap-2">
-                                            {formation.sold_price ? (
-                                                <>
-                                                    <span className="font-bold text-brand-green">{formation.sold_price} DT</span>
-                                                    <span className="text-xs font-bold opacity-50 line-through">{formation.base_price} DT</span>
-                                                </>
-                                            ) : (
-                                                <span className="font-bold">{formation.base_price} DT</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/10 px-6 py-3 rounded-2xl text-white">
-                                    <Users size={20} className="text-brand-green" />
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] uppercase font-bold opacity-60">Taille de la classe</span>
-                                        <span className="font-bold">12 Personnes</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
+                            )}
+                        </div>
+                    </motion.div>
                 </div>
             </div>
 
-            <div className="container mx-auto px-6 mt-16">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="container relative z-10 mx-auto -mt-16 px-4 sm:px-6 md:-mt-20">
+                {/* Key facts */}
+                <dl className="mb-8 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-lg md:grid-cols-4 md:gap-0 md:divide-x md:divide-slate-200 md:p-0">
+                    {[
+                        { icon: Clock, label: 'Durée', value: formation.duration || '—' },
+                        { icon: Award, label: 'Formateur', value: formation.instructor || 'Ing. Academy' },
+                        { icon: Calendar, label: 'Prochaine session', value: nextSession ? new Date(nextSession.start).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sur demande' },
+                        { icon: Users, label: 'Taille de la classe', value: '12 Personnes' },
+                    ].map(({ icon: Icon, label, value }) => (
+                        <div key={label} className="flex min-w-0 items-center gap-3 md:p-5">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-blue/10 text-brand-blue">
+                                <Icon size={18} />
+                            </div>
+                            <div className="min-w-0">
+                                <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</dt>
+                                <dd className="truncate text-sm font-bold text-slate-900 md:text-base">{value}</dd>
+                            </div>
+                        </div>
+                    ))}
+                </dl>
+
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-10">
                     {/* Left Column: Info */}
-                    <div className="lg:col-span-2 space-y-16">
+                    <div className="space-y-10 lg:col-span-2 md:space-y-12">
                         {/* Summary Card */}
-                        <section className="bg-white dark:bg-slate-800 p-10 rounded-3xl border border-border shadow-2xl shadow-slate-200/50 dark:shadow-none -mt-24 relative z-30">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-8" aria-labelledby="pricing-title">
+                            <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
                                 <div className="max-w-md">
-                                    <div className="flex items-center gap-4 mb-2">
-                                        {formation.sold_price ? (
-                                            <>
-                                                <div className="text-brand-green font-black text-4xl">{formation.sold_price} DT</div>
-                                                <div className="text-slate-400 font-bold text-xl line-through opacity-50">{formation.base_price} DT</div>
-                                            </>
-                                        ) : (
-                                            <div className="text-brand-blue font-black text-4xl">{formation.base_price} DT</div>
-                                        )}
-                                    </div>
-                                    <p className="text-slate-500 font-medium">Les frais complets du cours incluent toutes les taxes et les supports de formation.</p>
+                                    <p id="pricing-title" className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Investissement</p>
+                                    {priceBlock('lg')}
+                                    {formation.sold_price && (
+                                        <span className="mt-2 inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                                            Économisez <span className="mx-1 tabular-nums">{Number(formation.base_price) - Number(formation.sold_price)} DT</span>
+                                        </span>
+                                    )}
+                                    <p className="mt-3 text-sm text-slate-600">Les frais complets du cours incluent toutes les taxes et les supports de formation.</p>
                                 </div>
                                 <button
                                     onClick={() => bookSession()}
-                                    className="btn-primary py-4 px-10 text-lg shadow-xl shadow-brand-blue/20"
+                                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-green px-8 text-base font-bold text-black shadow-lg shadow-brand-green/25 transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 md:w-auto"
                                 >
-                                    Réserver ma place
+                                    Réserver ma place <ChevronRight size={18} />
                                 </button>
                             </div>
-                            <div className="mt-8 pt-8 border-t border-border flex items-center gap-4 text-sm text-slate-400 font-medium">
-                                <ShieldCheck size={18} className="text-brand-green" />
+                            <div className="mt-6 flex items-start gap-3 border-t border-slate-200 pt-5 text-sm text-slate-600">
+                                <ShieldCheck size={18} className="mt-0.5 shrink-0 text-emerald-600" />
                                 <span>Réservation possible sans acompte. Le paiement pourra être effectué plus tard.</span>
                             </div>
                         </section>
 
-                        <section className="space-y-6">
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                                <span className="w-1.5 h-8 bg-brand-blue rounded-full"></span>
+                        {/* Sessions (mobile/tablet: shown early for conversion) */}
+                        <div className="lg:hidden">{sessionsCard}</div>
+
+                        <section className="space-y-4">
+                            <h2 className="flex items-center gap-3 text-xl font-black text-slate-900 md:text-2xl">
+                                <span className="h-6 w-1.5 rounded-full bg-brand-blue"></span>
                                 Aperçu du cours
                             </h2>
                             <div
                                 dir="auto"
-                                className="course-rich-text text-lg text-start text-slate-600 dark:text-slate-400 leading-loose max-w-3xl break-words [unicode-bidi:plaintext] [&_a]:text-brand-blue [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-brand-green [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-black [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-bold [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-7 [&_p]:mb-4 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-7"
+                                className="course-rich-text max-w-3xl break-words text-start text-base leading-relaxed text-slate-700 [unicode-bidi:plaintext] [&_a]:text-brand-blue [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-brand-green [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-slate-900 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-slate-900 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-7 [&_p]:mb-4 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-7 [&_li]:mb-1"
                                 dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(formation.longDesc[language]) }}
                             />
                         </section>
 
                         {formation.learning.length > 0 && (
-                            <section className="space-y-8">
-                                <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                                    <span className="w-1.5 h-8 bg-brand-green rounded-full"></span>
+                            <section className="space-y-4">
+                                <h2 className="flex items-center gap-3 text-xl font-black text-slate-900 md:text-2xl">
+                                    <span className="h-6 w-1.5 rounded-full bg-brand-green"></span>
                                     Programme du cours
+                                    <span className="ml-1 text-sm font-semibold tabular-nums text-slate-500">({formation.learning.length} modules)</span>
                                 </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {formation.learning.map((item: any) => (
-                                        <motion.div
+                                <ol className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                    {formation.learning.map((item: any, idx: number) => (
+                                        <li
                                             key={item.id}
-                                            whileHover={{ x: 5 }}
-                                            className="flex items-center gap-4 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-border group hover:border-brand-blue transition-all shadow-sm"
+                                            className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-blue/40"
                                         >
-                                            <div className="bg-brand-blue/10 p-2 rounded-xl text-brand-blue group-hover:bg-brand-blue group-hover:text-white transition-colors">
-                                                <CheckCircle2 size={24} />
-                                            </div>
+                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-blue/10 text-sm font-black tabular-nums text-brand-blue">
+                                                {idx + 1}
+                                            </span>
                                             <span
                                                 dir="auto"
-                                                className="font-bold text-start text-slate-700 dark:text-slate-300 [unicode-bidi:plaintext]"
+                                                className="pt-1 text-start text-sm font-semibold text-slate-800 [unicode-bidi:plaintext]"
                                             >
                                                 {item.content}
                                             </span>
-                                        </motion.div>
+                                        </li>
                                     ))}
-                                </div>
+                                </ol>
                             </section>
                         )}
 
-                        <section className="space-y-8 bg-brand-blue/5 dark:bg-brand-blue/10 p-10 rounded-3xl border border-brand-blue/10">
-                            <h2 className="text-3xl font-black text-brand-blue">Avantages inclus</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <div className="space-y-4 p-6 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl">
-                                    <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500 w-fit"><ShieldCheck size={32} /></div>
-                                    <h4 className="font-black text-lg">Diplôme officiel</h4>
-                                    <p className="text-sm text-slate-500">Certificat reconnu pour lancer votre propre activité.</p>
+                        <section className="space-y-6 rounded-2xl border border-brand-blue/15 bg-brand-blue/5 p-5 md:p-8">
+                            <h2 className="text-xl font-black text-slate-900 md:text-2xl">Avantages inclus</h2>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
+                                    <div className="w-fit rounded-xl bg-sky-50 p-2.5 text-sky-700"><ShieldCheck size={24} /></div>
+                                    <h3 className="font-bold text-slate-900">Diplôme officiel</h3>
+                                    <p className="text-sm text-slate-600">Certificat reconnu pour lancer votre propre activité.</p>
                                 </div>
-                                <div className="space-y-4 p-6 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl">
-                                    <div className="p-3 bg-green-500/10 rounded-xl text-green-500 w-fit"><Users size={32} /></div>
-                                    <h4 className="font-black text-lg">Ateliers quotidiens</h4>
-                                    <p className="text-sm text-slate-500">90 % d’apprentissage pratique dans nos ateliers modernes.</p>
+                                <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
+                                    <div className="w-fit rounded-xl bg-emerald-50 p-2.5 text-emerald-700"><Users size={24} /></div>
+                                    <h3 className="font-bold text-slate-900">Ateliers quotidiens</h3>
+                                    <p className="text-sm text-slate-600">90 % d’apprentissage pratique dans nos ateliers modernes.</p>
                                 </div>
-                                <div className="space-y-4 p-6 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl">
-                                    <div className="p-3 bg-orange-500/10 rounded-xl text-orange-500 w-fit"><Award size={32} /></div>
-                                    <h4 className="font-black text-lg">Accompagnement professionnel</h4>
-                                    <p className="text-sm text-slate-500">Aide à l’emploi et accès permanent à notre communauté.</p>
+                                <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
+                                    <div className="w-fit rounded-xl bg-orange-50 p-2.5 text-orange-700"><Award size={24} /></div>
+                                    <h3 className="font-bold text-slate-900">Accompagnement professionnel</h3>
+                                    <p className="text-sm text-slate-600">Aide à l’emploi et accès permanent à notre communauté.</p>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-8 border-t border-brand-blue/10">
-                                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400 font-bold">
-                                    <CheckCircle className="text-brand-green" size={20} />
+                            <ul className="grid grid-cols-1 gap-3 border-t border-brand-blue/15 pt-5 md:grid-cols-2">
+                                <li className="flex items-center gap-3 text-sm font-semibold text-slate-800">
+                                    <CheckCircle className="shrink-0 text-emerald-600" size={18} />
                                     <span>Boîte à outils offerte à chaque étudiant</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400 font-bold">
-                                    <CheckCircle className="text-brand-green" size={20} />
+                                </li>
+                                <li className="flex items-center gap-3 text-sm font-semibold text-slate-800">
+                                    <CheckCircle className="shrink-0 text-emerald-600" size={18} />
                                     <span>Utilisation de matériel de diagnostic moderne</span>
-                                </div>
-                            </div>
+                                </li>
+                            </ul>
                         </section>
 
                         {/* Ratings & Reviews Section */}
-                        <section className="space-y-10">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                                    <span className="w-1.5 h-8 bg-amber-500 rounded-full"></span>
+                        <section className="space-y-6">
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                <h2 className="flex items-center gap-3 text-xl font-black text-slate-900 md:text-2xl">
+                                    <span className="h-6 w-1.5 rounded-full bg-amber-500"></span>
                                     Avis des étudiants
                                 </h2>
                                 {ratingStats.total > 0 && (
-                                    <div className="flex items-center gap-4 bg-white dark:bg-slate-900 px-6 py-3 rounded-2xl border border-border">
-                                        <div className="text-3xl font-black text-slate-900 dark:text-white">{ratingStats.average}</div>
+                                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2">
+                                        <div className="text-2xl font-black tabular-nums text-slate-900">{ratingStats.average}</div>
                                         <div className="flex flex-col">
                                             <div className="flex gap-0.5">
                                                 {[1, 2, 3, 4, 5].map((s) => (
-                                                    <Star key={s} size={12} className={s <= Math.round(ratingStats.average) ? "fill-amber-500 text-amber-500" : "text-slate-300"} />
+                                                    <Star key={s} size={13} className={s <= Math.round(ratingStats.average) ? "fill-amber-500 text-amber-500" : "text-[#cbd5e1]"} />
                                                 ))}
                                             </div>
-                                            <span className="text-[10px] uppercase font-bold text-slate-400">{ratingStats.total} avis</span>
+                                            <span className="text-xs font-semibold text-slate-600">{ratingStats.total} avis</span>
                                         </div>
                                     </div>
                                 )}
@@ -431,47 +538,58 @@ export default function FormationDetail() {
 
                             {userId ? (
                                 isEnrolled ? (
-                                    <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-border space-y-6 shadow-sm">
-                                        <h4 className="font-bold text-lg">Laisser un avis</h4>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-sm font-medium text-slate-500 italic">Votre note :</span>
-                                            <div className="flex gap-2">
+                                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+                                        <h3 className="text-lg font-bold text-slate-900">Laisser un avis</h3>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <span id="rating-label" className="text-sm font-semibold text-slate-700">Votre note :</span>
+                                            <div className="flex gap-1" role="radiogroup" aria-labelledby="rating-label">
                                                 {[1, 2, 3, 4, 5].map((s) => (
                                                     <button
                                                         key={s}
+                                                        type="button"
+                                                        role="radio"
+                                                        aria-checked={userRating.rating === s}
+                                                        aria-label={`${s} sur 5`}
+                                                        title={`${s} sur 5`}
                                                         onClick={() => setUserRating(prev => ({ ...prev, rating: s }))}
-                                                        className="transition-transform hover:scale-125 focus:outline-none"
+                                                        className="flex h-10 w-10 items-center justify-center rounded-lg transition hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                                                     >
                                                         <Star
-                                                            size={28}
-                                                            className={s <= userRating.rating ? "fill-amber-500 text-amber-500" : "text-slate-300 dark:text-slate-600"}
+                                                            size={26}
+                                                            className={s <= userRating.rating ? "fill-amber-500 text-amber-500" : "text-[#cbd5e1]"}
                                                         />
                                                     </button>
                                                 ))}
                                             </div>
                                         </div>
-                                        <textarea
-                                            placeholder="Partagez votre expérience avec cette formation (optionnel)..."
-                                            value={userRating.comment}
-                                            onChange={(e) => setUserRating(prev => ({ ...prev, comment: e.target.value }))}
-                                            className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand-blue outline-none min-h-[100px] text-slate-900"
-                                        />
+                                        <div>
+                                            <label htmlFor="rating-comment" className="mb-1.5 block text-sm font-semibold text-slate-900">Commentaire <span className="font-normal text-slate-500">(optionnel)</span></label>
+                                            <textarea
+                                                id="rating-comment"
+                                                placeholder="Partagez votre expérience avec cette formation..."
+                                                value={userRating.comment}
+                                                onChange={(e) => setUserRating(prev => ({ ...prev, comment: e.target.value }))}
+                                                className="min-h-[100px] w-full rounded-xl border border-slate-200 bg-white p-3.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-green focus:outline-none focus:ring-2 focus:ring-brand-green/20"
+                                            />
+                                        </div>
                                         <button
                                             onClick={submitRating}
                                             disabled={submittingRating || userRating.rating === 0}
-                                            className="btn-primary py-3 px-8 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title={userRating.rating === 0 ? 'Choisissez une note pour publier votre avis' : undefined}
+                                            className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-green px-6 text-sm font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {submittingRating ? "Envoi..." : "Publier mon avis"}
                                         </button>
+                                        {userRating.rating === 0 && (
+                                            <p className="text-xs text-slate-500">Sélectionnez une note de 1 à 5 étoiles pour publier.</p>
+                                        )}
                                     </div>
                                 ) : (
-                                    <div className="bg-amber-50 dark:bg-amber-900/20 p-8 rounded-3xl border border-amber-200 dark:border-amber-800/30 flex items-start gap-4 shadow-sm">
-                                        <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl text-amber-500 shadow-sm">
-                                            <AlertCircle size={24} />
-                                        </div>
+                                    <div className="flex items-start gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                                        <AlertCircle size={22} className="mt-0.5 shrink-0 text-amber-700" />
                                         <div className="space-y-1">
-                                            <h4 className="font-bold text-amber-900 dark:text-amber-400">Avis réservé aux inscrits</h4>
-                                            <p className="text-sm text-amber-800 dark:text-amber-500/80 leading-relaxed font-medium">
+                                            <h3 className="font-bold text-amber-900">Avis réservé aux inscrits</h3>
+                                            <p className="text-sm leading-relaxed text-amber-900/80">
                                                 Vous devez avoir validé votre inscription à cette formation pour pouvoir laisser un avis et partager votre expérience.
                                             </p>
                                         </div>
@@ -480,104 +598,86 @@ export default function FormationDetail() {
                             ) : null}
 
                             {ratings.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     {ratings.map((r, i) => (
-                                        <div key={i} className="bg-white dark:bg-slate-900 border border-border rounded-2xl p-6 space-y-4">
-                                            <div className="flex justify-between items-start">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-500 uppercase">
+                                        <div key={i} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex min-w-0 items-center gap-3">
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold uppercase text-slate-700">
                                                         {r.profiles?.full_name?.charAt(0) || 'E'}
                                                     </div>
-                                                    <div>
-                                                        <div className="font-bold text-sm">{r.profiles?.full_name || 'Étudiant'}</div>
-                                                        <div className="text-[10px] text-slate-400 font-medium">Posté le {new Date(r.created_at).toLocaleDateString()}</div>
+                                                    <div className="min-w-0">
+                                                        <div className="truncate text-sm font-bold text-slate-900">{r.profiles?.full_name || 'Étudiant'}</div>
+                                                        <div className="text-xs tabular-nums text-slate-500">Posté le {new Date(r.created_at).toLocaleDateString('fr-FR')}</div>
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-0.5">
+                                                <div className="flex shrink-0 gap-0.5" aria-label={`${r.rating} sur 5`}>
                                                     {[1, 2, 3, 4, 5].map((s) => (
-                                                        <Star key={s} size={12} className={s <= r.rating ? "fill-amber-500 text-amber-500" : "text-slate-200 dark:text-slate-700"} />
+                                                        <Star key={s} size={13} className={s <= r.rating ? "fill-amber-500 text-amber-500" : "text-[#cbd5e1]"} />
                                                     ))}
                                                 </div>
                                             </div>
                                             {r.comment && (
-                                                <p className="text-sm text-slate-600 dark:text-slate-400 italic leading-relaxed">
-                                                    "{r.comment}"
+                                                <p className="text-sm leading-relaxed text-slate-700">
+                                                    “{r.comment}”
                                                 </p>
                                             )}
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-center py-10 bg-slate-100/50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-border">
-                                    <MessageSquare size={32} className="mx-auto mb-4 text-slate-300" />
-                                    <p className="text-slate-500 font-bold text-sm italic">Soyez le premier à donner votre avis !</p>
+                                <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-10 text-center">
+                                    <MessageSquare size={32} className="mx-auto mb-3 text-[#cbd5e1]" />
+                                    <p className="text-sm font-semibold text-slate-700">Soyez le premier à donner votre avis !</p>
                                 </div>
                             )}
                         </section>
+
+                        <div className="lg:hidden">{helpBox}</div>
                     </div>
 
-                    {/* Right Column: Sessions Sidebar */}
-                    <div className="lg:col-span-1">
-                        <div className="sticky top-32 space-y-8">
-                            <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-border shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden relative group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-blue/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-
-                                <h3 className="text-2xl font-black mb-8 relative z-10">Toutes les sessions</h3>
-                                <div className="space-y-6 relative z-10">
-                                    {formation.sessions.map((s: any, i: number) => (
-                                        <div
-                                            key={i}
-                                            className="p-6 border border-border rounded-2xl hover:border-brand-blue/50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all group/item"
-                                        >
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="font-black text-slate-900 dark:text-white group-hover/item:text-brand-blue transition-colors">
-                                                    {new Date(s.start).toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', { month: 'short', day: 'numeric' })} - {new Date(s.end).toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                </div>
-                                                <div className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${s.seats <= 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                                    {s.seats} {t.sessions.seatsLeft}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="text-xs font-bold text-slate-400 flex items-center gap-2">
-                                                    <Calendar size={14} className="text-brand-green" /> {(() => {
-                                                        try {
-                                                            const p = JSON.parse(s.schedule);
-                                                            return p.label || s.schedule;
-                                                        } catch (e) { return s.schedule; }
-                                                    })()}
-                                                </div>
-                                                <div className={`text-xs font-bold px-3 py-1 rounded-lg ${new Date(s.start) < new Date() ? 'bg-slate-100 text-slate-500' : 'bg-brand-blue/10 text-brand-blue'}`}>
-                                                    {new Date(s.start) < new Date() ? 'Terminée' : 'Ouverte'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="mt-8 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-border flex items-start gap-4">
-                                    <AlertCircle size={20} className="text-brand-blue shrink-0 mt-0.5" />
-                                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                                        Remarque : vous pouvez réserver votre place sans acompte et effectuer le paiement plus tard depuis votre espace étudiant.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Help Box */}
-                            <div className="bg-slate-900 text-white p-8 rounded-3xl relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
-                                    <svg viewBox="0 0 100 100" className="w-full h-full"><circle cx="80" cy="20" r="40" fill="currentColor" /></svg>
-                                </div>
-                                <h4 className="text-lg font-bold mb-4 relative z-10">Besoin d'aide?</h4>
-                                <p className="text-sm text-slate-400 mb-6 relative z-10 font-medium">Parlez à notre conseiller en carrière avant de vous inscrire.</p>
-                                <Link
-                                    href="/#contact"
-                                    className="block w-full text-center py-3 bg-white text-slate-900 font-black rounded-2xl hover:bg-brand-green hover:text-white transition-colors relative z-10"
+                    {/* Right Column: Sessions Sidebar (desktop) */}
+                    <aside className="hidden lg:col-span-1 lg:block">
+                        <div className="sticky top-32 space-y-6">
+                            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+                                <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Prix de la formation</p>
+                                {priceBlock('lg')}
+                                <button
+                                    onClick={() => bookSession()}
+                                    className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-green px-6 text-base font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
                                 >
-                                    Support WhatsApp
-                                </Link>
+                                    Réserver ma place <ChevronRight size={18} />
+                                </button>
+                                <p className="mt-3 flex items-center gap-2 text-xs text-slate-600">
+                                    <ShieldCheck size={14} className="shrink-0 text-emerald-600" /> Sans acompte · paiement plus tard
+                                </p>
                             </div>
+
+                            {sessionsCard}
+
+                            {helpBox}
                         </div>
+                    </aside>
+                </div>
+            </div>
+
+            {/* Sticky booking bar (mobile/tablet) */}
+            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+                <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            {nextSession
+                                ? `Prochaine session · ${new Date(nextSession.start).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })}`
+                                : 'Prix de la formation'}
+                        </p>
+                        {priceBlock('sm')}
                     </div>
+                    <button
+                        onClick={() => bookSession()}
+                        className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-brand-green px-5 text-sm font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+                    >
+                        Réserver <ChevronRight size={16} />
+                    </button>
                 </div>
             </div>
         </div>

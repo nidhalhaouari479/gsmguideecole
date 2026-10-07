@@ -2,10 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-    Settings,
-    Globe,
     Shield,
-    Bell,
     CreditCard,
     Save,
     Building,
@@ -16,19 +13,30 @@ import {
     Eye,
     EyeOff,
     CheckCircle,
-    Loader2,
     AlertTriangle,
-    Database,
     Fingerprint,
     Server,
-    Cpu
+    Landmark,
+    KeyRound
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Button, Card, CardHeader, Field, PageHeader, cn, inputClass } from '@/components/admin/ui';
+
+const iconInputClassName = `${inputClass} pl-9`;
+
+function IconInput({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+    return (
+        <div className="relative">
+            <Icon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            {children}
+        </div>
+    );
+}
 
 export default function SettingsAdminPage() {
     const [activeTab, setActiveTab] = useState<'general' | 'payments' | 'security'>('general');
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [showPasswords, setShowPasswords] = useState(false);
 
     const handleSave = () => {
         setSaving(true);
@@ -41,202 +49,220 @@ export default function SettingsAdminPage() {
     };
 
     const tabs = [
-        { id: 'general', label: 'SYSTÈME GÉNÉRAL', icon: Server },
-        { id: 'payments', label: 'PARAMÈTRES FINANCIERS', icon: CreditCard },
-        { id: 'security', label: 'CONTRÔLE DES ACCÈS', icon: Fingerprint },
+        { id: 'general', label: 'Système général', description: 'Identité et coordonnées', icon: Server },
+        { id: 'payments', label: 'Paramètres financiers', description: 'Virements et montants', icon: CreditCard },
+        { id: 'security', label: 'Contrôle des accès', description: 'Mot de passe et accès', icon: Fingerprint },
+    ];
+
+    const systemStatus = [
+        { label: 'Réseau', value: 'Optimisé' },
+        { label: 'Base de données', value: 'Connecté' },
+        { label: 'Chiffrement', value: 'AES-256' },
     ];
 
     return (
-        <div className="max-w-[1600px] mx-auto space-y-6 md:space-y-12 pb-6 md:pb-32 font-sans">
-            {/* Command Header */}
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-8 pb-4 md:pb-8 border-b border-white/5">
-                <div>
-                    <div className="flex items-center gap-3 text-brand-green text-[10px] font-black uppercase tracking-[0.4em] mb-2 md:mb-4">
-                        <div className="w-10 h-[1px] bg-gradient-to-r from-brand-green to-transparent" />
-                        CONFIGURATION DU SYSTÈME
-                    </div>
-                    <h1 className="text-3xl md:text-5xl font-black text-white tracking-tighter">Paramètres <span className="text-slate-500">du système</span></h1>
-                    <p className="text-slate-500 text-xs md:text-sm font-bold mt-2 uppercase tracking-widest">Variables générales et directives de sécurité</p>
-                </div>
+        <div className="mx-auto max-w-6xl space-y-6 pb-6 md:pb-12">
+            <PageHeader
+                title="Paramètres du système"
+                description="Variables générales de l’académie et directives de sécurité."
+                actions={
+                    <Button
+                        variant={success ? 'secondary' : 'primary'}
+                        icon={success ? CheckCircle : Save}
+                        loading={saving}
+                        onClick={handleSave}
+                        aria-live="polite"
+                        className={cn('max-md:w-full', success && 'text-emerald-700')}
+                    >
+                        {saving ? 'Enregistrement…' : success ? 'Données enregistrées' : 'Enregistrer'}
+                    </Button>
+                }
+            />
 
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="btn-command flex items-center justify-center gap-3 w-full md:w-auto min-h-12 md:min-h-0"
-                >
-                    {saving ? <Loader2 className="animate-spin" size={18} strokeWidth={3} /> : success ? <CheckCircle size={18} strokeWidth={3} className="text-brand-green" /> : <Save size={18} strokeWidth={3} />}
-                    {success ? 'DONNÉES ENREGISTRÉES' : 'ENREGISTRER'}
-                </button>
-            </header>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                {/* Section navigation */}
+                <aside className="space-y-4 lg:sticky lg:top-4 lg:w-64 lg:shrink-0">
+                    <nav
+                        aria-label="Sections des paramètres"
+                        className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-col lg:overflow-visible"
+                    >
+                        {tabs.map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => setActiveTab(tab.id as any)}
+                                    aria-current={isActive ? 'page' : undefined}
+                                    className={cn(
+                                        'flex min-h-10 shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40 lg:w-full',
+                                        isActive
+                                            ? 'bg-white font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200'
+                                            : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                    )}
+                                >
+                                    <Icon size={16} className={isActive ? 'text-slate-700' : 'text-slate-400'} />
+                                    <span className="min-w-0">
+                                        <span className="block whitespace-nowrap">{tab.label}</span>
+                                        <span className="hidden text-xs font-normal text-slate-500 lg:block">{tab.description}</span>
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </nav>
 
-            <div className="flex flex-col lg:flex-row gap-4 md:gap-12">
-                {/* Navigation Tabs - Command Matrix Style */}
-                <aside className="lg:w-80 flex flex-nowrap gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:block md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:space-y-3">
-                    {tabs.map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
-                                className={`shrink-0 whitespace-nowrap md:whitespace-normal md:w-full flex items-center gap-3 md:gap-4 px-4 py-3 min-h-11 md:min-h-0 md:px-6 md:py-5 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.2em] transition-all relative overflow-hidden ${isActive
-                                    ? 'bg-slate-900 border border-brand-green/30 text-white shadow-[0_0_30px_rgba(161,184,62,0.1)]'
-                                    : 'bg-slate-950/50 border border-white/5 text-slate-500 hover:text-slate-300 hover:bg-slate-900 group'
-                                    }`}
-                            >
-                                {isActive && (
-                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-green shadow-[0_0_15px_rgba(161,184,62,0.8)]" />
-                                )}
-                                <Icon size={20} className={isActive ? 'text-brand-green' : 'group-hover:text-slate-400'} strokeWidth={isActive ? 2.5 : 2} />
-                                {tab.label}
-                                {isActive && (
-                                    <div className="ml-auto w-2 h-2 rounded-full bg-brand-green animate-pulse shadow-[0_0_10px_rgba(161,184,62,0.8)]" />
-                                )}
-                            </button>
-                        );
-                    })}
-
-                    <div className="hidden md:block mt-8 p-6 glass-effect-dark border border-brand-blue/20 rounded-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-5">
-                            <Cpu size={80} />
-                        </div>
-                        <div className="flex items-center gap-2 text-brand-blue text-[9px] font-black uppercase tracking-widest mb-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-brand-blue animate-pulse" />
-                            État du système
-                        </div>
-                        <div className="space-y-2 relative z-10">
-                            <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <span>Network</span>
-                                <span className="text-brand-green">Optimisé</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <span>Base de données</span>
-                                <span className="text-brand-green">Connecté</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <span>Chiffrement</span>
-                                <span className="text-brand-blue">AES-256</span>
-                            </div>
-                        </div>
-                    </div>
+                    <Card className="hidden lg:block">
+                        <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" /> État du système
+                        </p>
+                        <dl className="mt-3 space-y-2">
+                            {systemStatus.map((item) => (
+                                <div key={item.label} className="flex items-center justify-between gap-3 text-sm">
+                                    <dt className="text-slate-500">{item.label}</dt>
+                                    <dd className="font-medium text-slate-900">{item.value}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </Card>
                 </aside>
 
-                {/* Content Area - Command Card */}
-                <div className="flex-1">
-                    <motion.div
-                        key={activeTab}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="command-card bg-slate-900/40 border border-white/5 p-4 sm:p-6 md:p-12 md:min-h-[600px] rounded-2xl md:rounded-none"
-                    >
-                        {activeTab === 'general' && (
-                            <div className="space-y-6 md:space-y-10">
-                                <div className="border-b border-white/5 pb-4 md:pb-8 mb-6 md:mb-10">
-                                    <h3 className="text-xl md:text-2xl font-black text-white mb-2 tracking-tight">Identité de l’académie</h3>
-                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Informations publiques de l’établissement.</p>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <Building size={12} className="text-brand-green" /> Nom de l’établissement
-                                        </label>
-                                        <div className="relative group">
-                                            <input type="text" defaultValue="GSM Guide Academy" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <Mail size={12} className="text-brand-green" /> Adresse e-mail principale
-                                        </label>
-                                        <div className="relative group">
-                                            <input type="email" defaultValue="Gsmguideacademy@gmail.com" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-brand-blue focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <Phone size={12} className="text-brand-blue" /> Numéro de téléphone
-                                        </label>
-                                        <div className="relative group">
-                                            <input type="tel" defaultValue="+216 71 000 000" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-blue/50 focus:ring-4 focus:ring-brand-blue/10 transition-all uppercase tracking-wider" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <MapPin size={12} className="text-brand-green" /> Adresse physique
-                                        </label>
-                                        <div className="relative group">
-                                            <input type="text" defaultValue="Tunis, Tunisie" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
-                                        </div>
-                                    </div>
-                                </div>
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                    {activeTab === 'general' && (
+                        <Card padded={false}>
+                            <CardHeader
+                                title="Identité de l’académie"
+                                description="Informations publiques de l’établissement."
+                                className="border-b border-slate-200 p-5"
+                            />
+                            <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
+                                <Field label="Nom de l’établissement" htmlFor="settings-name">
+                                    <IconInput icon={Building}>
+                                        <input id="settings-name" type="text" defaultValue="GSM Guide Academy" className={iconInputClassName} />
+                                    </IconInput>
+                                </Field>
+                                <Field label="Adresse e-mail principale" htmlFor="settings-email" hint="Adresse utilisée pour les communications officielles.">
+                                    <IconInput icon={Mail}>
+                                        <input id="settings-email" type="email" defaultValue="Gsmguideacademy@gmail.com" className={iconInputClassName} />
+                                    </IconInput>
+                                </Field>
+                                <Field label="Numéro de téléphone" htmlFor="settings-phone">
+                                    <IconInput icon={Phone}>
+                                        <input id="settings-phone" type="tel" defaultValue="+216 71 000 000" className={`${iconInputClassName} tabular-nums`} />
+                                    </IconInput>
+                                </Field>
+                                <Field label="Adresse physique" htmlFor="settings-address">
+                                    <IconInput icon={MapPin}>
+                                        <input id="settings-address" type="text" defaultValue="Tunis, Tunisie" className={iconInputClassName} />
+                                    </IconInput>
+                                </Field>
                             </div>
-                        )}
+                        </Card>
+                    )}
 
-                        {activeTab === 'payments' && (
-                            <div className="space-y-6 md:space-y-10">
-                                <div className="border-b border-white/5 pb-4 md:pb-8 mb-6 md:mb-10">
-                                    <h3 className="text-xl md:text-2xl font-black text-white mb-2 tracking-tight">Coordonnées financières</h3>
-                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Paramètres utilisés pour les virements.</p>
-                                </div>
-
-                                <div className="p-4 md:p-6 bg-brand-neon/5 border border-brand-neon/20 rounded-2xl flex gap-4 md:gap-6 text-brand-neon mb-6 md:mb-10 items-start shadow-[0_0_20px_rgba(244,63,94,0.05)]">
-                                    <AlertTriangle className="shrink-0 mt-1" size={24} />
+                    {activeTab === 'payments' && (
+                        <Card padded={false}>
+                            <CardHeader
+                                title="Coordonnées financières"
+                                description="Paramètres utilisés pour les virements."
+                                className="border-b border-slate-200 p-5"
+                            />
+                            <div className="space-y-5 p-5">
+                                <div role="note" className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3.5 text-amber-800">
+                                    <AlertTriangle className="mt-0.5 shrink-0 text-amber-600" size={16} />
                                     <div>
-                                        <h4 className="text-sm font-black uppercase tracking-widest mb-1">Paramètre sensible</h4>
-                                        <p className="text-[10px] font-bold uppercase tracking-wide leading-relaxed opacity-80">
+                                        <p className="text-sm font-semibold">Paramètre sensible</p>
+                                        <p className="mt-0.5 text-sm">
                                             Vérifiez attentivement les coordonnées bancaires. Une configuration incorrecte entraînera des échecs de transaction.
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="space-y-6 md:space-y-8 max-w-2xl">
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Établissement bancaire</label>
-                                        <input type="text" defaultValue="BIAT Tunisie" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-wider" />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Numéro de compte (RIB)</label>
-                                        <input type="text" defaultValue="08 000 00000000000 00" className="w-full px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-brand-green/20 rounded-2xl font-black text-lg md:text-xl tracking-[0.15em] md:tracking-[0.3em] text-brand-green focus:outline-none focus:border-brand-green focus:ring-4 focus:ring-brand-green/20 transition-all placeholder:tracking-normal shadow-inner" />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Montant minimal autorisé (DT)</label>
-                                        <input type="number" defaultValue="200" className="w-48 px-4 py-4 md:px-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all tabular-nums text-xl" />
-                                    </div>
+                                <div className="grid max-w-2xl grid-cols-1 gap-4">
+                                    <Field label="Établissement bancaire" htmlFor="settings-bank">
+                                        <IconInput icon={Landmark}>
+                                            <input id="settings-bank" type="text" defaultValue="BIAT Tunisie" className={iconInputClassName} />
+                                        </IconInput>
+                                    </Field>
+                                    <Field label="Numéro de compte (RIB)" htmlFor="settings-rib" hint="20 chiffres, tel qu’il figure sur votre relevé d’identité bancaire.">
+                                        <input
+                                            id="settings-rib"
+                                            type="text"
+                                            inputMode="numeric"
+                                            defaultValue="08 000 00000000000 00"
+                                            className={`${inputClass} font-mono tabular-nums`}
+                                        />
+                                    </Field>
+                                    <Field label="Montant minimal autorisé" htmlFor="settings-min-amount" hint="Montant minimum accepté pour un versement.">
+                                        <div className="relative w-full sm:w-56">
+                                            <input
+                                                id="settings-min-amount"
+                                                type="number"
+                                                defaultValue="200"
+                                                className={`${inputClass} pr-12 tabular-nums`}
+                                            />
+                                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">DT</span>
+                                        </div>
+                                    </Field>
                                 </div>
                             </div>
-                        )}
+                        </Card>
+                    )}
 
-                        {activeTab === 'security' && (
-                            <div className="space-y-6 md:space-y-10">
-                                <div className="border-b border-white/5 pb-4 md:pb-8 mb-6 md:mb-10">
-                                    <h3 className="text-xl md:text-2xl font-black text-white mb-2 tracking-tight">Paramètres de sécurité</h3>
-                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Gérer les identifiants d’accès principaux.</p>
-                                </div>
-
-                                <div className="space-y-6 md:space-y-8 max-w-lg">
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Mot de passe actuel</label>
-                                        <div className="relative group">
-                                            <Lock className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-blue transition-colors" size={18} />
-                                            <input type="password" placeholder="••••••••••••" className="w-full pl-12 pr-4 py-4 md:pl-16 md:pr-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-blue/50 focus:ring-4 focus:ring-brand-blue/10 transition-all tracking-[0.3em]" />
-                                        </div>
+                    {activeTab === 'security' && (
+                        <Card padded={false} className="overflow-hidden">
+                            <CardHeader
+                                title="Paramètres de sécurité"
+                                description="Gérer les identifiants d’accès principaux."
+                                className="border-b border-slate-200 p-5"
+                            />
+                            <div className="max-w-lg space-y-4 p-5">
+                                <Field label="Mot de passe actuel" htmlFor="settings-current-password">
+                                    <div className="relative">
+                                        <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            id="settings-current-password"
+                                            type={showPasswords ? 'text' : 'password'}
+                                            autoComplete="current-password"
+                                            placeholder="••••••••••••"
+                                            className={`${iconInputClassName} pr-11`}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPasswords((value) => !value)}
+                                            aria-label={showPasswords ? 'Masquer les mots de passe' : 'Afficher les mots de passe'}
+                                            title={showPasswords ? 'Masquer les mots de passe' : 'Afficher les mots de passe'}
+                                            className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                        >
+                                            {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        </button>
                                     </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Nouveau mot de passe</label>
-                                        <div className="relative group">
-                                            <Shield className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-green transition-colors" size={18} />
-                                            <input type="password" placeholder="12 CARACTÈRES MINIMUM" className="w-full pl-12 pr-4 py-4 md:pl-16 md:pr-6 md:py-5 bg-slate-950/80 border border-white/5 rounded-2xl font-black text-white focus:outline-none focus:border-brand-green/50 focus:ring-4 focus:ring-brand-green/10 transition-all uppercase tracking-widest text-base md:text-xs" />
-                                        </div>
-                                    </div>
-                                    <div className="pt-6 flex flex-col sm:flex-row gap-4 border-t border-white/5">
-                                        <button className="flex-1 py-5 bg-slate-950 border border-brand-neon/30 text-brand-neon rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-brand-neon/10 transition-all shadow-[0_0_15px_rgba(244,63,94,0.1)]">Mettre à jour le mot de passe</button>
-                                        <button className="flex-1 py-5 bg-slate-950 border border-rose-500/20 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-rose-500/10 transition-all">Révoquer les accès</button>
-                                    </div>
-                                </div>
+                                </Field>
+                                <Field label="Nouveau mot de passe" htmlFor="settings-new-password">
+                                    <IconInput icon={Shield}>
+                                        <input
+                                            id="settings-new-password"
+                                            type={showPasswords ? 'text' : 'password'}
+                                            autoComplete="new-password"
+                                            placeholder="12 caractères minimum"
+                                            aria-describedby="settings-new-password-help"
+                                            className={iconInputClassName}
+                                        />
+                                    </IconInput>
+                                    <p id="settings-new-password-help" className="text-xs text-slate-500">Utilisez au moins 12 caractères, avec chiffres et symboles.</p>
+                                </Field>
                             </div>
-                        )}
-                    </motion.div>
+                            <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50/60 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                <Button variant="secondary" icon={KeyRound}>
+                                    Mettre à jour le mot de passe
+                                </Button>
+                                <Button variant="ghost" icon={Shield} className="text-rose-600 hover:bg-rose-50 hover:text-rose-700">
+                                    Révoquer les accès
+                                </Button>
+                            </div>
+                        </Card>
+                    )}
                 </div>
             </div>
         </div>

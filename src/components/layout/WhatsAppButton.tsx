@@ -14,6 +14,9 @@ const WhatsAppButton = () => {
         return null;
     }
 
+    // Formation detail pages have a sticky booking bar on mobile: lift the button above it.
+    const hasMobileStickyBar = /^\/formations\/[^/]+$/.test(pathname || '');
+
     return (
         <motion.a
             href={`https://wa.me/${phoneNumber}`}
@@ -22,15 +25,17 @@ const WhatsAppButton = () => {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1, type: "spring", stiffness: 260, damping: 20 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="fixed bottom-6 right-6 z-[100] flex items-center justify-center w-14 h-14 bg-[#25D366] text-white rounded-full shadow-[0_4px_14px_0_rgba(37,211,102,0.39)] hover:shadow-[0_6px_20px_rgba(37,211,102,0.23)] transition-shadow duration-200"
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.94 }}
+            className={`fixed right-4 md:right-6 z-40 flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-[#25D366] text-[#fff] shadow-[0_4px_14px_0_rgba(37,211,102,0.39)] transition-shadow duration-200 hover:shadow-[0_6px_20px_rgba(37,211,102,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 ${hasMobileStickyBar ? 'bottom-24 lg:bottom-6' : 'bottom-[max(1rem,env(safe-area-inset-bottom))] md:bottom-6'}`}
             aria-label="Contactez-nous sur WhatsApp"
+            title="Contactez-nous sur WhatsApp"
         >
             <svg
                 viewBox="0 0 24 24"
-                width="28"
-                height="28"
+                width="26"
+                height="26"
+                aria-hidden="true"
                 fill="currentColor"
                 xmlns="http://www.w3.org/2000/svg"
             >

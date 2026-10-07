@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useLanguage } from '@/context/LanguageContext';
-import { Clock, Tag, ChevronRight, Search, Star } from 'lucide-react';
+import { Clock, Tag, ChevronRight, Search, Star, ArrowRight, BookOpen, SearchX } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -87,186 +87,244 @@ export default function FormationsPage() {
         fetchFormations();
     }, []);
 
+    // ---- UI-only filtering (category chips + search); does not touch fetched data ----
+    const [activeFilter, setActiveFilter] = React.useState<'Toutes' | 'Matériel' | 'Logiciel' | 'Avancé'>('Toutes');
+    const [query, setQuery] = React.useState('');
+
+    const visibleFormations = React.useMemo(() => {
+        const q = query.trim().toLowerCase();
+        return formations.filter((f) => {
+            if (activeFilter === 'Matériel' || activeFilter === 'Logiciel') {
+                if (f.category !== activeFilter) return false;
+            } else if (activeFilter === 'Avancé') {
+                if (!String(f.level || '').toLowerCase().includes('avanc') && !String(f.level || '').toLowerCase().includes('advanced')) return false;
+            }
+            if (!q) return true;
+            return [f.title?.fr, f.title?.en, f.category, f.instructor]
+                .filter(Boolean)
+                .some((v: string) => String(v).toLowerCase().includes(q));
+        });
+    }, [formations, activeFilter, query]);
+
     return (
-        <div className="pb-32 bg-slate-50 dark:bg-slate-950 min-h-screen">
-            {/* Header - Light Theme as requested */}
-            <section className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white py-32 relative overflow-hidden border-b border-border">
-                <div className="absolute top-0 right-0 w-1/2 h-full">
-                    <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,var(--color-brand-green),transparent_70%)] opacity-10" />
+        <div className="min-h-screen bg-slate-50 pb-20 md:pb-28">
+            {/* Header */}
+            <section className="relative overflow-hidden border-b border-slate-200 bg-white py-10 md:py-16">
+                <div aria-hidden="true" className="pointer-events-none absolute top-0 right-0 h-full w-1/2">
+                    <div className="absolute top-0 right-0 h-full w-full bg-[radial-gradient(circle_at_top_right,var(--color-brand-green),transparent_70%)] opacity-10" />
                 </div>
-                <div className="container mx-auto px-6 relative z-10">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                <div className="container relative z-10 mx-auto px-4 sm:px-6">
+                    <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
                         <motion.div
-                            initial={{ opacity: 0, x: -30 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.8, ease: "easeOut" }}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, ease: "easeOut" }}
                         >
-                            <h1 className="text-4xl xs:text-5xl md:text-7xl font-black mb-8 leading-tight">
-                                Découvrez nos <br />
-                                <span className="text-brand-blue">formations d’experts</span>
+                            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-brand-blue">Catalogue</p>
+                            <h1 className="mb-4 text-3xl font-black leading-tight tracking-tight text-slate-900 md:text-5xl">
+                                Découvrez nos <span className="text-brand-blue">formations d’experts</span>
                             </h1>
-                            <p className="text-xl text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
+                            <p className="max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
                                 Transformez votre passion en une carrière professionnelle avec la première académie de réparation de smartphones en Tunisie. Des laboratoires pratiques, des ingénieurs experts et un accompagnement à vie.
                             </p>
                         </motion.div>
 
-                        <div className="relative hidden lg:block h-[400px]">
-                            {/* Animated Images Gallery */}
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
-                                animate={{ opacity: 1, scale: 1, rotate: -5 }}
-                                transition={{ duration: 0.8, delay: 0.2 }}
-                                className="absolute top-0 right-10 w-64 h-80 rounded-3xl overflow-hidden border-8 border-white dark:border-slate-800 shadow-2xl z-10"
-                            >
-                                <img src="/A3.jpg" className="w-full h-full object-cover" alt="Atelier 1" />
-                            </motion.div>
-
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8, rotate: 5 }}
-                                animate={{ opacity: 1, scale: 1, rotate: 5 }}
-                                transition={{ duration: 0.8, delay: 0.4 }}
-                                className="absolute bottom-0 right-40 w-56 h-72 rounded-3xl overflow-hidden border-8 border-white dark:border-slate-800 shadow-2xl z-20"
-                            >
-                                <img src="/A2.jpg" className="w-full h-full object-cover" alt="Atelier 2" />
-                            </motion.div>
-
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8, rotate: -10 }}
-                                animate={{ opacity: 1, scale: 1, rotate: -10 }}
-                                transition={{ duration: 0.8, delay: 0.6 }}
-                                className="absolute top-20 right-64 w-48 h-60 rounded-3xl overflow-hidden border-8 border-white dark:border-slate-800 shadow-2xl z-0 opacity-50"
-                            >
-                                <img src="/A1.jpg" className="w-full h-full object-cover" alt="Atelier 3" />
-                            </motion.div>
+                        <div className="relative hidden h-[300px] lg:block" aria-hidden="true">
+                            <div className="absolute top-0 right-6 z-10 h-64 w-52 -rotate-3 overflow-hidden rounded-3xl border-4 border-white shadow-2xl">
+                                <img src="/A3.jpg" className="h-full w-full object-cover" alt="" />
+                            </div>
+                            <div className="absolute bottom-0 right-48 z-20 h-56 w-44 rotate-3 overflow-hidden rounded-3xl border-4 border-white shadow-2xl">
+                                <img src="/A2.jpg" className="h-full w-full object-cover" alt="" />
+                            </div>
+                            <div className="absolute top-8 right-80 z-0 h-48 w-40 -rotate-6 overflow-hidden rounded-3xl border-4 border-white opacity-60 shadow-xl">
+                                <img src="/A1.jpg" className="h-full w-full object-cover" alt="" />
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* Content Section */}
-            <section className="container mx-auto px-6 py-16 relative z-20">
-                {/* Search & Filters */}
-                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-16 border border-white/20 dark:border-slate-700/50 flex flex-col lg:flex-row items-center justify-between gap-8">
-                    <div className="flex flex-wrap items-center gap-3">
-                        {['Toutes', 'Matériel', 'Logiciel', 'Avancé'].map((cat) => (
-                            <button
-                                key={cat}
-                                className={`px-8 py-3 rounded-2xl font-bold transition-all border ${cat === 'Toutes'
-                                    ? 'bg-brand-blue text-white border-brand-blue shadow-lg shadow-brand-blue/20'
-                                    : 'bg-white dark:bg-slate-900 border-border hover:border-brand-blue hover:text-brand-blue text-slate-600 dark:text-slate-400'
-                                    }`}
-                            >
-                                {cat}
-                            </button>
-                        ))}
+            <section className="container relative z-20 mx-auto px-4 py-8 sm:px-6 md:py-12">
+                {/* Toolbar: filters + search */}
+                <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:mb-8 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:pb-0" role="group" aria-label="Filtrer par catégorie">
+                        {(['Toutes', 'Matériel', 'Logiciel', 'Avancé'] as const).map((cat) => {
+                            const active = activeFilter === cat;
+                            return (
+                                <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={() => setActiveFilter(cat)}
+                                    aria-pressed={active}
+                                    className={`h-10 shrink-0 rounded-xl border px-4 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-1 ${active
+                                        ? 'border-[#0f172a] bg-[#0f172a] text-[#fff]'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                >
+                                    {cat}
+                                </button>
+                            );
+                        })}
                     </div>
-                    <div className="relative w-full lg:w-96 group">
-                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-blue transition-colors" size={20} />
+                    <div className="relative w-full lg:w-80">
+                        <label htmlFor="formations-search" className="sr-only">Rechercher une formation</label>
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input
-                            type="text"
+                            id="formations-search"
+                            type="search"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
                             placeholder="Rechercher une formation..."
-                            className="bg-slate-50 dark:bg-slate-900 pl-14 pr-6 py-4 rounded-2xl border border-border w-full outline-none focus:ring-2 focus:ring-brand-blue focus:bg-white dark:focus:bg-slate-800 transition-all text-sm font-medium"
+                            className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-green focus:outline-none focus:ring-2 focus:ring-brand-green/20"
                         />
                     </div>
                 </div>
 
+                {!loading && formations.length > 0 && (
+                    <p className="mb-4 text-sm text-slate-600" aria-live="polite">
+                        <span className="font-bold tabular-nums text-slate-900">{visibleFormations.length}</span> formation{visibleFormations.length > 1 ? 's' : ''} {activeFilter !== 'Toutes' || query ? 'trouvée' + (visibleFormations.length > 1 ? 's' : '') : 'disponible' + (visibleFormations.length > 1 ? 's' : '')}
+                    </p>
+                )}
+
                 {/* Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
                     {loading ? (
-                        <div className="col-span-full py-20 text-center">
-                            <div className="w-16 h-16 border-4 border-brand-blue border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-                            <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Chargement des formations...</p>
-                        </div>
-                    ) : formations.length > 0 ? (
-                        formations.map((f, index) => (
-                            <motion.div
-                                key={f.id}
-                                initial={{ opacity: 0, y: 30 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                className="premium-card group overflow-hidden flex flex-col md:flex-row h-full bg-white dark:bg-slate-800"
-                            >
-                                <div className="md:w-2/5 relative h-72 md:h-auto overflow-hidden">
-                                    <img
-                                        src={f.image}
-                                        alt={f.title[language]}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                    />
-                                    <div className="absolute top-6 left-6 bg-brand-green/90 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xl">
-                                        {f.category}
-                                    </div>
-                                    <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-md text-slate-900 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xl border border-border/50">
-                                        {f.level}
-                                    </div>
+                        [0, 1, 2].map((i) => (
+                            <div key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-hidden="true">
+                                <div className="aspect-[16/10] animate-pulse bg-slate-100" />
+                                <div className="space-y-3 p-5">
+                                    <div className="h-5 w-3/4 animate-pulse rounded bg-slate-100" />
+                                    <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
+                                    <div className="h-3 w-2/3 animate-pulse rounded bg-slate-100" />
+                                    <div className="h-11 w-full animate-pulse rounded-xl bg-slate-100" />
                                 </div>
-                                <div className="p-8 md:w-3/5 flex flex-col">
-                                    <h3 className="text-2xl font-bold mb-1 text-slate-900 dark:text-white group-hover:text-brand-blue transition-colors leading-tight line-clamp-2">{f.title[language]}</h3>
+                            </div>
+                        ))
+                    ) : formations.length === 0 ? (
+                        <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+                            <BookOpen size={36} className="mx-auto mb-3 text-[#cbd5e1]" />
+                            <p className="font-semibold text-slate-900">Aucune formation disponible pour le moment.</p>
+                            <p className="mt-1 text-sm text-slate-600">Revenez bientôt ou contactez-nous pour connaître les prochaines ouvertures.</p>
+                            <Link href="/#contact" className="mt-5 inline-flex h-10 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 hover:bg-slate-50">
+                                Nous contacter
+                            </Link>
+                        </div>
+                    ) : visibleFormations.length === 0 ? (
+                        <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+                            <SearchX size={36} className="mx-auto mb-3 text-[#cbd5e1]" />
+                            <p className="font-semibold text-slate-900">Aucune formation ne correspond à votre recherche.</p>
+                            <p className="mt-1 text-sm text-slate-600">Essayez un autre mot-clé ou une autre catégorie.</p>
+                            <button
+                                type="button"
+                                onClick={() => { setQuery(''); setActiveFilter('Toutes'); }}
+                                className="mt-5 inline-flex h-10 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 hover:bg-slate-50"
+                            >
+                                Réinitialiser les filtres
+                            </button>
+                        </div>
+                    ) : (
+                        visibleFormations.map((f, index) => (
+                            <motion.article
+                                key={f.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: Math.min(index * 0.03, 0.15), duration: 0.3 }}
+                                className="premium-card group flex h-full flex-col overflow-hidden bg-white"
+                            >
+                                <Link href={`/formations/${f.id}`} className="relative block aspect-[16/10] overflow-hidden bg-slate-100" tabIndex={-1} aria-hidden="true">
+                                    {f.image && (
+                                        <img
+                                            src={f.image}
+                                            alt=""
+                                            loading="lazy"
+                                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        />
+                                    )}
+                                    <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+                                        {f.category && (
+                                            <span className="inline-flex items-center rounded-full bg-[#ffffffee] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-900 shadow-sm">
+                                                {f.category}
+                                            </span>
+                                        )}
+                                        {f.level && (
+                                            <span className="inline-flex items-center rounded-full bg-brand-blue px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[#fff] shadow-sm">
+                                                {f.level}
+                                            </span>
+                                        )}
+                                    </div>
+                                </Link>
+
+                                <div className="flex flex-grow flex-col p-5 md:p-6">
+                                    <h2 className="mb-1.5 text-lg font-bold leading-snug text-slate-900 line-clamp-2">
+                                        <Link href={`/formations/${f.id}`} className="transition-colors hover:text-brand-blue focus-visible:outline-none focus-visible:underline">
+                                            {f.title[language]}
+                                        </Link>
+                                    </h2>
                                     {f.reviewCount > 0 && (
-                                        <div className="flex items-center gap-1.5 mb-4">
+                                        <div className="mb-2 flex items-center gap-1.5" aria-label={`Note ${Number(f.rating).toFixed(1)} sur 5, ${f.reviewCount} avis`}>
                                             <div className="flex gap-0.5">
                                                 {[1, 2, 3, 4, 5].map((s) => (
-                                                    <Star key={s} size={10} className={s <= Math.round(f.rating) ? "fill-amber-500 text-amber-500" : "text-slate-200 dark:text-slate-700"} />
+                                                    <Star key={s} size={14} className={s <= Math.round(f.rating) ? "fill-amber-500 text-amber-500" : "text-[#cbd5e1]"} />
                                                 ))}
                                             </div>
-                                            <span className="text-[10px] font-bold text-slate-400">({f.reviewCount})</span>
+                                            <span className="text-xs font-semibold text-slate-600">({f.reviewCount} avis)</span>
                                         </div>
                                     )}
-                                    <p className="text-slate-500 dark:text-slate-400 mb-8 flex-grow leading-relaxed text-sm line-clamp-4">
+                                    <p className="mb-5 text-sm leading-relaxed text-slate-600 line-clamp-3">
                                         {htmlToPlainText(f.desc[language])}
                                     </p>
 
-                                    <div className="grid grid-cols-1 xs:grid-cols-2 gap-4 sm:gap-6 mb-8 py-6 border-y border-border/50">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-brand-blue/10 rounded-lg text-brand-blue">
+                                    <dl className="mt-auto grid grid-cols-2 gap-3 border-t border-slate-200 pt-4">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-blue/10 text-brand-blue">
                                                 <Clock size={16} />
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Durée</span>
-                                                <span className="text-sm font-bold">{f.duration}</span>
+                                            <div className="min-w-0">
+                                                <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Durée</dt>
+                                                <dd className="truncate text-sm font-bold text-slate-900">{f.duration || '—'}</dd>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-brand-green/10 rounded-lg text-brand-green">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-green/15 text-slate-900">
                                                 <Tag size={16} />
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">Prix fixe</span>
-                                                <div className="flex items-center gap-2">
+                                            <div className="min-w-0">
+                                                <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Prix fixe</dt>
+                                                <dd className="flex flex-wrap items-baseline gap-x-1.5">
                                                     {f.sold_price ? (
                                                         <>
-                                                            <span className="text-sm font-bold text-brand-green">{f.sold_price} DT</span>
-                                                            <span className="text-[10px] font-bold text-slate-400 line-through opacity-50">{f.base_price} DT</span>
+                                                            <span className="text-sm font-black tabular-nums text-emerald-700">{f.sold_price} DT</span>
+                                                            <span className="text-xs font-semibold tabular-nums text-slate-500 line-through">{f.base_price} DT</span>
                                                         </>
                                                     ) : (
-                                                        <span className="text-sm font-bold">{f.base_price} DT</span>
+                                                        <span className="text-sm font-black tabular-nums text-slate-900">{f.base_price} DT</span>
                                                     )}
-                                                </div>
+                                                </dd>
                                             </div>
                                         </div>
-                                    </div>
+                                    </dl>
 
-                                    <div className="flex items-center justify-between gap-4">
+                                    <div className="mt-5 flex items-center gap-2">
                                         <Link
                                             href={`/formations/${f.id}`}
-                                            className="btn-primary flex-grow py-3 text-sm text-center shadow-none group-hover:shadow-brand-blue/20 group-hover:shadow-lg"
+                                            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-green px-4 text-sm font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
                                         >
-                                            {t.common.viewDetails}
+                                            {t.common.viewDetails} <ArrowRight size={16} />
                                         </Link>
                                         <Link
                                             href={`/register?course=${f.id}`}
-                                            className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-border group-hover:border-brand-green group-hover:text-brand-green transition-all"
-                                            title="Direct Application"
+                                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-brand-blue/40 hover:text-brand-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                                            title="Inscription directe"
+                                            aria-label={`Inscription directe : ${f.title[language]}`}
                                         >
                                             <ChevronRight size={20} />
                                         </Link>
                                     </div>
                                 </div>
-                            </motion.div>
+                            </motion.article>
                         ))
-                    ) : (
-                        <div className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-[40px] border-2 border-dashed border-border">
-                            <p className="text-slate-500 font-bold">Aucune formation disponible pour le moment.</p>
-                        </div>
                     )}
                 </div>
             </section>

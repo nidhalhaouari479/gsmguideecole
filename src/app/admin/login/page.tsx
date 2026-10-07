@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Mail, Loader2, AlertCircle, Terminal, ShieldAlert } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 
 import { supabase } from '@/lib/supabase';
+import { Button, Field, inputClass, cn } from '@/components/admin/ui';
 
 export default function AdminLogin() {
     const router = useRouter();
@@ -14,6 +14,7 @@ export default function AdminLogin() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -40,7 +41,7 @@ export default function AdminLogin() {
 
         if (profileError || !['admin', 'professor'].includes(profile?.role)) {
             await supabase.auth.signOut();
-            setError('ACCÈS REFUSÉ : droits administrateur insuffisants');
+            setError('Accès refusé : droits administrateur insuffisants.');
             setLoading(false);
             return;
         }
@@ -50,79 +51,87 @@ export default function AdminLogin() {
     };
 
     return (
-        <div className="min-h-[100dvh] md:min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),1rem)] md:py-0 font-sans">
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="w-full max-w-[400px]"
-            >
-                <div className="premium-card bg-white p-6 sm:p-8 md:p-10 shadow-xl overflow-hidden relative">
-                    <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-brand-green/10 text-brand-green rounded-2xl flex items-center justify-center mx-auto mb-4 md:mb-6">
-                            <Lock size={32} />
-                        </div>
-                        <h1 className="text-2xl font-bold text-slate-900">Administration</h1>
-                        <p className="text-slate-500 mt-2 text-sm">Veuillez vous connecter pour continuer</p>
-                    </div>
+        <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-slate-50 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-[max(env(safe-area-inset-top),1rem)] font-sans md:py-10">
+            <div className="w-full max-w-sm">
+                <div className="mb-6 flex flex-col items-center text-center">
+                    <img src="/gsmlogo.png" alt="GSM Guide Academy" className="mb-4 h-10 w-10 object-contain" />
+                    <h1 className="text-xl font-semibold tracking-tight text-slate-900">Connexion à l’administration</h1>
+                    <p className="mt-1 text-sm text-slate-500">Compte administrateur ou professeur.</p>
+                </div>
 
+                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                     {error && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl flex items-center gap-3 text-sm font-medium">
-                            <AlertCircle size={18} className="shrink-0" />
-                            {error}
+                        <div role="alert" className="mb-5 flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
+                            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                            <span className="min-w-0 break-words">{error}</span>
                         </div>
                     )}
 
-                    <form onSubmit={handleLogin} className="space-y-5">
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 ml-1">E-mail Professionnel</label>
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    className="w-full h-12 md:h-auto text-base pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all text-slate-900"
-                                    placeholder="admin@gsmguide.com"
-                                />
-                            </div>
-                        </div>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <Field label="E-mail" htmlFor="admin-login-email">
+                            <input
+                                id="admin-login-email"
+                                type="email"
+                                autoComplete="email"
+                                inputMode="email"
+                                autoFocus
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                aria-invalid={!!error}
+                                className={inputClass}
+                                placeholder="admin@gsmguide.com"
+                            />
+                        </Field>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 ml-1">Mot de passe</label>
+                        <Field label="Mot de passe" htmlFor="admin-login-password">
                             <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                 <input
-                                    type="password"
+                                    id="admin-login-password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    autoComplete="current-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    className="w-full h-12 md:h-auto text-base pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all text-slate-900"
+                                    aria-invalid={!!error}
+                                    className={cn(inputClass, 'pr-10')}
                                     placeholder="••••••••"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(v => !v)}
+                                    aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                                    title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                                    className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
                             </div>
-                        </div>
+                        </Field>
 
-                        <button
+                        <Button
                             type="submit"
-                            disabled={loading}
-                            className="btn-primary w-full min-h-12 md:min-h-0 py-3.5 mt-2"
+                            variant="primary"
+                            loading={loading}
+                            aria-busy={loading}
+                            className="w-full"
                         >
-                            {loading ? (
-                                <Loader2 className="animate-spin" size={20} />
-                            ) : (
-                                "Se connecter"
-                            )}
-                        </button>
+                            {loading ? 'Connexion en cours…' : 'Se connecter'}
+                        </Button>
                     </form>
                 </div>
 
-                <div className="text-center mt-8">
-                    <Link href="/" className="inline-flex items-center min-h-10 md:min-h-0 text-sm text-slate-500 hover:text-brand-green font-medium transition-colors">
-                        ← Retour au site
+                <p className="mt-4 text-center text-xs text-slate-500">Accès réservé au personnel de l’académie.</p>
+
+                <div className="mt-4 text-center">
+                    <Link
+                        href="/"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                    >
+                        <ArrowLeft size={16} /> Retour au site
                     </Link>
                 </div>
-            </motion.div>
+            </div>
         </div>
     );
 }

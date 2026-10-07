@@ -1,24 +1,32 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { 
-    Bell, 
-    Zap, 
-    Trash2, 
-    CheckCircle2, 
-    Clock, 
+import {
+    Bell,
+    Zap,
+    Trash2,
+    CheckCircle2,
+    Clock,
     Search,
-    Filter,
-    ChevronLeft,
-    Loader2,
     CreditCard,
     CheckCircle,
     XCircle,
-    UserPlus
+    UserPlus,
+    RefreshCw
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import Link from 'next/link';
+import {
+    PageHeader,
+    Card,
+    Button,
+    IconButton,
+    SearchInput,
+    FilterTabs,
+    Toolbar,
+    EmptyState,
+    LoadingState,
+    cn,
+} from '@/components/admin/ui';
 import { useRouter } from 'next/navigation';
 
 export default function NotificationsPage() {
@@ -31,28 +39,14 @@ export default function NotificationsPage() {
 
     const getNotifIcon = (type: string) => {
         switch (type) {
-            case 'reservation_submitted': return <Clock size={20} />;
-            case 'reservation_approved': return <CheckCircle size={20} className="text-white" />;
-            case 'reservation_rejected': return <XCircle size={20} className="text-white" />;
-            case 'payment_submitted': return <CreditCard size={20} />;
-            case 'payment_approved': return <CheckCircle size={20} className="text-white" />;
-            case 'payment_rejected': return <XCircle size={20} className="text-white" />;
-            case 'new_student': return <UserPlus size={20} />;
-            default: return <Zap size={20} />;
-        }
-    };
-
-    const getNotifColor = (type: string, isRead: boolean) => {
-        if (isRead) return 'bg-slate-800 text-slate-500';
-        switch (type) {
-            case 'reservation_submitted': return 'bg-brand-blue text-white shadow-brand-blue/20';
-            case 'reservation_approved': return 'bg-emerald-500 text-white shadow-emerald-500/20';
-            case 'reservation_rejected': return 'bg-rose-500 text-white shadow-rose-500/20';
-            case 'payment_submitted': return 'bg-amber-500 text-white shadow-amber-500/20';
-            case 'payment_approved': return 'bg-emerald-500 text-white shadow-emerald-500/20';
-            case 'payment_rejected': return 'bg-rose-500 text-white shadow-rose-500/20';
-            case 'new_student': return 'bg-brand-blue text-white shadow-brand-blue/20';
-            default: return 'bg-brand-green text-white shadow-brand-green/20';
+            case 'reservation_submitted': return <Clock size={16} />;
+            case 'reservation_approved': return <CheckCircle size={16} />;
+            case 'reservation_rejected': return <XCircle size={16} />;
+            case 'payment_submitted': return <CreditCard size={16} />;
+            case 'payment_approved': return <CheckCircle size={16} />;
+            case 'payment_rejected': return <XCircle size={16} />;
+            case 'new_student': return <UserPlus size={16} />;
+            default: return <Zap size={16} />;
         }
     };
 
@@ -78,7 +72,7 @@ export default function NotificationsPage() {
             .from('notifications')
             .select('*')
             .order('created_at', { ascending: false });
-        
+
         if (error) {
             console.error('Error:', error);
             setError("Impossible de charger les notifications. Veuillez vérifier votre connexion.");
@@ -114,151 +108,157 @@ export default function NotificationsPage() {
 
     const filteredNotifications = notifications.filter(n => {
         const matchesFilter = filter === 'all' || (filter === 'unread' ? !n.is_read : n.is_read);
-        const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                              n.message.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesFilter && matchesSearch;
     });
 
+    const unreadCount = notifications.filter(n => !n.is_read).length;
+    const filterOptions = [
+        { value: 'all' as const, label: 'Toutes', count: notifications.length },
+        { value: 'unread' as const, label: 'Non lues', count: unreadCount },
+        { value: 'read' as const, label: 'Déjà lues', count: notifications.length - unreadCount },
+    ];
+
     return (
-        <div className="space-y-5 md:space-y-8 pb-4 md:pb-10">
-            {/* Header Area */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-                <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-brand-green mb-2">
-                        <Link href="/admin" className="w-10 h-10 md:w-auto md:h-auto shrink-0 p-2 rounded-lg bg-brand-green/10 hover:bg-brand-green/20 transition-all flex items-center justify-center">
-                            <ChevronLeft size={16} />
-                        </Link>
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Centre de Commandement</span>
-                    </div>
-                    <h1 className="text-4xl font-black text-white tracking-tighter">Archives des <span className="text-brand-green">Notifications</span></h1>
-                    <p className="text-slate-500 text-[10px] md:text-xs font-bold mt-2 uppercase tracking-widest">Historique complet des alertes système et inscriptions</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <button 
+        <div className="space-y-6 pb-6 md:pb-12">
+            <PageHeader
+                title="Notifications"
+                description={
+                    <>
+                        Historique des alertes système et inscriptions
+                        {unreadCount > 0 && <> · <span className="font-medium text-slate-900 tabular-nums">{unreadCount} non lue{unreadCount > 1 ? 's' : ''}</span></>}
+                    </>
+                }
+                actions={
+                    <Button
+                        variant="secondary"
+                        icon={CheckCircle2}
                         onClick={markAllAsRead}
-                        className="w-full md:w-auto justify-center px-6 py-3 rounded-2xl bg-brand-green/10 text-brand-green border border-brand-green/20 text-xs font-black uppercase tracking-widest hover:bg-brand-green hover:text-white transition-all flex items-center gap-2"
+                        disabled={unreadCount === 0}
+                        title={unreadCount === 0 ? 'Toutes les notifications sont déjà lues' : 'Marquer toutes les notifications comme lues'}
+                        className="max-md:w-full"
                     >
-                        <CheckCircle2 size={16} /> Tout marquer comme lu
-                    </button>
-                </div>
-            </header>
+                        Tout marquer comme lu
+                    </Button>
+                }
+            />
 
-            {/* Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-green transition-colors" size={18} />
-                    <input 
-                        type="text" 
-                        placeholder="Rechercher dans les archives..."
+            <Card padded={false} className="overflow-hidden">
+                <Toolbar>
+                    <SearchInput
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-2xl py-3 md:py-4 pl-12 pr-4 text-base md:text-sm font-bold text-slate-900 focus:outline-none focus:border-brand-green/30 transition-all"
+                        onChange={setSearchQuery}
+                        placeholder="Rechercher par titre ou message…"
+                        label="Rechercher une notification"
+                        className="sm:w-80"
                     />
-                </div>
-                <div className="flex flex-nowrap gap-2 overflow-x-auto">
-                    {(['all', 'unread', 'read'] as const).map((f) => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            className={`shrink-0 flex-1 px-4 py-3 md:py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${filter === f ? 'bg-white/10 border-white/20 text-white shadow-xl' : 'bg-transparent border-white/5 text-slate-500 hover:text-white hover:border-white/10'}`}
-                        >
-                            {f === 'all' ? 'Toutes' : f === 'unread' ? 'Non lues' : 'Déjà lues'}
-                        </button>
-                    ))}
-                </div>
-            </div>
+                    <FilterTabs
+                        label="Filtrer les notifications"
+                        options={filterOptions}
+                        value={filter}
+                        onChange={setFilter}
+                    />
+                </Toolbar>
 
-            {/* Notifications List */}
-            <div className="space-y-4">
                 {error ? (
-                    <div className="py-20 flex flex-col items-center justify-center text-center gap-4">
-                        <XCircle size={40} className="text-rose-500" />
-                        <p className="text-sm font-bold text-slate-400 max-w-xs">{error}</p>
-                        <button 
-                            onClick={fetchNotifications}
-                            className="px-6 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase text-white hover:bg-white/10 transition-all"
-                        >
-                            Réessayer
-                        </button>
-                    </div>
+                    <EmptyState
+                        icon={XCircle}
+                        title="Erreur de chargement"
+                        description={error}
+                        action={<Button variant="secondary" size="sm" icon={RefreshCw} onClick={fetchNotifications}>Réessayer</Button>}
+                    />
                 ) : loading ? (
-                    <div className="py-20 flex flex-col items-center justify-center gap-4">
-                        <Loader2 size={40} className="animate-spin text-brand-green" />
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Synchronisation des archives...</p>
-                    </div>
+                    <LoadingState label="Chargement des notifications…" />
                 ) : filteredNotifications.length > 0 ? (
-                    filteredNotifications.map((notif, i) => (
-                        <motion.div
-                            key={notif.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            onClick={() => openNotification(notif)}
-                            className={`group relative cursor-pointer p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all ${!notif.is_read ? 'bg-brand-green/5 border-brand-green/20' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
-                        >
-                            <div className="flex gap-3 md:gap-6 items-start">
-                                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${getNotifColor(notif.type, notif.is_read)}`}>
-                                    {getNotifIcon(notif.type)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-start md:items-center justify-between gap-2 mb-1">
-                                        <h3 className={`min-w-0 text-base md:text-lg font-black truncate ${!notif.is_read ? 'text-white' : 'text-slate-300'}`}>{notif.title}</h3>
-                                        <div className="flex items-center gap-1 md:gap-2 shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                            {!notif.is_read && (
-                                                <button 
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        markAsRead(notif.id);
-                                                    }}
-                                                    className="w-10 h-10 md:w-auto md:h-auto flex items-center justify-center p-2 rounded-xl bg-brand-green/10 text-brand-green hover:bg-brand-green hover:text-white transition-all"
-                                                    title="Marquer comme lu"
-                                                >
-                                                    <CheckCircle2 size={16} />
-                                                </button>
-                                            )}
-                                            <button 
+                    <ul className="divide-y divide-slate-100">
+                        {filteredNotifications.map((notif) => (
+                            <li
+                                key={notif.id}
+                                className="group transition-colors focus-within:bg-slate-50/70 hover:bg-slate-50/70"
+                            >
+                                <div className="flex items-start gap-3 px-4 py-3.5 md:px-5">
+                                    <div
+                                        role="link"
+                                        tabIndex={0}
+                                        onClick={() => openNotification(notif)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault();
+                                                openNotification(notif);
+                                            }
+                                        }}
+                                        aria-label={`${notif.is_read ? '' : 'Non lue : '}${notif.title}`}
+                                        className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                    >
+                                        <span className="flex w-2 shrink-0 justify-center pt-3.5" aria-hidden="true">
+                                            {!notif.is_read && <span className="h-2 w-2 rounded-full bg-sky-500" />}
+                                        </span>
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                                            {getNotifIcon(notif.type)}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                                                <h3 className={cn('min-w-0 truncate text-sm', notif.is_read ? 'font-normal text-slate-500' : 'font-medium text-slate-900')}>
+                                                    {notif.title}
+                                                </h3>
+                                                <time dateTime={notif.created_at} className="shrink-0 text-xs text-slate-400 tabular-nums">
+                                                    {new Date(notif.created_at).toLocaleDateString('fr-FR', {
+                                                        day: '2-digit',
+                                                        month: 'long',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </time>
+                                            </div>
+                                            <p className={cn('mt-0.5 break-words text-sm', notif.is_read ? 'text-slate-500' : 'text-slate-600')}>{notif.message}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+                                        {!notif.is_read && (
+                                            <IconButton
+                                                label="Marquer comme lu"
+                                                icon={CheckCircle2}
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    deleteNotification(notif.id);
+                                                    markAsRead(notif.id);
                                                 }}
-                                                className="w-10 h-10 md:w-auto md:h-auto flex items-center justify-center p-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
-                                                title="Supprimer définitivement"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <p className="text-sm font-medium text-slate-400 leading-relaxed mb-3 md:mb-4 break-words">{notif.message}</p>
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                                        <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                            <Clock size={12} className="text-brand-green" />
-                                            {new Date(notif.created_at).toLocaleDateString('fr-FR', { 
-                                                day: '2-digit', 
-                                                month: 'long', 
-                                                year: 'numeric',
-                                                hour: '2-digit', 
-                                                minute: '2-digit' 
-                                            })}
-                                        </div>
-                                        {notif.is_read && (
-                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">• LUE</span>
+                                            />
                                         )}
+                                        <IconButton
+                                            label="Supprimer définitivement"
+                                            icon={Trash2}
+                                            className="hover:bg-rose-50 hover:text-rose-600"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                deleteNotification(notif.id);
+                                            }}
+                                        />
                                     </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    ))
+                            </li>
+                        ))}
+                    </ul>
+                ) : notifications.length === 0 ? (
+                    <EmptyState
+                        icon={Bell}
+                        title="Aucune notification"
+                        description="Le registre des alertes est actuellement vide."
+                    />
                 ) : (
-                    <div className="py-16 md:py-32 flex flex-col items-center justify-center text-center opacity-50">
-                        <div className="w-20 h-20 rounded-full bg-slate-900 flex items-center justify-center mb-6">
-                            <Bell size={40} className="text-slate-700" />
-                        </div>
-                        <h3 className="text-xl font-black text-white mb-2">Aucune archive archivée</h3>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Le registre des alertes est actuellement vide</p>
-                    </div>
+                    <EmptyState
+                        icon={Search}
+                        title="Aucun résultat"
+                        description="Aucune notification ne correspond à votre recherche ou au filtre choisi."
+                        action={
+                            <Button variant="secondary" size="sm" onClick={() => { setSearchQuery(''); setFilter('all'); }}>
+                                Réinitialiser les filtres
+                            </Button>
+                        }
+                    />
                 )}
-            </div>
+            </Card>
         </div>
     );
 }

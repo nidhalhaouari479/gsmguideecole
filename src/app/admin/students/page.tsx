@@ -5,11 +5,7 @@ import {
     Users,
     Search,
     Filter,
-    MoreVertical,
-    Mail,
-    Phone,
     BookOpen,
-    CreditCard,
     ChevronRight,
     Loader2,
     ArrowUpDown,
@@ -18,15 +14,10 @@ import {
     UserCheck,
     UserX,
     ShieldAlert,
-    Calendar,
-    GraduationCap,
-    Clock,
     CheckCircle2,
     FileDown,
     Trash2,
-    Plus,
     UserPlus,
-    MessageSquare,
     Save,
     Send
 } from 'lucide-react';
@@ -34,6 +25,29 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/lib/supabase';
+import {
+    PageHeader,
+    Card,
+    StatCard,
+    Badge,
+    StatusBadge,
+    ProgressBar,
+    formatDT,
+    Button,
+    IconButton,
+    SearchInput,
+    FilterTabs,
+    Toolbar,
+    table,
+    EmptyState,
+    LoadingState,
+    Field,
+    inputClass,
+    selectClass,
+    textareaClass,
+    Modal,
+    cn,
+} from '@/components/admin/ui';
 
 interface StudentData {
     id: string;
@@ -587,915 +601,1027 @@ export default function StudentsAdminPage() {
     });
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-                <Loader2 className="animate-spin text-brand-green" size={48} />
-                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px] animate-pulse">Chargement du registre des étudiants...</p>
-            </div>
-        );
+        return <LoadingState label="Chargement des étudiants…" />;
     }
 
     const filteredPaid = sortedStudents.reduce((sum, s) => sum + s.total_paid, 0);
     const filteredRemaining = sortedStudents.reduce((sum, s) => sum + s.total_remaining, 0);
 
-    const statsCards = [
-        { label: 'Effectif Étudiants', value: sortedStudents.length, color: 'text-brand-blue', bg: 'bg-brand-blue/10', icon: Users },
-        { label: 'Collecte Totale', value: `${filteredPaid.toLocaleString()} DT`, color: 'text-brand-green', bg: 'bg-brand-green/10', icon: CreditCard },
-        { label: 'Créances Restantes', value: `${filteredRemaining.toLocaleString()} DT`, color: 'text-rose-400', bg: 'bg-rose-400/10', icon: ShieldAlert },
+    // ---- Presentation helpers (UI only) ----
+    const cleanName = (name?: string | null) => name?.replace(/^(M|Mme)\s+/i, '') || name || '';
+    const getInitials = (name?: string | null) => {
+        const parts = cleanName(name).trim().split(/\s+/).filter(Boolean);
+        return ((parts[0]?.charAt(0) || '') + (parts[1]?.charAt(0) || '')).toUpperCase() || '?';
+    };
+    const formatMoney = formatDT;
+    const formatDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    const formatTime = (value?: string | null) => value ? new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+    const hasPhone = (phone?: string | null) => !!phone && phone !== 'N/A';
+    const paidPercent = (paid: number, total: number) => total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+
+    const hasSearch = searchQuery.trim().length > 0;
+    const activeFilters: { key: string; label: string; clear: () => void }[] = [];
+    if (!isProfessor && filterConfig.status !== 'all') activeFilters.push({ key: 'status', label: filterConfig.status === 'active' ? 'Compte actif' : 'Compte bloqué', clear: () => setFilterConfig(prev => ({ ...prev, status: 'all' })) });
+    if (!isProfessor && filterConfig.payment !== 'all') activeFilters.push({ key: 'payment', label: filterConfig.payment === 'unpaid' ? 'Non payé' : 'Payé', clear: () => setFilterConfig(prev => ({ ...prev, payment: 'all' })) });
+    if (filterConfig.activity !== 'all') activeFilters.push({ key: 'activity', label: filterConfig.activity === 'enrolled' ? 'Inscrit à une formation' : 'Sans formation', clear: () => setFilterConfig(prev => ({ ...prev, activity: 'all' })) });
+    if (filterConfig.dateType !== 'all' && filterConfig.dateValue) activeFilters.push({ key: 'date', label: `Date : ${filterConfig.dateValue}`, clear: () => setFilterConfig(prev => ({ ...prev, dateType: 'all', dateValue: '' })) });
+    const isFiltered = hasSearch || activeFilters.length > 0;
+    // The activity filter lives in the toolbar tabs; the popover only holds the other criteria.
+    const popoverFilters = activeFilters.filter(f => f.key !== 'activity');
+    const resetAll = () => {
+        setSearchQuery('');
+        setFilterConfig({ status: 'all', payment: 'all', activity: 'all', dateType: 'all', dateValue: '' });
+    };
+
+    const activityTabs = [
+        { value: 'all' as const, label: 'Tous', count: students.length },
+        { value: 'enrolled' as const, label: 'Inscrits', count: students.filter(s => s.enrollment_count > 0).length },
+        { value: 'none' as const, label: 'Sans formation', count: students.filter(s => s.enrollment_count === 0).length },
     ];
 
+    const subheadingClass = 'text-sm font-semibold text-slate-900';
+    const dtClass = 'text-xs text-slate-500';
+    const ddClass = 'mt-0.5 text-sm text-slate-900';
+
+    const renderAvatar = (name?: string | null, size: 'sm' | 'md' = 'sm') => (
+        <span
+            className={cn(
+                'flex shrink-0 items-center justify-center rounded-full bg-slate-100 font-semibold text-slate-600',
+                size === 'sm' ? 'h-9 w-9 text-xs' : 'h-10 w-10 text-sm'
+            )}
+            aria-hidden="true"
+        >
+            {getInitials(name)}
+        </span>
+    );
+
+    const renderAccountBadge = (blocked: boolean) => (
+        blocked ? <Badge tone="danger">Restreint</Badge> : <Badge tone="success">Actif</Badge>
+    );
+
+    const renderEnrollmentBadge = (status: string) => (
+        <StatusBadge status={status === 'confirmed' ? 'approved' : status} />
+    );
+
+    const renderPaymentSummary = (paid: number, remaining: number, enrollmentCount: number, compact = false) => {
+        const total = Number(paid || 0) + Number(remaining || 0);
+        if (enrollmentCount === 0 && total === 0) {
+            return <span className="text-xs text-slate-400">Aucune formation</span>;
+        }
+        const settled = Number(remaining || 0) <= 0;
+        return (
+            <div className={compact ? 'w-full' : 'min-w-[10rem] max-w-[13rem]'}>
+                <div className="flex items-baseline justify-between gap-2 text-xs tabular-nums">
+                    <span className="whitespace-nowrap font-medium text-slate-900">
+                        {Number(paid || 0).toLocaleString('fr-FR')} / {formatMoney(total)}
+                    </span>
+                    <span className="text-slate-500">{paidPercent(paid, total)} %</span>
+                </div>
+                <ProgressBar value={Number(paid || 0)} max={total} label="Progression du paiement" className="mt-1.5" />
+                <p className={cn('mt-1 whitespace-nowrap text-xs tabular-nums', settled ? 'text-emerald-700' : 'text-rose-600')}>
+                    {settled ? 'Totalité réglée' : `Reste : ${formatMoney(remaining)}`}
+                </p>
+            </div>
+        );
+    };
+
+    const smsDisabledReason = (profile: StudentFullProfile) => {
+        if (!hasPhone(profile.phone)) return 'Aucun numéro de téléphone renseigné';
+        if (Number(profile.total_remaining) <= 0) return 'Aucun solde dû pour cet étudiant';
+        if (smsSending) return 'Envoi en cours…';
+        return undefined;
+    };
+
+    const buildHistory = (profile: StudentFullProfile) => {
+        const events: { date: string; title: string; detail?: string; tone: 'slate' | 'blue' | 'emerald' | 'amber' }[] = [];
+        if (profile.created_at) events.push({ date: profile.created_at, title: 'Création du compte', tone: 'slate' });
+        (profile.enrollments || []).forEach((e) => {
+            if (e.enrolled_at) events.push({ date: e.enrolled_at, title: `Inscription : ${e.course?.title || 'Formation inconnue'}`, detail: getStatusLabel(e.status), tone: 'blue' });
+            if (e.payment_date) events.push({ date: e.payment_date, title: `Paiement : ${e.course?.title || 'Formation inconnue'}`, detail: `${formatMoney(e.amount_paid)} réglés sur ${formatMoney(e.total_price)}`, tone: 'emerald' });
+        });
+        if (profile.admin_note_updated_at) events.push({ date: profile.admin_note_updated_at, title: 'Remarque interne mise à jour', tone: 'amber' });
+        return events
+            .filter(ev => !isProfessor || ev.tone !== 'emerald')
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    };
+
+    const emptyState = isFiltered ? (
+        <EmptyState
+            icon={Search}
+            title="Aucun étudiant ne correspond à ces critères"
+            description={hasSearch ? <>Aucun résultat pour « {searchQuery} ». Modifiez la recherche ou les filtres.</> : 'Essayez d’assouplir ou de réinitialiser les filtres.'}
+            action={<Button variant="secondary" size="sm" icon={X} onClick={resetAll}>Réinitialiser la recherche</Button>}
+        />
+    ) : (
+        <EmptyState
+            icon={Users}
+            title="Aucun étudiant enregistré"
+            description="Ajoutez un étudiant manuellement ou attendez les premières inscriptions."
+            action={<Button variant="primary" size="sm" icon={UserPlus} onClick={() => setIsAddModalOpen(true)}>Ajouter un étudiant</Button>}
+        />
+    );
+
+    const renderSortHeader = (label: string, key: keyof StudentData, className = '') => {
+        const isActive = sortConfig?.key === key;
+        return (
+            <th
+                scope="col"
+                className={cn(table.th, className)}
+                aria-sort={isActive ? (sortConfig?.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+                <button
+                    type="button"
+                    onClick={() => handleSort(key)}
+                    className={cn('inline-flex items-center gap-1 rounded transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40', isActive && 'text-slate-900')}
+                    title={`Trier par ${label.toLowerCase()}`}
+                >
+                    {label} <ArrowUpDown size={12} className={isActive ? 'text-slate-700' : 'text-slate-400'} />
+                </button>
+            </th>
+        );
+    };
+
+    const rowActions = (student: StudentData) => isProfessor ? null : (
+        <>
+            <IconButton
+                label={student.is_blocked ? `Autoriser ${cleanName(student.full_name)}` : `Restreindre ${cleanName(student.full_name)}`}
+                title={student.is_blocked ? 'Autoriser' : 'Restreindre'}
+                icon={actionLoading === student.id ? Loader2 : student.is_blocked ? UserCheck : UserX}
+                onClick={() => handleAction(student.id, student.is_blocked ? 'unblock' : 'block')}
+                disabled={actionLoading === student.id}
+                className={cn(actionLoading === student.id && '[&>svg]:animate-spin')}
+            />
+            <IconButton
+                label={`Supprimer ${cleanName(student.full_name)}`}
+                title="Supprimer"
+                icon={Trash2}
+                onClick={() => handleAction(student.id, 'delete')}
+                disabled={actionLoading === student.id}
+                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+            />
+        </>
+    );
+
+    const profile = selectedProfile && !profileLoading ? selectedProfile : null;
+
     return (
-        <div className="space-y-6 md:space-y-10 pb-10">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-                <div>
-                    <div className="flex items-center gap-2 text-brand-green font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-                        <Users size={14} /> Gestion des étudiants
+        <div className="space-y-6 pb-10">
+            <PageHeader
+                title={
+                    <span className="inline-flex items-center gap-2">
+                        Étudiants
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-600 tabular-nums">{students.length}</span>
+                    </span>
+                }
+                description="Profils, inscriptions et situations de paiement."
+                actions={
+                    <>
+                        {!isProfessor && (
+                            <>
+                                <Button variant="secondary" icon={Download} onClick={handleExportList} title="Exporter la liste filtrée en CSV" className="flex-1 sm:flex-initial">
+                                    CSV
+                                </Button>
+                                <Button variant="secondary" icon={FileDown} onClick={handleExportPDFList} title="Exporter la liste filtrée en PDF" className="flex-1 sm:flex-initial">
+                                    PDF
+                                </Button>
+                            </>
+                        )}
+                        <Button variant="primary" icon={UserPlus} onClick={() => setIsAddModalOpen(true)} className="w-full sm:w-auto">
+                            Ajouter un étudiant
+                        </Button>
+                    </>
+                }
+            />
+
+            {!isProfessor && (
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+                    <StatCard label="Étudiants" value={sortedStudents.length.toLocaleString('fr-FR')} hint={isFiltered ? `sur ${students.length} au total` : undefined} />
+                    <StatCard label="Total encaissé" value={formatMoney(filteredPaid)} tone="success" />
+                    <div className="col-span-2 lg:col-span-1">
+                        <StatCard label="Reste à percevoir" value={formatMoney(filteredRemaining)} tone={filteredRemaining > 0 ? 'danger' : 'neutral'} />
                     </div>
-                    <h1 className="text-4xl font-black text-white tracking-tighter">Registre <span className="text-slate-500">Étudiants</span></h1>
                 </div>
+            )}
 
-                <div className="flex flex-wrap md:flex-nowrap items-center gap-3 md:gap-4">
-                    <div className="relative flex-1 min-w-0 md:flex-initial md:max-w-md w-full">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Rechercher un étudiant..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-base md:text-sm focus:outline-none focus:border-brand-green/50 transition-all w-full md:w-80 text-slate-900"
-                        />
-                    </div>
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-                            className={`p-3 rounded-2xl border transition-all ${isFilterMenuOpen ? 'bg-brand-green/20 border-brand-green text-brand-green' : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white'}`}
-                        >
-                            <Filter size={20} />
-                        </button>
-
-                        <AnimatePresence>
-                            {isFilterMenuOpen && (
-                                <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setIsFilterMenuOpen(false)} />
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        className="absolute right-0 mt-4 w-64 max-h-[70dvh] overflow-y-auto md:max-h-none md:overflow-visible bg-slate-900 border border-white/10 rounded-3xl shadow-2xl p-6 z-50 space-y-6"
-                                    >
-                                        {!isProfessor && <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Statut Compte</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {['all', 'active', 'blocked'].map((s) => (
-                                                    <button
-                                                        key={s}
-                                                        onClick={() => setFilterConfig(prev => ({ ...prev, status: s as any }))}
-                                                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterConfig.status === s ? 'bg-brand-green text-slate-950' : 'bg-white/5 text-slate-400 hover:text-white'}`}
-                                                    >
-                                                        {s === 'all' ? 'Tous' : s === 'active' ? 'Actif' : 'Bloqué'}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>}
-
-                                        {!isProfessor && <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Situation Financière</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {['all', 'unpaid', 'paid'].map((p) => (
-                                                    <button
-                                                        key={p}
-                                                        onClick={() => setFilterConfig(prev => ({ ...prev, payment: p as any }))}
-                                                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterConfig.payment === p ? 'bg-brand-blue text-white' : 'bg-white/5 text-slate-400 hover:text-white'}`}
-                                                    >
-                                                        {p === 'all' ? 'Tous' : p === 'unpaid' ? 'Non payé' : 'Payé'}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>}
-
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Inscription formation</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {['all', 'enrolled', 'none'].map((a) => (
-                                                    <button
-                                                        key={a}
-                                                        onClick={() => setFilterConfig(prev => ({ ...prev, activity: a as any }))}
-                                                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterConfig.activity === a ? 'bg-amber-500 text-slate-950' : 'bg-white/5 text-slate-400 hover:text-white'}`}
-                                                    >
-                                                        {a === 'all' ? 'Tous' : a === 'enrolled' ? 'Inscrit' : 'Sans formation'}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Date d'inscription</p>
-                                            <div className="space-y-3">
-                                                <select
-                                                    value={filterConfig.dateType}
-                                                    onChange={(e) => setFilterConfig(prev => ({ ...prev, dateType: e.target.value as any, dateValue: '' }))}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none focus:border-brand-green/50"
-                                                >
-                                                    <option value="all">Toutes les dates</option>
-                                                    <option value="year">Par Année</option>
-                                                    <option value="month">Par Mois</option>
-                                                    <option value="exact">Date Exacte</option>
-                                                </select>
-
-                                                {filterConfig.dateType === 'year' && (
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Ex: 2024"
-                                                        value={filterConfig.dateValue}
-                                                        onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
-                                                    />
-                                                )}
-
-                                                {filterConfig.dateType === 'month' && (
-                                                    <input
-                                                        type="month"
-                                                        value={filterConfig.dateValue}
-                                                        onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
-                                                    />
-                                                )}
-
-                                                {filterConfig.dateType === 'exact' && (
-                                                    <input
-                                                        type="date"
-                                                        value={filterConfig.dateValue}
-                                                        onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
-                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base md:text-[10px] font-bold text-white focus:outline-none"
-                                                    />
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => {
-                                                setFilterConfig({ status: 'all', payment: 'all', activity: 'all', dateType: 'all', dateValue: '' });
-                                                setIsFilterMenuOpen(false);
-                                            }}
-                                            className="w-full py-2 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
-                                        >
-                                            Réinitialiser les filtres
-                                        </button>
-                                    </motion.div>
-                                </>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                    <button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="btn-primary w-full md:w-auto py-3 px-6 h-auto shadow-none bg-brand-green text-slate-950 hover:bg-brand-green/90 flex items-center gap-2"
-                    >
-                        <UserPlus size={18} /> Ajouter Étudiant
-                    </button>
-                    <button
-                        onClick={handleExportList}
-                        className={`${isProfessor ? 'hidden' : 'flex'} flex-1 md:flex-initial btn-primary py-3 px-6 h-auto shadow-none bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white items-center gap-2`}
-                        title="Exporter en CSV"
-                    >
-                        <Download size={18} /> CSV
-                    </button>
-                    <button
-                        onClick={handleExportPDFList}
-                        className={`${isProfessor ? 'hidden' : 'flex'} flex-1 md:flex-initial btn-primary py-3 px-6 h-auto shadow-none bg-brand-blue/20 text-brand-blue hover:bg-brand-blue hover:text-white items-center gap-2`}
-                        title="Exporter en PDF"
-                    >
-                        <FileDown size={18} /> PDF
-                    </button>
-                </div>
-            </header>
-
-            <div className={`${isProfessor ? 'hidden' : 'grid'} grid-cols-2 md:grid-cols-3 gap-3 md:gap-6`}>
-                {statsCards.map((stat, i) => (
-                    <motion.div
-                        key={stat.label}
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className={`premium-card p-4 md:p-6 ${i === statsCards.length - 1 ? 'col-span-2 md:col-span-1' : ''}`}
-                    >
-                        <div className="flex flex-col items-start md:flex-row md:items-center gap-3 md:gap-4">
-                            <div className={`p-2.5 md:p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
-                                <stat.icon size={24} />
-                            </div>
-                            <div className="min-w-0">
-                                <h3 className="text-xl md:text-3xl font-black text-white tracking-tighter tabular-nums">{stat.value}</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{stat.label}</p>
-                            </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
-
-            <div className="premium-card overflow-hidden">
-                {/* Mobile card list */}
-                <div className="md:hidden p-3 space-y-3">
-                    {sortedStudents.length > 0 ? (
-                        sortedStudents.map((student) => (
-                            <div key={student.id} className="rounded-2xl bg-white border border-slate-200 p-4">
-                                <button
-                                    type="button"
-                                    onClick={() => fetchStudentProfile(student.id)}
-                                    className="w-full flex items-start justify-between gap-3 text-left"
+            <Card padded={false}>
+                <section aria-label="Liste des étudiants">
+                    <Toolbar className="flex-wrap">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <SearchInput
+                                value={searchQuery}
+                                onChange={setSearchQuery}
+                                placeholder="Nom, email ou téléphone…"
+                                label="Rechercher un étudiant"
+                                className="min-w-0 flex-1 sm:max-w-xs sm:flex-initial"
+                            />
+                            <div className="relative">
+                                <Button
+                                    variant="secondary"
+                                    icon={Filter}
+                                    onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+                                    aria-expanded={isFilterMenuOpen}
+                                    aria-haspopup="dialog"
+                                    className={cn((isFilterMenuOpen || popoverFilters.length > 0) && 'border-slate-400 text-slate-900')}
                                 >
-                                    <div className="flex flex-col min-w-0">
-                                        <span className="font-black text-base text-white truncate">{student.full_name?.replace(/^(M|Mme)\s+/i, '') || student.full_name}</span>
-                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ID-{student.id.slice(0, 8)}</span>
-                                    </div>
-                                    {!isProfessor && (
-                                        <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${student.is_blocked ? 'bg-amber-500/20 text-amber-500' : 'bg-emerald-500/20 text-emerald-500'}`}>
-                                            {student.is_blocked ? 'Restreint' : 'Actif'}
-                                        </span>
+                                    <span className="hidden sm:inline">Filtres</span>
+                                    {popoverFilters.length > 0 && (
+                                        <span className="rounded bg-slate-100 px-1.5 text-xs font-medium text-slate-700 tabular-nums">{popoverFilters.length}</span>
                                     )}
-                                </button>
+                                </Button>
 
-                                <div className="mt-3 space-y-2">
-                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 min-w-0">
-                                        <Mail size={14} className="text-slate-600 shrink-0" />
-                                        <span className="truncate">{student.email}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                                        <Phone size={14} className="text-slate-600 shrink-0" />
-                                        {student.phone}
-                                    </div>
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Enregistré le</span>
-                                        <span className="text-xs font-bold text-white">
-                                            {new Date(student.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })} · {new Date(student.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
-                                    {!isProfessor && (
-                                        <div className="flex items-center justify-between gap-3 tabular-nums">
-                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Finances</span>
-                                            <span className="text-right">
-                                                <span className="text-sm font-black text-brand-green">+{student.total_paid} DT</span>
-                                                <span className={`block text-[10px] font-bold ${student.total_remaining > 0 ? 'text-rose-400' : 'text-slate-600'}`}>
-                                                    {student.total_remaining > 0 ? `-${student.total_remaining} DT restant` : 'Totalité réglée'}
-                                                </span>
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="mt-4 flex items-center gap-2">
-                                    <button
-                                        onClick={() => fetchStudentProfile(student.id)}
-                                        className="flex-1 min-h-10 px-3 rounded-xl bg-brand-green/10 text-brand-green border border-brand-green/20 flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider"
-                                    >
-                                        Profil <ChevronRight size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleAction(student.id, student.is_blocked ? 'unblock' : 'block')}
-                                        title={student.is_blocked ? "Autoriser" : "Restreindre"}
-                                        disabled={actionLoading === student.id}
-                                        className={`${isProfessor ? 'hidden' : 'flex'} w-10 h-10 items-center justify-center rounded-xl border border-white/5 transition-all ${student.is_blocked
-                                            ? 'bg-emerald-500/10 text-emerald-400'
-                                            : 'bg-amber-500/10 text-amber-500'
-                                            }`}
-                                    >
-                                        {actionLoading === student.id ? (
-                                            <Loader2 size={18} className="animate-spin" />
-                                        ) : student.is_blocked ? (
-                                            <UserCheck size={18} />
-                                        ) : (
-                                            <UserX size={18} />
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={() => handleAction(student.id, 'delete')}
-                                        title="Supprimer"
-                                        disabled={actionLoading === student.id}
-                                        className={`${isProfessor ? 'hidden' : 'flex'} w-10 h-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 transition-all`}
-                                    >
-                                        <X size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="py-16 flex flex-col items-center gap-4 text-center">
-                            <Users size={48} className="text-slate-800" />
-                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun étudiant correspondant</p>
-                        </div>
-                    )}
-                </div>
-
-                <div className="hidden md:block overflow-x-auto custom-scrollbar">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="bg-white/5 border-b border-white/5">
-                                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('full_name')}>
-                                    <div className="flex items-center gap-2">Étudiant <ArrowUpDown size={12} /></div>
-                                </th>
-                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Contact Internal</th>
-                                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('created_at')}>
-                                    <div className="flex items-center gap-2">Enregistré le <ArrowUpDown size={12} /></div>
-                                </th>
-                                <th className={`${isProfessor ? 'hidden' : ''} px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] cursor-pointer hover:text-white transition-colors`} onClick={() => handleSort('total_paid')}>
-                                    <div className="flex items-center gap-2">Intelligence Financière <ArrowUpDown size={12} /></div>
-                                </th>
-                                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Admin Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {sortedStudents.length > 0 ? (
-                                sortedStudents.map((student, idx) => (
-                                    <motion.tr
-                                        key={student.id}
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: idx * 0.05 }}
-                                        className="hover:bg-white/[0.02] transition-colors group"
-                                    >
-                                        <td className="px-8 py-4">
-                                            <div className="flex items-center">
-                                                <div className="flex flex-col">
-                                                    <span className="font-black text-sm text-white">{student.full_name?.replace(/^(M|Mme)\s+/i, '') || student.full_name}</span>
-                                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ID-{student.id.slice(0, 8)}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-col gap-1.5">
-                                                <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                                                    <Mail size={14} className="text-slate-600" />
-                                                    {student.email}
-                                                </div>
-                                                <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                                                    <Phone size={14} className="text-slate-600" />
-                                                    {student.phone}
-                                                </div>
-
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-white tracking-widest uppercase">
-                                                    {new Date(student.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                </span>
-                                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-                                                    {new Date(student.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        <td className={`${isProfessor ? 'hidden' : ''} px-6 py-4 tabular-nums`}>
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-black text-brand-green">+{student.total_paid} DT</span>
-                                                <span className={`text-[10px] font-bold ${student.total_remaining > 0 ? 'text-rose-400' : 'text-slate-600'}`}>
-                                                    {student.total_remaining > 0 ? `-${student.total_remaining} DT restant` : 'Totalité réglée'}
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        <td className="px-8 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {/* Profile Action */}
-                                                <button
-                                                    onClick={() => fetchStudentProfile(student.id)}
-                                                    title="Profil Complet"
-                                                    className="p-2.5 rounded-xl bg-white/5 text-slate-400 hover:text-brand-green hover:bg-brand-green/10 transition-all border border-white/5"
-                                                >
-                                                    <ChevronRight size={18} />
-                                                </button>
-
-                                                {/* Block/Unblock Action */}
-                                                <button
-                                                    onClick={() => handleAction(student.id, student.is_blocked ? 'unblock' : 'block')}
-                                                    title={student.is_blocked ? "Autoriser" : "Restreindre"}
-                                                    disabled={actionLoading === student.id}
-                                                    className={`${isProfessor ? 'hidden' : ''} p-2.5 rounded-xl border border-white/5 transition-all ${student.is_blocked
-                                                        ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
-                                                        : 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
-                                                        }`}
-                                                >
-                                                    {actionLoading === student.id ? (
-                                                        <Loader2 size={18} className="animate-spin" />
-                                                    ) : student.is_blocked ? (
-                                                        <UserCheck size={18} />
-                                                    ) : (
-                                                        <UserX size={18} />
+                                <AnimatePresence>
+                                    {isFilterMenuOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setIsFilterMenuOpen(false)} />
+                                            <motion.div
+                                                role="dialog"
+                                                aria-label="Filtres"
+                                                initial={{ opacity: 0, y: 4 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 4 }}
+                                                transition={{ duration: 0.12 }}
+                                                className="absolute left-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] max-h-[70dvh] overflow-y-auto custom-scrollbar rounded-xl border border-slate-200 bg-white shadow-lg sm:left-auto sm:right-0"
+                                            >
+                                                <div className="space-y-4 p-4">
+                                                    {!isProfessor && (
+                                                        <div className="space-y-1.5">
+                                                            <p className="text-sm font-medium text-slate-700">Statut du compte</p>
+                                                            <FilterTabs
+                                                                label="Statut du compte"
+                                                                value={filterConfig.status}
+                                                                onChange={(value) => setFilterConfig(prev => ({ ...prev, status: value }))}
+                                                                options={[
+                                                                    { value: 'all', label: 'Tous' },
+                                                                    { value: 'active', label: 'Actif' },
+                                                                    { value: 'blocked', label: 'Bloqué' },
+                                                                ]}
+                                                            />
+                                                        </div>
                                                     )}
-                                                </button>
 
-                                                {/* Delete Action */}
-                                                <button
-                                                    onClick={() => handleAction(student.id, 'delete')}
-                                                    title="Supprimer"
-                                                    disabled={actionLoading === student.id}
-                                                    className={`${isProfessor ? 'hidden' : ''} p-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all border border-rose-500/20`}
-                                                >
-                                                    <X size={18} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </motion.tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-32 text-center">
-                                        <div className="flex flex-col items-center gap-4">
-                                            <Users size={48} className="text-slate-800" />
-                                            <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Aucun étudiant correspondant</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                                    {!isProfessor && (
+                                                        <div className="space-y-1.5">
+                                                            <p className="text-sm font-medium text-slate-700">Situation financière</p>
+                                                            <FilterTabs
+                                                                label="Situation financière"
+                                                                value={filterConfig.payment}
+                                                                onChange={(value) => setFilterConfig(prev => ({ ...prev, payment: value }))}
+                                                                options={[
+                                                                    { value: 'all', label: 'Tous' },
+                                                                    { value: 'unpaid', label: 'Non payé' },
+                                                                    { value: 'paid', label: 'Payé' },
+                                                                ]}
+                                                            />
+                                                        </div>
+                                                    )}
 
-                <div className="p-4 md:p-6 bg-white/5 border-t border-white/5 flex flex-col items-start gap-3 md:flex-row md:items-center justify-between">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        Couverture du registre : <span className="text-white">{(sortedStudents.length / (students.length || 1) * 100).toFixed(0)} %</span>
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-400 mr-4">{sortedStudents.length} enregistrement(s) sur {students.length}</span>
-                        <button className="p-2 w-10 h-10 md:w-auto md:h-auto flex items-center justify-center md:block rounded-lg bg-slate-900 border border-white/5 text-slate-500 cursor-not-allowed"><ChevronRight size={16} className="rotate-180" /></button>
-                        <button className="p-2 w-10 h-10 md:w-auto md:h-auto flex items-center justify-center md:block rounded-lg bg-slate-900 border border-white/5 text-slate-500 cursor-not-allowed"><ChevronRight size={16} /></button>
-                    </div>
-                </div>
-            </div>
+                                                    <Field label="Date d'inscription" htmlFor="students-date-filter">
+                                                        <div className="space-y-2">
+                                                            <select
+                                                                id="students-date-filter"
+                                                                value={filterConfig.dateType}
+                                                                onChange={(e) => setFilterConfig(prev => ({ ...prev, dateType: e.target.value as any, dateValue: '' }))}
+                                                                className={selectClass}
+                                                            >
+                                                                <option value="all">Toutes les dates</option>
+                                                                <option value="year">Par année</option>
+                                                                <option value="month">Par mois</option>
+                                                                <option value="exact">Date exacte</option>
+                                                            </select>
 
-            {/* Profile Modal */}
-            <AnimatePresence>
-                {isProfileModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
-                            onClick={() => setIsProfileModalOpen(false)}
-                        />
-                        <motion.div
-                            id="pdf-content"
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-4xl max-h-[90vh] bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
-                        >
-                            {/* Modal Header */}
-                            <div className="flex items-center justify-between gap-3 p-4 md:p-6 border-b border-white/10 bg-white/5">
-                                <div className="flex items-center gap-3 md:gap-4 min-w-0">
-                                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-brand-blue to-blue-600 flex items-center justify-center text-white text-xl font-black shadow-lg">
-                                        {selectedProfile?.full_name?.replace(/^(M|Mme)\s+/i, '').charAt(0) || 'U'}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <h2 className="text-lg md:text-xl font-black text-white truncate">{selectedProfile?.full_name?.replace(/^(M|Mme)\s+/i, '') || selectedProfile?.full_name}</h2>
-                                        <p className="text-xs text-brand-blue font-bold uppercase tracking-widest">
-                                            {selectedProfile?.is_blocked ? 'Compte Restreint' : 'Compte Actif'} • ID: {selectedProfile?.id.slice(0, 8)}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <button
-                                        onClick={handleDownloadPDF}
-                                        title="Télécharger en PDF"
-                                        className="min-h-10 md:min-h-0 py-2 px-3 md:px-4 rounded-xl bg-brand-blue/10 text-brand-blue hover:text-white hover:bg-brand-blue transition-all flex items-center gap-2 text-xs font-bold"
-                                    >
-                                        <FileDown size={16} /> PDF
-                                    </button>
-                                    <button
-                                        onClick={() => setIsProfileModalOpen(false)}
-                                        className="p-2 w-10 h-10 md:w-auto md:h-auto flex items-center justify-center md:block rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
-                                    >
-                                        <X size={20} />
-                                    </button>
-                                </div>
-                            </div>
+                                                            {filterConfig.dateType === 'year' && (
+                                                                <input
+                                                                    type="number"
+                                                                    placeholder="Ex : 2024"
+                                                                    aria-label="Année"
+                                                                    value={filterConfig.dateValue}
+                                                                    onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
+                                                                    className={inputClass}
+                                                                />
+                                                            )}
 
-                            {/* Modal Body */}
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6 md:space-y-8 bg-slate-900">
-                                {profileLoading ? (
-                                    <div className="flex flex-col items-center justify-center py-20 gap-4">
-                                        <Loader2 className="animate-spin text-brand-blue" size={48} />
-                                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Chargement du profil complet...</p>
-                                    </div>
-                                ) : selectedProfile ? (
-                                    <>
-                                        {/* Personal Info Section */}
-                                        <section>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                <UserCheck size={16} className="text-brand-green" /> Informations Personnelles
-                                            </h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                                                <div className="col-span-2 md:col-span-1 p-4 rounded-2xl bg-white/5 border border-white/5">
-                                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Email</p>
-                                                    <p className="text-sm font-bold text-white truncate" title={selectedProfile.email}>{selectedProfile.email}</p>
-                                                </div>
-                                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Téléphone</p>
-                                                    <p className="text-sm font-bold text-white">{selectedProfile.phone || 'N/A'}</p>
-                                                </div>
-                                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Numéro CIN</p>
-                                                    <p className="text-sm font-bold text-brand-blue">{selectedProfile.cin_number || 'N/A'}</p>
-                                                </div>
-                                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Sexe / Âge</p>
-                                                    <p className="text-sm font-bold text-white">
-                                                        {selectedProfile.gender || 'N/A'} {selectedProfile.age ? `/ ${selectedProfile.age} ans` : ''}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </section>
+                                                            {filterConfig.dateType === 'month' && (
+                                                                <input
+                                                                    type="month"
+                                                                    aria-label="Mois"
+                                                                    value={filterConfig.dateValue}
+                                                                    onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
+                                                                    className={inputClass}
+                                                                />
+                                                            )}
 
-                                        {/* Send SMS */}
-                                        <section className={isProfessor ? 'hidden' : ''}>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                <Send size={16} className="text-brand-green" /> Communication SMS
-                                            </h3>
-                                            <div className="rounded-2xl border border-brand-green/20 bg-brand-green/5 p-4 md:p-5">
-                                                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                                    <p className="text-xs font-bold text-slate-300">
-                                                        Destinataire : <span className="text-white">{selectedProfile.phone || 'Aucun numéro'}</span>
-                                                    </p>
+                                                            {filterConfig.dateType === 'exact' && (
+                                                                <input
+                                                                    type="date"
+                                                                    aria-label="Date exacte"
+                                                                    value={filterConfig.dateValue}
+                                                                    onChange={(e) => setFilterConfig(prev => ({ ...prev, dateValue: e.target.value }))}
+                                                                    className={inputClass}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    </Field>
                                                 </div>
-                                                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Choisissez un modèle ou rédigez un message</p>
-                                                <div className="flex flex-nowrap overflow-x-auto md:flex-wrap md:overflow-visible gap-2 -mx-4 px-4 md:mx-0 md:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => sendPaymentReminder(true)}
-                                                        disabled={smsSending || !selectedProfile.phone || selectedProfile.phone === 'N/A' || Number(selectedProfile.total_remaining) <= 0}
-                                                        className="shrink-0 min-h-10 md:min-h-0 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-rose-300 transition-colors hover:bg-rose-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        Avis de retard ({selectedProfile.total_remaining} DT)
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => sendPaymentReminder(false)}
-                                                        disabled={smsSending || !selectedProfile.phone || selectedProfile.phone === 'N/A' || Number(selectedProfile.total_remaining) <= 0}
-                                                        className="shrink-0 min-h-10 md:min-h-0 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-amber-300 transition-colors hover:bg-amber-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        Rappel de paiement
-                                                    </button>
-                                                    <button
-                                                        type="button"
+
+                                                <div className="flex gap-2 border-t border-slate-200 bg-slate-50/60 px-4 py-3">
+                                                    <Button
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        className="flex-1"
                                                         onClick={() => {
-                                                            setIsCustomSms(true);
-                                                            setSmsFeedback(null);
+                                                            setFilterConfig({ status: 'all', payment: 'all', activity: 'all', dateType: 'all', dateValue: '' });
+                                                            setIsFilterMenuOpen(false);
                                                         }}
-                                                        className="shrink-0 min-h-10 md:min-h-0 rounded-xl border border-brand-green/30 bg-brand-green/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-brand-green transition-colors hover:bg-brand-green hover:text-white"
                                                     >
-                                                        Message personnalisé
-                                                    </button>
+                                                        Réinitialiser
+                                                    </Button>
+                                                    <Button variant="primary" size="sm" className="flex-1" onClick={() => setIsFilterMenuOpen(false)}>
+                                                        Appliquer
+                                                    </Button>
                                                 </div>
-                                                {isCustomSms && (
-                                                    <div className="mt-3">
-                                                        <div className="mb-2 flex justify-end">
-                                                            <p className={`text-[10px] font-black tabular-nums ${smsMessage.length >= 150 ? 'text-amber-400' : 'text-slate-500'}`}>
-                                                                {smsMessage.length}/157 caractères
-                                                            </p>
-                                                        </div>
-                                                        <textarea
-                                                            rows={4}
-                                                            maxLength={157}
-                                                            value={smsMessage}
-                                                            onChange={(event) => {
-                                                                setSmsMessage(event.target.value);
-                                                                setSmsFeedback(null);
-                                                            }}
-                                                            placeholder="Saisissez le SMS à envoyer à cet étudiant…"
-                                                            className="w-full resize-none rounded-xl border border-slate-200 bg-white p-4 text-base md:text-sm leading-relaxed text-slate-900 outline-none focus:border-brand-green"
-                                                        />
-                                                    </div>
-                                                )}
-                                                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                                    <div aria-live="polite">
-                                                        {smsFeedback && (
-                                                            <p className={`text-xs font-bold ${smsFeedback.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                                {smsFeedback.message}
-                                                            </p>
-                                                        )}
-                                                        <p className="text-[10px] font-medium text-slate-500">
-                                                            Envoi sécurisé via votre Sender ID WinSMS approuvé.
-                                                        </p>
-                                                    </div>
-                                                    {isCustomSms && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleSendSms}
-                                                            disabled={smsSending || !smsMessage.trim() || !selectedProfile.phone || selectedProfile.phone === 'N/A'}
-                                                            className="btn-primary min-w-48 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                                                        >
-                                                            {smsSending
-                                                                ? <Loader2 className="animate-spin" size={16} />
-                                                                : <Send size={16} />}
-                                                            {smsSending ? 'Envoi…' : 'Envoyer le SMS'}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </section>
-
-                                        {/* Internal Student Note */}
-                                        <section>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                <MessageSquare size={16} className="text-brand-blue" /> Remarque interne
-                                            </h3>
-                                            <div className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-4 md:p-5">
-                                                <textarea
-                                                    rows={5}
-                                                    maxLength={3000}
-                                                    value={studentNote}
-                                                    onChange={(event) => {
-                                                        setStudentNote(event.target.value);
-                                                        setStudentNoteSaved(false);
-                                                    }}
-                                                    placeholder="Ajouter une remarque générale sur cet étudiant…"
-                                                    className="w-full resize-y rounded-xl border border-slate-200 bg-white p-4 text-base md:text-sm leading-relaxed text-slate-900 outline-none focus:border-brand-blue"
-                                                />
-                                                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                                    <div>
-                                                        {studentNoteSaved && (
-                                                            <p className="text-xs font-bold text-emerald-400">
-                                                                Remarque enregistrée.
-                                                            </p>
-                                                        )}
-                                                        {selectedProfile.admin_note_updated_at && (
-                                                            <p className="text-[10px] font-medium text-slate-500">
-                                                                Dernière modification : {new Date(selectedProfile.admin_note_updated_at).toLocaleString('fr-FR')}
-                                                            </p>
-                                                        )}
-                                                        <p className="text-[10px] font-medium text-slate-500">
-                                                            Cette remarque est visible uniquement par l’administration.
-                                                        </p>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleSaveStudentNote}
-                                                        disabled={studentNoteSaving}
-                                                        className="btn-primary min-w-48 py-2.5 text-sm"
-                                                    >
-                                                        {studentNoteSaving
-                                                            ? <Loader2 className="animate-spin" size={16} />
-                                                            : <Save size={16} />}
-                                                        {studentNoteSaving ? 'Enregistrement…' : 'Enregistrer'}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </section>
-
-                                        {/* Financial Summary */}
-                                        <section className={isProfessor ? 'hidden' : ''}>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                <CreditCard size={16} className="text-amber-400" /> Bilan Financier
-                                            </h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                                                <div className="p-4 md:p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-                                                    <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1">Total Payé</p>
-                                                    <p className="text-xl md:text-2xl font-black text-emerald-400 tabular-nums">{selectedProfile.total_paid} DT</p>
-                                                </div>
-                                                <div className="p-4 md:p-5 rounded-2xl bg-white/5 border border-white/10">
-                                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Montant Total des Formations</p>
-                                                    <p className="text-xl md:text-2xl font-black text-white tabular-nums">{selectedProfile.total_price} DT</p>
-                                                </div>
-                                                <div className="col-span-2 md:col-span-1 p-4 md:p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-                                                    <p className="text-[10px] text-rose-500 font-black uppercase tracking-widest mb-1">Reste à Payer (Créances)</p>
-                                                    <p className="text-xl md:text-2xl font-black text-rose-400 tabular-nums">{selectedProfile.total_remaining} DT</p>
-                                                </div>
-                                            </div>
-                                        </section>
-
-                                        {/* Enrollments & Formations */}
-                                        <section>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                <BookOpen size={16} className="text-brand-blue" /> Formations & Sessions ({selectedProfile.enrollments?.length || 0})
-                                            </h3>
-
-                                            {selectedProfile.enrollments?.length > 0 ? (
-                                                <div className="space-y-4">
-                                                    {selectedProfile.enrollments.map((enrollment) => (
-                                                        <div key={enrollment.id} className="p-4 md:p-5 rounded-3xl bg-white/5 border border-white/10 flex flex-col md:flex-row gap-4 md:gap-6 md:items-center justify-between">
-                                                            {/* Course Info */}
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center overflow-hidden border border-white/10 shrink-0">
-                                                                    {enrollment.course?.image_url ? (
-                                                                        <img src={enrollment.course.image_url} alt={enrollment.course.title} className="w-full h-full object-cover" />
-                                                                    ) : (
-                                                                        <GraduationCap size={24} className="text-slate-500" />
-                                                                    )}
-                                                                </div>
-                                                                <div>
-                                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-brand-blue/20 text-brand-blue">
-                                                                            {enrollment.course?.category || 'Formation'}
-                                                                        </span>
-                                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${enrollment.status === 'confirmed' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                                            enrollment.status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-500/20 text-slate-400'
-                                                                            }`}>
-                                                                            {getStatusLabel(enrollment.status)}
-                                                                        </span>
-                                                                    </div>
-                                                                    <h4 className="font-black text-white">{enrollment.course?.title || 'Formation inconnue'}</h4>
-                                                                    <p className="text-xs font-bold text-slate-400 flex items-center gap-2 mt-1">
-                                                                        <Calendar size={12} />
-                                                                        {enrollment.session?.start_date ? new Date(enrollment.session.start_date).toLocaleDateString('fr-FR') : 'Date à définir'}
-                                                                        <ChevronRight size={10} className="text-slate-600" />
-                                                                        {enrollment.session?.end_date ? new Date(enrollment.session.end_date).toLocaleDateString('fr-FR') : 'Date à définir'}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Payment for this specific enrollment */}
-                                                            <div className={`${isProfessor ? 'hidden' : 'flex'} items-center justify-between md:justify-start gap-6 pt-4 md:pt-0 border-t md:border-t-0 md:border-l border-white/10 md:pl-6`}>
-                                                                <div className="flex flex-col items-end">
-                                                                    <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Paiement Partiel</span>
-                                                                    <span className="text-sm font-black text-emerald-400">+{enrollment.amount_paid} / {enrollment.total_price} DT</span>
-                                                                </div>
-                                                                {enrollment.remaining > 0 ? (
-                                                                    <div className="flex flex-col items-end">
-                                                                        <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Reste à Payer</span>
-                                                                        <span className="text-sm font-black text-rose-400">{enrollment.remaining} DT</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex flex-col items-end">
-                                                                        <span className="text-[10px] text-emerald-500/50 font-black uppercase tracking-widest mb-1">Statut</span>
-                                                                        <span className="text-sm font-black text-emerald-400 flex items-center gap-1">
-                                                                            <CheckCircle2 size={14} /> Soldé
-                                                                        </span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="p-6 md:p-10 rounded-3xl border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
-                                                    <BookOpen size={48} className="text-slate-700 mb-4" />
-                                                    <p className="text-sm font-black text-white mb-1">Aucune inscription</p>
-                                                    <p className="text-xs text-slate-500 font-bold">Cet étudiant ne s'est encore inscrit à aucune formation.</p>
-                                                </div>
-                                            )}
-                                        </section>
-                                    </>
-                                ) : (
-                                    <div className="text-center py-10 text-rose-400">Erreur lors du chargement des données.</div>
-                                )}
+                                            </motion.div>
+                                        </>
+                                    )}
+                                </AnimatePresence>
                             </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Premium Delete Confirmation Modal */}
-            <AnimatePresence>
-                {deleteConfirmId && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
-                            onClick={() => setDeleteConfirmId(null)}
+                        </div>
+                        <FilterTabs
+                            label="Inscription à une formation"
+                            options={activityTabs}
+                            value={filterConfig.activity}
+                            onChange={(value) => setFilterConfig(prev => ({ ...prev, activity: value }))}
                         />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="relative w-full max-w-md bg-slate-900 border border-rose-500/20 rounded-3xl shadow-2xl overflow-hidden"
-                        >
-                            <div className="p-6 md:p-8 text-center">
-                                <div className="w-20 h-20 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto mb-6">
-                                    <Trash2 size={40} className="text-rose-500" />
-                                </div>
-                                <h2 className="text-2xl font-black text-white mb-2">Suppression Critique</h2>
-                                <p className="text-slate-400 font-medium text-sm leading-relaxed mb-8">
-                                    Êtes-vous sûr de vouloir supprimer définitivement cet étudiant ? <br/>
-                                    Toutes les données associées seront <span className="text-rose-500 font-bold uppercase tracking-wider">effacées à jamais</span>.
-                                </p>
-                                <div className="flex flex-col gap-3">
-                                    <button
-                                        onClick={() => {
-                                            handleAction(deleteConfirmId, 'delete');
-                                            setDeleteConfirmId(null);
-                                        }}
-                                        className="w-full py-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-900/20"
-                                    >
-                                        Confirmer la suppression
-                                    </button>
-                                    <button
-                                        onClick={() => setDeleteConfirmId(null)}
-                                        className="w-full py-4 rounded-2xl bg-white/5 text-slate-400 font-black uppercase tracking-widest hover:bg-white/10 transition-all border border-white/5"
-                                    >
-                                        Annuler
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                    </Toolbar>
 
-            {/* ADD STUDENT MODAL */}
-            <AnimatePresence>
-                {isAddModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white border border-slate-200 p-5 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]"
-                        >
-                            <div className="flex justify-between items-center gap-3 mb-6 md:mb-8">
-                                <div>
-                                    <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Recruter un <span className="text-brand-green">Nouvel Étudiant</span></h2>
-                                    <p className="text-slate-500 text-xs mt-1 uppercase font-bold tracking-widest">Enregistrement manuel sans vérification e-mail</p>
-                                </div>
-                                <button onClick={() => setIsAddModalOpen(false)} className="p-2 w-10 h-10 md:w-auto md:h-auto shrink-0 flex items-center justify-center md:block text-slate-400 hover:text-slate-900 transition-colors">
-                                    <X size={24} />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleCreateStudent} className="space-y-4 md:space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail (Identifiant)</label>
-                                        <input
-                                            type="email"
-                                            value={addFormData.email}
-                                            onChange={(e) => setAddFormData({ ...addFormData, email: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
-                                            placeholder="exemple@email.com"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Mot de passe</label>
-                                        <input
-                                            type="text"
-                                            value={addFormData.password}
-                                            onChange={(e) => setAddFormData({ ...addFormData, password: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
-                                            placeholder="••••••••"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="h-px bg-slate-100 my-2" />
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nom Complet</label>
-                                    <input
-                                        type="text"
-                                        value={addFormData.full_name}
-                                        onChange={(e) => setAddFormData({ ...addFormData, full_name: e.target.value })}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
-                                        placeholder="Nom & Prénom"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Téléphone</label>
-                                        <input
-                                            type="text"
-                                            value={addFormData.phone}
-                                            onChange={(e) => setAddFormData({ ...addFormData, phone: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
-                                            placeholder="55 123 456"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Numéro CIN</label>
-                                        <input
-                                            type="text"
-                                            value={addFormData.cin_number}
-                                            onChange={(e) => setAddFormData({ ...addFormData, cin_number: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:border-brand-green/50 font-bold text-base md:text-sm"
-                                            placeholder="00123456"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 flex flex-col-reverse md:flex-row gap-3 md:gap-4 sticky -bottom-5 -mx-5 px-5 -mb-5 pb-5 bg-white md:static md:mx-0 md:px-0 md:mb-0 md:pb-0 md:bg-transparent">
+                    {popoverFilters.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-2.5">
+                            {popoverFilters.map((f) => (
+                                <span key={f.key} className="inline-flex items-center gap-1 rounded-md bg-slate-100 py-0.5 pl-2 pr-0.5 text-xs font-medium text-slate-700">
+                                    {f.label}
                                     <button
                                         type="button"
-                                        onClick={() => setIsAddModalOpen(false)}
-                                        className="flex-1 py-4 rounded-2xl border border-slate-200 text-slate-500 font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+                                        onClick={f.clear}
+                                        aria-label={`Retirer le filtre ${f.label}`}
+                                        title="Retirer ce filtre"
+                                        className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
                                     >
-                                        Annuler
+                                        <X size={12} />
                                     </button>
-                                    <button
-                                        type="submit"
-                                        disabled={isCreating}
-                                        className="flex-2 btn-primary flex-grow py-4 px-10 h-auto shadow-xl shadow-brand-green/10 flex items-center justify-center gap-2"
-                                    >
-                                        {isCreating ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
-                                        {isCreating ? 'CRÉATION...' : 'CRÉER LE COMPTE'}
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
+                                </span>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => setFilterConfig({ status: 'all', payment: 'all', activity: 'all', dateType: 'all', dateValue: '' })}
+                                className="text-xs font-medium text-brand-blue hover:underline"
+                            >
+                                Tout effacer
+                            </button>
+                        </div>
+                    )}
+
+                    {sortedStudents.length === 0 ? emptyState : (
+                        <>
+                            {/* Mobile card list */}
+                            <ul className="divide-y divide-slate-100 md:hidden">
+                                {sortedStudents.map((student) => (
+                                    <li key={student.id} className="p-4">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => fetchStudentProfile(student.id)}
+                                                className="flex min-w-0 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                            >
+                                                {renderAvatar(student.full_name)}
+                                                <span className="flex min-w-0 flex-col">
+                                                    <span className="truncate text-sm font-medium text-slate-900">{cleanName(student.full_name)}</span>
+                                                    <span className="truncate text-xs text-slate-500">{student.email}</span>
+                                                </span>
+                                            </button>
+                                            {!isProfessor && <div className="shrink-0">{renderAccountBadge(student.is_blocked)}</div>}
+                                        </div>
+
+                                        <dl className="mt-3 grid grid-cols-2 gap-3 pl-12">
+                                            <div className="min-w-0">
+                                                <dt className={dtClass}>Téléphone</dt>
+                                                <dd className={cn(ddClass, 'tabular-nums')}>
+                                                    {hasPhone(student.phone)
+                                                        ? <a href={`tel:${student.phone}`} className="hover:text-brand-blue">{student.phone}</a>
+                                                        : <span className="text-slate-400">Non renseigné</span>}
+                                                </dd>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <dt className={dtClass}>Formations</dt>
+                                                <dd className={cn(ddClass, 'tabular-nums')}>{student.enrollment_count}</dd>
+                                            </div>
+                                            <div className="col-span-2 min-w-0">
+                                                <dt className={dtClass}>Enregistré le</dt>
+                                                <dd className={cn(ddClass, 'tabular-nums')}>{formatDate(student.created_at)} · {formatTime(student.created_at)}</dd>
+                                            </div>
+                                            {!isProfessor && (
+                                                <div className="col-span-2">
+                                                    <dt className="sr-only">Paiement</dt>
+                                                    <dd>{renderPaymentSummary(student.total_paid, student.total_remaining, student.enrollment_count, true)}</dd>
+                                                </div>
+                                            )}
+                                        </dl>
+
+                                        <div className="mt-3 flex items-center gap-1 pl-12">
+                                            <Button variant="secondary" size="sm" onClick={() => fetchStudentProfile(student.id)} className="flex-1">
+                                                Voir le profil <ChevronRight size={16} />
+                                            </Button>
+                                            {rowActions(student)}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+
+                            {/* Desktop table */}
+                            <div className={cn(table.wrapper, 'hidden md:block custom-scrollbar')}>
+                                <table className={table.table}>
+                                    <thead className={table.thead}>
+                                        <tr>
+                                            {renderSortHeader('Étudiant', 'full_name', 'pl-5')}
+                                            <th scope="col" className={table.th}>Téléphone</th>
+                                            <th scope="col" className={cn(table.th, 'text-right')}>Formations</th>
+                                            {renderSortHeader('Enregistré le', 'created_at')}
+                                            {!isProfessor && renderSortHeader('Paiement', 'total_paid')}
+                                            {!isProfessor && <th scope="col" className={table.th}>Compte</th>}
+                                            <th scope="col" className={cn(table.th, 'pr-5 text-right')}>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={table.tbody}>
+                                        {sortedStudents.map((student) => (
+                                            <tr key={student.id} className={table.tr}>
+                                                <td className={cn(table.td, 'pl-5')}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fetchStudentProfile(student.id)}
+                                                        className="group flex min-w-[14rem] items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                                        title="Ouvrir le profil complet"
+                                                    >
+                                                        {renderAvatar(student.full_name)}
+                                                        <span className="flex min-w-0 flex-col">
+                                                            <span className="font-medium text-slate-900 group-hover:underline group-hover:decoration-slate-300 group-hover:underline-offset-2">{cleanName(student.full_name)}</span>
+                                                            <span className="break-all text-xs text-slate-500">{student.email}</span>
+                                                        </span>
+                                                    </button>
+                                                </td>
+                                                <td className={cn(table.td, 'whitespace-nowrap tabular-nums')}>
+                                                    {hasPhone(student.phone)
+                                                        ? <a href={`tel:${student.phone}`} className="hover:text-brand-blue">{student.phone}</a>
+                                                        : <span className="text-slate-400">—</span>}
+                                                </td>
+                                                <td className={cn(table.td, 'text-right tabular-nums')}>{student.enrollment_count}</td>
+                                                <td className={cn(table.td, 'whitespace-nowrap tabular-nums')}>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-slate-900">{formatDate(student.created_at)}</span>
+                                                        <span className="text-xs text-slate-500">{formatTime(student.created_at)}</span>
+                                                    </div>
+                                                </td>
+                                                {!isProfessor && (
+                                                    <td className={table.td}>
+                                                        {renderPaymentSummary(student.total_paid, student.total_remaining, student.enrollment_count)}
+                                                    </td>
+                                                )}
+                                                {!isProfessor && (
+                                                    <td className={table.td}>{renderAccountBadge(student.is_blocked)}</td>
+                                                )}
+                                                <td className={cn(table.td, 'pr-5 text-right')}>
+                                                    <div className="flex items-center justify-end gap-0.5">
+                                                        <IconButton
+                                                            label={`Voir le profil de ${cleanName(student.full_name)}`}
+                                                            title="Profil complet"
+                                                            icon={ChevronRight}
+                                                            onClick={() => fetchStudentProfile(student.id)}
+                                                        />
+                                                        {rowActions(student)}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    )}
+
+                    <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs text-slate-500 md:px-5">
+                        <p className="tabular-nums" aria-live="polite">
+                            {isFiltered
+                                ? <><span className="font-medium text-slate-900">{sortedStudents.length}</span> sur {students.length} étudiant{students.length > 1 ? 's' : ''}</>
+                                : <><span className="font-medium text-slate-900">{students.length}</span> étudiant{students.length > 1 ? 's' : ''}</>}
+                        </p>
+                        {isFiltered && (
+                            <button type="button" onClick={resetAll} className="font-medium text-brand-blue hover:underline">
+                                Réinitialiser
+                            </button>
+                        )}
                     </div>
+                </section>
+            </Card>
+
+            {/* Profile dialog */}
+            <Modal
+                open={isProfileModalOpen}
+                onClose={() => setIsProfileModalOpen(false)}
+                size="xl"
+                title={
+                    <span className="flex min-w-0 items-center gap-3">
+                        {profile ? renderAvatar(profile.full_name, 'md') : null}
+                        <span className="truncate">{profileLoading ? 'Chargement du profil…' : cleanName(selectedProfile?.full_name) || 'Profil étudiant'}</span>
+                    </span>
+                }
+                description={profile ? (
+                    <span className="mt-1 flex flex-wrap items-center gap-2">
+                        {renderAccountBadge(profile.is_blocked)}
+                        <span className="text-xs text-slate-500 tabular-nums">ID {profile.id.slice(0, 8)}</span>
+                    </span>
+                ) : undefined}
+                headerActions={
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={FileDown}
+                        onClick={handleDownloadPDF}
+                        disabled={!selectedProfile || profileLoading}
+                        title="Télécharger la fiche en PDF"
+                    >
+                        <span className="hidden sm:inline">Télécharger</span> PDF
+                    </Button>
+                }
+            >
+                {profileLoading ? (
+                    <LoadingState label="Chargement du profil complet…" />
+                ) : selectedProfile ? (
+                    <div className="divide-y divide-slate-200 [&>section]:py-5 [&>section:first-child]:pt-1 [&>section:last-child]:pb-1">
+                        {/* Personal info */}
+                        <section aria-labelledby="profile-infos">
+                            <h3 id="profile-infos" className={cn(subheadingClass, 'mb-3')}>Informations personnelles</h3>
+                            <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                                <div className="min-w-0">
+                                    <dt className={dtClass}>Email</dt>
+                                    <dd className={cn(ddClass, 'break-all')}>
+                                        <a href={`mailto:${selectedProfile.email}`} className="hover:text-brand-blue hover:underline">{selectedProfile.email}</a>
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className={dtClass}>Téléphone</dt>
+                                    <dd className={cn(ddClass, 'tabular-nums')}>
+                                        {hasPhone(selectedProfile.phone)
+                                            ? <a href={`tel:${selectedProfile.phone}`} className="hover:text-brand-blue hover:underline">{selectedProfile.phone}</a>
+                                            : <span className="text-slate-400">Non renseigné</span>}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className={dtClass}>Numéro CIN</dt>
+                                    <dd className={cn(ddClass, 'tabular-nums')}>
+                                        {selectedProfile.cin_number || <span className="text-slate-400">Non renseigné</span>}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className={dtClass}>Sexe / Âge</dt>
+                                    <dd className={ddClass}>
+                                        {selectedProfile.gender || 'N/A'} {selectedProfile.age ? `/ ${selectedProfile.age} ans` : ''}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className={dtClass}>Enregistré le</dt>
+                                    <dd className={cn(ddClass, 'tabular-nums')}>
+                                        {formatDate(selectedProfile.created_at)}{selectedProfile.created_at ? ` · ${formatTime(selectedProfile.created_at)}` : ''}
+                                    </dd>
+                                </div>
+                                {selectedProfile.source && (
+                                    <div>
+                                        <dt className={dtClass}>Source</dt>
+                                        <dd className={ddClass}>{selectedProfile.source}</dd>
+                                    </div>
+                                )}
+                            </dl>
+                        </section>
+
+                        {/* Financial summary */}
+                        {!isProfessor && (
+                            <section aria-labelledby="profile-payments">
+                                <h3 id="profile-payments" className={cn(subheadingClass, 'mb-3')}>Paiements</h3>
+                                <dl className="grid grid-cols-3 gap-4 rounded-lg border border-slate-200 p-4">
+                                    <div className="min-w-0">
+                                        <dt className={dtClass}>Total des formations</dt>
+                                        <dd className="mt-0.5 text-base font-semibold text-slate-900 tabular-nums">{formatMoney(selectedProfile.total_price)}</dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <dt className={dtClass}>Total payé</dt>
+                                        <dd className="mt-0.5 text-base font-semibold text-emerald-700 tabular-nums">{formatMoney(selectedProfile.total_paid)}</dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <dt className={dtClass}>Reste à payer</dt>
+                                        <dd className={cn('mt-0.5 text-base font-semibold tabular-nums', Number(selectedProfile.total_remaining) > 0 ? 'text-rose-600' : 'text-slate-900')}>{formatMoney(selectedProfile.total_remaining)}</dd>
+                                    </div>
+                                    {Number(selectedProfile.total_price) > 0 && (
+                                        <div className="col-span-3">
+                                            <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500">
+                                                <span>Progression du règlement</span>
+                                                <span className="font-medium text-slate-900 tabular-nums">{paidPercent(Number(selectedProfile.total_paid), Number(selectedProfile.total_price))} %</span>
+                                            </div>
+                                            <ProgressBar
+                                                value={Number(selectedProfile.total_paid)}
+                                                max={Number(selectedProfile.total_price)}
+                                                label="Progression du règlement global"
+                                            />
+                                        </div>
+                                    )}
+                                </dl>
+                            </section>
+                        )}
+
+                        {/* Enrollments */}
+                        <section aria-labelledby="profile-enrollments">
+                            <h3 id="profile-enrollments" className={cn(subheadingClass, 'mb-3 flex items-center gap-2')}>
+                                Inscriptions
+                                <span className="rounded-md bg-slate-100 px-1.5 text-xs font-medium text-slate-600 tabular-nums">{selectedProfile.enrollments?.length || 0}</span>
+                            </h3>
+
+                            {selectedProfile.enrollments?.length > 0 ? (
+                                <div className="overflow-hidden rounded-lg border border-slate-200">
+                                    {/* Mobile list */}
+                                    <ul className="divide-y divide-slate-100 sm:hidden">
+                                        {selectedProfile.enrollments.map((enrollment) => (
+                                            <li key={enrollment.id} className="space-y-2 p-3">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-medium text-slate-900">{enrollment.course?.title || 'Formation inconnue'}</p>
+                                                        <p className="text-xs text-slate-500">
+                                                            {enrollment.course?.category || 'Formation'}
+                                                            {enrollment.course?.instructor_name ? ` · ${enrollment.course.instructor_name}` : ''}
+                                                        </p>
+                                                    </div>
+                                                    {renderEnrollmentBadge(enrollment.status)}
+                                                </div>
+                                                <p className="text-xs text-slate-500 tabular-nums">
+                                                    {enrollment.session?.start_date ? new Date(enrollment.session.start_date).toLocaleDateString('fr-FR') : 'Date à définir'}
+                                                    {' → '}
+                                                    {enrollment.session?.end_date ? new Date(enrollment.session.end_date).toLocaleDateString('fr-FR') : 'Date à définir'}
+                                                </p>
+                                                {!isProfessor && (
+                                                    <div className="flex items-baseline justify-between text-xs tabular-nums">
+                                                        <span className="text-slate-700">{Number(enrollment.amount_paid || 0).toLocaleString('fr-FR')} / {formatMoney(enrollment.total_price)}</span>
+                                                        {enrollment.remaining > 0
+                                                            ? <span className="text-rose-600">Reste {formatMoney(enrollment.remaining)}</span>
+                                                            : <span className="text-emerald-700">Soldé</span>}
+                                                    </div>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+
+                                    {/* Table */}
+                                    <div className={cn(table.wrapper, 'hidden sm:block')}>
+                                        <table className={table.table}>
+                                            <thead className="bg-slate-50">
+                                                <tr>
+                                                    <th scope="col" className={table.th}>Formation</th>
+                                                    <th scope="col" className={table.th}>Session</th>
+                                                    <th scope="col" className={table.th}>Statut</th>
+                                                    {!isProfessor && <th scope="col" className={cn(table.th, 'text-right')}>Payé</th>}
+                                                    {!isProfessor && <th scope="col" className={cn(table.th, 'text-right')}>Reste</th>}
+                                                </tr>
+                                            </thead>
+                                            <tbody className={table.tbody}>
+                                                {selectedProfile.enrollments.map((enrollment) => (
+                                                    <tr key={enrollment.id}>
+                                                        <td className={table.td}>
+                                                            <p className="font-medium text-slate-900">{enrollment.course?.title || 'Formation inconnue'}</p>
+                                                            <p className="text-xs text-slate-500">
+                                                                {enrollment.course?.category || 'Formation'}
+                                                                {enrollment.course?.instructor_name ? ` · Formateur : ${enrollment.course.instructor_name}` : ''}
+                                                            </p>
+                                                        </td>
+                                                        <td className={cn(table.td, 'whitespace-nowrap text-xs tabular-nums')}>
+                                                            {enrollment.session?.start_date ? new Date(enrollment.session.start_date).toLocaleDateString('fr-FR') : 'Date à définir'}
+                                                            <span className="text-slate-400"> → </span>
+                                                            {enrollment.session?.end_date ? new Date(enrollment.session.end_date).toLocaleDateString('fr-FR') : 'Date à définir'}
+                                                        </td>
+                                                        <td className={table.td}>{renderEnrollmentBadge(enrollment.status)}</td>
+                                                        {!isProfessor && (
+                                                            <td className={cn(table.td, 'whitespace-nowrap text-right tabular-nums')}>
+                                                                <span className="text-slate-900">{Number(enrollment.amount_paid || 0).toLocaleString('fr-FR')}</span>
+                                                                <span className="text-slate-500"> / {formatMoney(enrollment.total_price)}</span>
+                                                                <ProgressBar
+                                                                    value={Number(enrollment.amount_paid)}
+                                                                    max={Number(enrollment.total_price)}
+                                                                    label="Progression du paiement"
+                                                                    className="ml-auto mt-1.5 w-24"
+                                                                />
+                                                            </td>
+                                                        )}
+                                                        {!isProfessor && (
+                                                            <td className={cn(table.td, 'whitespace-nowrap text-right tabular-nums')}>
+                                                                {enrollment.remaining > 0
+                                                                    ? <span className="text-rose-600">{formatMoney(enrollment.remaining)}</span>
+                                                                    : <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={14} /> Soldé</span>}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ) : (
+                                <EmptyState
+                                    icon={BookOpen}
+                                    title="Aucune inscription"
+                                    description="Cet étudiant ne s'est encore inscrit à aucune formation."
+                                    className="rounded-lg border border-dashed border-slate-200 py-8"
+                                />
+                            )}
+                        </section>
+
+                        {/* SMS */}
+                        {!isProfessor && (
+                            <section aria-labelledby="profile-sms">
+                                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+                                    <div>
+                                        <h3 id="profile-sms" className={subheadingClass}>Communication SMS</h3>
+                                        <p className="mt-0.5 text-sm text-slate-500">Choisissez un modèle ou rédigez un message.</p>
+                                    </div>
+                                    <p className="text-xs text-slate-500">
+                                        Destinataire : <span className="font-medium text-slate-900 tabular-nums">{selectedProfile.phone || 'Aucun numéro'}</span>
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => sendPaymentReminder(true)}
+                                        disabled={smsSending || !selectedProfile.phone || selectedProfile.phone === 'N/A' || Number(selectedProfile.total_remaining) <= 0}
+                                        title={smsDisabledReason(selectedProfile) || 'Envoyer un avis de retard de paiement'}
+                                    >
+                                        Avis de retard ({formatMoney(selectedProfile.total_remaining)})
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => sendPaymentReminder(false)}
+                                        disabled={smsSending || !selectedProfile.phone || selectedProfile.phone === 'N/A' || Number(selectedProfile.total_remaining) <= 0}
+                                        title={smsDisabledReason(selectedProfile) || 'Envoyer un rappel de paiement'}
+                                    >
+                                        Rappel de paiement
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => {
+                                            setIsCustomSms(true);
+                                            setSmsFeedback(null);
+                                        }}
+                                        aria-pressed={isCustomSms}
+                                        className={cn(isCustomSms && 'border-slate-400 bg-slate-50 text-slate-900')}
+                                    >
+                                        Message personnalisé
+                                    </Button>
+                                </div>
+                                {smsDisabledReason(selectedProfile) && !smsSending && (
+                                    <p className="mt-2 text-xs text-slate-500">Rappels indisponibles : {smsDisabledReason(selectedProfile)?.toLowerCase()}.</p>
+                                )}
+                                {isCustomSms && (
+                                    <Field
+                                        label="Message"
+                                        htmlFor="student-sms-message"
+                                        className="mt-4"
+                                        hint={<span className={cn('tabular-nums', smsMessage.length >= 150 && 'text-amber-700')}>{smsMessage.length}/157 caractères</span>}
+                                    >
+                                        <textarea
+                                            id="student-sms-message"
+                                            rows={4}
+                                            maxLength={157}
+                                            value={smsMessage}
+                                            onChange={(event) => {
+                                                setSmsMessage(event.target.value);
+                                                setSmsFeedback(null);
+                                            }}
+                                            placeholder="Saisissez le SMS à envoyer à cet étudiant…"
+                                            className={cn(textareaClass, 'resize-none')}
+                                        />
+                                    </Field>
+                                )}
+                                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div aria-live="polite" className="space-y-1">
+                                        {smsFeedback && (
+                                            <p className={cn('text-xs font-medium', smsFeedback.type === 'success' ? 'text-emerald-700' : 'text-rose-600')}>
+                                                {smsFeedback.message}
+                                            </p>
+                                        )}
+                                        <p className="text-xs text-slate-500">
+                                            Envoi sécurisé via votre Sender ID WinSMS approuvé.
+                                        </p>
+                                    </div>
+                                    {isCustomSms && (
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            icon={Send}
+                                            loading={smsSending}
+                                            onClick={handleSendSms}
+                                            disabled={smsSending || !smsMessage.trim() || !selectedProfile.phone || selectedProfile.phone === 'N/A'}
+                                            title={!hasPhone(selectedProfile.phone) ? 'Aucun numéro de téléphone renseigné' : !smsMessage.trim() ? 'Saisissez un message' : undefined}
+                                        >
+                                            {smsSending ? 'Envoi…' : 'Envoyer le SMS'}
+                                        </Button>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+
+                        {/* Internal note */}
+                        <section aria-labelledby="profile-note">
+                            <h3 id="profile-note" className={subheadingClass}>Remarque interne</h3>
+                            <p className="mb-3 mt-0.5 text-sm text-slate-500">Visible uniquement par l’administration.</p>
+                            <label htmlFor="student-admin-note" className="sr-only">Remarque interne</label>
+                            <textarea
+                                id="student-admin-note"
+                                rows={4}
+                                maxLength={3000}
+                                value={studentNote}
+                                onChange={(event) => {
+                                    setStudentNote(event.target.value);
+                                    setStudentNoteSaved(false);
+                                }}
+                                placeholder="Ajouter une remarque générale sur cet étudiant…"
+                                className={cn(textareaClass, 'resize-y')}
+                            />
+                            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="space-y-0.5 text-xs text-slate-500" aria-live="polite">
+                                    {studentNoteSaved && (
+                                        <p className="flex items-center gap-1 font-medium text-emerald-700">
+                                            <CheckCircle2 size={14} /> Remarque enregistrée.
+                                        </p>
+                                    )}
+                                    {selectedProfile.admin_note_updated_at && (
+                                        <p className="tabular-nums">
+                                            Dernière modification : {new Date(selectedProfile.admin_note_updated_at).toLocaleString('fr-FR')}
+                                        </p>
+                                    )}
+                                    <p className="tabular-nums">{studentNote.length}/3000</p>
+                                </div>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    icon={Save}
+                                    loading={studentNoteSaving}
+                                    onClick={handleSaveStudentNote}
+                                    disabled={studentNoteSaving}
+                                >
+                                    {studentNoteSaving ? 'Enregistrement…' : 'Enregistrer'}
+                                </Button>
+                            </div>
+                        </section>
+
+                        {/* History */}
+                        <section aria-labelledby="profile-history">
+                            <h3 id="profile-history" className={cn(subheadingClass, 'mb-3')}>Historique</h3>
+                            {buildHistory(selectedProfile).length > 0 ? (
+                                <ol className="relative space-y-4 border-l border-slate-200 pl-5">
+                                    {buildHistory(selectedProfile).map((ev, i) => (
+                                        <li key={`${ev.date}-${i}`} className="relative">
+                                            <span className="absolute -left-[1.5rem] top-1.5 h-2 w-2 rounded-full bg-slate-300 ring-4 ring-white" aria-hidden="true" />
+                                            <p className="text-sm text-slate-900">{ev.title}</p>
+                                            <p className="text-xs text-slate-500 tabular-nums">
+                                                {formatDate(ev.date)} · {formatTime(ev.date)}{ev.detail ? ` — ${ev.detail}` : ''}
+                                            </p>
+                                        </li>
+                                    ))}
+                                </ol>
+                            ) : (
+                                <p className="text-sm text-slate-500">Aucun événement enregistré.</p>
+                            )}
+                        </section>
+                    </div>
+                ) : (
+                    <EmptyState icon={ShieldAlert} title="Erreur lors du chargement des données." />
                 )}
-            </AnimatePresence>
+            </Modal>
+
+            {/* Delete confirmation */}
+            <Modal
+                open={!!deleteConfirmId}
+                onClose={() => setDeleteConfirmId(null)}
+                size="sm"
+                title="Supprimer cet étudiant ?"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setDeleteConfirmId(null)} className="w-full sm:w-auto">
+                            Annuler
+                        </Button>
+                        <Button
+                            variant="danger"
+                            icon={Trash2}
+                            onClick={() => {
+                                if (!deleteConfirmId) return;
+                                handleAction(deleteConfirmId, 'delete');
+                                setDeleteConfirmId(null);
+                            }}
+                            className="w-full sm:w-auto"
+                        >
+                            Confirmer la suppression
+                        </Button>
+                    </>
+                }
+            >
+                <p className="text-sm text-slate-600">
+                    Êtes-vous sûr de vouloir supprimer définitivement cet étudiant&nbsp;?
+                    Toutes les données associées seront <span className="font-medium text-rose-700">effacées à jamais</span>. Cette action est irréversible.
+                </p>
+            </Modal>
+
+            {/* Add student */}
+            <Modal
+                open={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                title="Ajouter un étudiant"
+                description="Enregistrement manuel, sans vérification de l'e-mail."
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsAddModalOpen(false)} className="w-full sm:w-auto">
+                            Annuler
+                        </Button>
+                        <Button type="submit" form="add-student-form" variant="primary" icon={UserPlus} loading={isCreating} className="w-full sm:w-auto">
+                            {isCreating ? 'Création…' : 'Créer le compte'}
+                        </Button>
+                    </>
+                }
+            >
+                <form id="add-student-form" onSubmit={handleCreateStudent} className="space-y-6">
+                    <fieldset className="space-y-4">
+                        <legend className="mb-3 text-sm font-semibold text-slate-900">Identifiants de connexion</legend>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field label="E-mail (identifiant)" htmlFor="add-student-email" required>
+                                <input
+                                    id="add-student-email"
+                                    type="email"
+                                    value={addFormData.email}
+                                    onChange={(e) => setAddFormData({ ...addFormData, email: e.target.value })}
+                                    className={inputClass}
+                                    placeholder="exemple@email.com"
+                                    required
+                                />
+                            </Field>
+                            <Field label="Mot de passe" htmlFor="add-student-password" required>
+                                <input
+                                    id="add-student-password"
+                                    type="text"
+                                    value={addFormData.password}
+                                    onChange={(e) => setAddFormData({ ...addFormData, password: e.target.value })}
+                                    className={inputClass}
+                                    placeholder="••••••••"
+                                    aria-describedby="add-student-password-help"
+                                    required
+                                />
+                            </Field>
+                        </div>
+                        <p id="add-student-password-help" className="text-xs text-slate-500">Le mot de passe est affiché en clair pour pouvoir être communiqué à l&apos;étudiant.</p>
+                    </fieldset>
+
+                    <fieldset className="space-y-4 border-t border-slate-200 pt-5">
+                        <legend className="sr-only">Informations personnelles</legend>
+                        <p className="text-sm font-semibold text-slate-900">Informations personnelles</p>
+                        <Field label="Nom complet" htmlFor="add-student-name">
+                            <input
+                                id="add-student-name"
+                                type="text"
+                                value={addFormData.full_name}
+                                onChange={(e) => setAddFormData({ ...addFormData, full_name: e.target.value })}
+                                className={inputClass}
+                                placeholder="Nom & prénom"
+                            />
+                        </Field>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field label="Téléphone" htmlFor="add-student-phone">
+                                <input
+                                    id="add-student-phone"
+                                    type="text"
+                                    inputMode="tel"
+                                    value={addFormData.phone}
+                                    onChange={(e) => setAddFormData({ ...addFormData, phone: e.target.value })}
+                                    className={inputClass}
+                                    placeholder="55 123 456"
+                                />
+                            </Field>
+                            <Field label="Numéro CIN" htmlFor="add-student-cin">
+                                <input
+                                    id="add-student-cin"
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={addFormData.cin_number}
+                                    onChange={(e) => setAddFormData({ ...addFormData, cin_number: e.target.value })}
+                                    className={inputClass}
+                                    placeholder="00123456"
+                                />
+                            </Field>
+                        </div>
+                    </fieldset>
+                    <p className="text-xs text-slate-500"><span className="text-rose-600">*</span> Champs obligatoires</p>
+                </form>
+            </Modal>
         </div>
     );
 }

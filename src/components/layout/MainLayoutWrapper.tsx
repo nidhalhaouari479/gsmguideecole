@@ -20,7 +20,7 @@ export default function MainLayoutWrapper({
     return (
         <>
             <Navbar />
-            <main className="min-h-screen pt-20">
+            <main id="main-content" className="min-h-screen pt-16 md:pt-[72px] lg:pt-[109px]">
                 {children}
             </main>
             <Footer />

@@ -21,15 +21,24 @@ const StudentReelCard = ({ short, index }: { short: any, index: number }) => {
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ delay: index * 0.1 }}
-            className="group relative cursor-pointer"
+            transition={{ delay: Math.min(index * 0.03, 0.12), duration: 0.3 }}
+            className="group relative w-[72%] shrink-0 snap-center cursor-pointer rounded-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 sm:w-auto"
             onClick={toggleSound}
+            role="button"
+            tabIndex={0}
+            aria-label={`${short.title} : ${isMuted ? 'activer le son' : 'couper le son'}`}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleSound();
+                }
+            }}
         >
             {/* Smartphone Container Mockup */}
-            <div className="aspect-[9/16] relative bg-black rounded-[40px] overflow-hidden border-2 border-slate-800 shadow-xl group-hover:border-brand-blue/50 transition-all duration-500">
+            <div className="aspect-[9/16] relative bg-black rounded-[32px] overflow-hidden border-2 border-slate-200 shadow-xl group-hover:border-brand-blue/60 transition-colors duration-300">
 
                 <iframe
                     ref={iframeRef}
@@ -38,6 +47,7 @@ const StudentReelCard = ({ short, index }: { short: any, index: number }) => {
                     title={short.title}
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    loading="lazy"
                 />
 
                 {/* Transparent Overlay and visual masking to hide top YT UI elements completely */}
@@ -45,8 +55,9 @@ const StudentReelCard = ({ short, index }: { short: any, index: number }) => {
                 <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-black/80 to-transparent z-10 pointer-events-none" />
                 <div className="absolute inset-0 z-30 pointer-events-none" />
 
-                <div className="absolute bottom-6 right-6 z-30 pointer-events-none">
-                    <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white transition-colors duration-300 group-hover:bg-black/60">
+                <div className="absolute bottom-5 left-5 right-5 z-30 pointer-events-none flex items-end justify-between gap-3">
+                    <p className="text-sm font-bold leading-tight text-[#fff]">{short.title}</p>
+                    <div className="w-10 h-10 shrink-0 rounded-full bg-black/50 backdrop-blur-sm border border-[#ffffff33] flex items-center justify-center text-[#fff] transition-colors duration-300 group-hover:bg-black/70">
                         {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                     </div>
                 </div>
@@ -64,12 +75,15 @@ export default function StudentReels() {
     ];
 
     return (
-        <div className="w-full mt-12">
-            <h3 className="text-3xl font-bold mb-10 text-center flex items-center justify-center gap-3">
-                <MessageCircle className="text-brand-blue" size={28} />
-                Ce que disent nos étudiants
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="w-full">
+            <div className="mb-8 text-center">
+                <h3 className="flex items-center justify-center gap-3 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
+                    <MessageCircle className="text-brand-blue" size={26} />
+                    Ce que disent nos étudiants
+                </h3>
+                <p className="mt-2 text-sm text-slate-600">Touchez une vidéo pour activer le son.</p>
+            </div>
+            <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
                 {shorts.map((short, index) => (
                     <StudentReelCard key={index} short={short} index={index} />
                 ))}
