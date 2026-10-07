@@ -1,4 +1,4 @@
-const CACHE_NAME = "gsm-guide-admin-v2";
+const CACHE_NAME = "gsm-guide-admin-v3";
 const STATIC_ASSETS = [
   "/",
   "/admin",
@@ -34,6 +34,15 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(() => caches.match("/admin/login")));
+    return;
+  }
+
+  // Only cache immutable static assets; API calls and RSC payloads must always hit the network.
+  const url = new URL(request.url);
+  const isStaticAsset =
+    url.pathname.startsWith("/_next/static/") ||
+    (STATIC_ASSETS.includes(url.pathname) && url.pathname !== "/" && !url.pathname.startsWith("/admin"));
+  if (!isStaticAsset) {
     return;
   }
 
