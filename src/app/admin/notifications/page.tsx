@@ -189,7 +189,7 @@ export default function NotificationsPage() {
                                             }
                                         }}
                                         aria-label={`${notif.is_read ? '' : 'Non lue : '}${notif.title}`}
-                                        className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                        className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
                                     >
                                         <span className="flex w-2 shrink-0 justify-center pt-3.5" aria-hidden="true">
                                             {!notif.is_read && <span className="h-2 w-2 rounded-full bg-sky-500" />}

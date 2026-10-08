@@ -331,7 +331,7 @@ export default function PresenceAdminPage() {
                             size === 'large'
                                 ? 'flex h-14 flex-col items-center justify-center gap-1 rounded-lg border text-xs font-medium'
                                 : 'inline-flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium',
-                            'transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40',
+                            'transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50',
                             isActive
                                 ? activeStatusClasses[option.value]
                                 : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
@@ -449,7 +449,7 @@ export default function PresenceAdminPage() {
                                     onClick={() => loadAttendance(seance)}
                                     aria-pressed={isSelected}
                                     className={cn(
-                                        'flex min-h-16 items-center justify-between gap-3 rounded-lg border p-3.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40',
+                                        'flex min-h-16 items-center justify-between gap-3 rounded-lg border p-3.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50',
                                         isSelected
                                             ? 'border-slate-900 bg-white ring-1 ring-slate-900'
                                             : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'

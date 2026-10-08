@@ -618,7 +618,7 @@ export default function PaymentsAdminPage() {
                 href={latestUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded text-sm font-medium text-brand-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/40"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded text-sm font-medium text-brand-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
             >
                 <Eye size={14} /> Voir le reçu
             </a>
@@ -761,7 +761,7 @@ export default function PaymentsAdminPage() {
                                             exit={{ opacity: 0, y: 4 }}
                                             transition={{ duration: 0.12 }}
                                             role="menu"
-                                            className="absolute right-0 z-50 mt-1 w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg md:left-auto"
+                                            className="absolute right-0 z-50 mt-1 w-56 rounded-2xl border border-slate-200/80 bg-white p-1 shadow-[var(--shadow-pop)] md:left-auto"
                                         >
                                             <button
                                                 type="button"
@@ -850,7 +850,7 @@ export default function PaymentsAdminPage() {
                                             transition={{ duration: 0.12 }}
                                             role="dialog"
                                             aria-label="Filtrer par période"
-                                            className="absolute right-0 z-50 mt-1 w-[min(18rem,calc(100vw-2rem))] space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-lg"
+                                            className="absolute right-0 z-50 mt-1 w-[min(18rem,calc(100vw-2rem))] space-y-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[var(--shadow-pop)]"
                                         >
                                             <Field label="Période de création" htmlFor="payments-date-type" hint="Filtre sur la date d’inscription de l’opération.">
                                                 <select

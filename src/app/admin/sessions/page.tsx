@@ -623,7 +623,7 @@ export default function SessionsAdminPage() {
                 }}
                 disabled={total > 0 && paid >= total}
                 className={cn(
-                    'group/pay block min-w-44 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40 disabled:cursor-default disabled:hover:border-slate-200 disabled:hover:bg-white',
+                    'group/pay block min-w-44 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 disabled:cursor-default disabled:hover:border-slate-200 disabled:hover:bg-white',
                     extraClassName
                 )}
                 title={hasRemaining ? 'Ajouter un paiement' : 'Formation soldée'}
@@ -1173,7 +1173,7 @@ export default function SessionsAdminPage() {
                 {isManifestOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="manifest-title">
                         <motion.div
-                            className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]"
+                            className="absolute inset-0 bg-slate-900/30 backdrop-blur-[3px]"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
@@ -1183,7 +1183,7 @@ export default function SessionsAdminPage() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 8 }}
                             transition={{ duration: 0.15 }}
-                            className="relative flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                            className="relative flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[var(--shadow-pop)]"
                         >
                             {/* Header */}
                             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
@@ -1438,7 +1438,7 @@ export default function SessionsAdminPage() {
                                         <button
                                             type="button"
                                             onClick={() => setPaymentAmount(String(paymentRemaining))}
-                                            className="text-xs font-medium text-brand-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                            className="text-xs font-medium text-brand-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
                                         >
                                             Solder le reste
                                         </button>
@@ -1448,7 +1448,7 @@ export default function SessionsAdminPage() {
 
                             <Field label={<>Reçu de paiement <span className="font-normal text-slate-500">(facultatif)</span></>}>
                                 <label className={cn(
-                                    'flex cursor-pointer items-center gap-3 rounded-lg border border-dashed p-3.5 transition-colors focus-within:ring-2 focus-within:ring-brand-green/30',
+                                    'flex cursor-pointer items-center gap-3 rounded-lg border border-dashed p-3.5 transition-colors focus-within:ring-2 focus-within:ring-focus/40',
                                     paymentReceipt ? 'border-slate-300 bg-white' : 'border-slate-300 bg-slate-50 hover:border-slate-400'
                                 )}>
                                     <input
@@ -1668,7 +1668,7 @@ export default function SessionsAdminPage() {
                                         {dtSuffix}
                                     </div>
                                     <label className={cn(
-                                        'inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-brand-green/30',
+                                        'inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-focus/40',
                                         newStudentIsUnpaid ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'
                                     )}>
                                         <input

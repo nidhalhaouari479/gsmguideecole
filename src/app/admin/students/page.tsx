@@ -732,7 +732,7 @@ export default function StudentsAdminPage() {
                 <button
                     type="button"
                     onClick={() => handleSort(key)}
-                    className={cn('inline-flex items-center gap-1 rounded transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40', isActive && 'text-slate-900')}
+                    className={cn('inline-flex items-center gap-1 rounded transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50', isActive && 'text-slate-900')}
                     title={`Trier par ${label.toLowerCase()}`}
                 >
                     {label} <ArrowUpDown size={12} className={isActive ? 'text-slate-700' : 'text-slate-400'} />
@@ -840,7 +840,7 @@ export default function StudentsAdminPage() {
                                                 animate={{ opacity: 1, y: 0 }}
                                                 exit={{ opacity: 0, y: 4 }}
                                                 transition={{ duration: 0.12 }}
-                                                className="absolute left-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] max-h-[70dvh] overflow-y-auto custom-scrollbar rounded-xl border border-slate-200 bg-white shadow-lg sm:left-auto sm:right-0"
+                                                className="absolute left-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] max-h-[70dvh] overflow-y-auto custom-scrollbar rounded-2xl border border-slate-200/80 bg-white shadow-[var(--shadow-pop)] sm:left-auto sm:right-0"
                                             >
                                                 <div className="space-y-4 p-4">
                                                     {!isProfessor && (
@@ -963,7 +963,7 @@ export default function StudentsAdminPage() {
                                         onClick={f.clear}
                                         aria-label={`Retirer le filtre ${f.label}`}
                                         title="Retirer ce filtre"
-                                        className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                        className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
                                     >
                                         <X size={12} />
                                     </button>
@@ -989,7 +989,7 @@ export default function StudentsAdminPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => fetchStudentProfile(student.id)}
-                                                className="flex min-w-0 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                                className="flex min-w-0 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
                                             >
                                                 {renderAvatar(student.full_name)}
                                                 <span className="flex min-w-0 flex-col">
@@ -1056,7 +1056,7 @@ export default function StudentsAdminPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => fetchStudentProfile(student.id)}
-                                                        className="group flex min-w-[14rem] items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                                        className="group flex min-w-[14rem] items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
                                                         title="Ouvrir le profil complet"
                                                     >
                                                         {renderAvatar(student.full_name)}

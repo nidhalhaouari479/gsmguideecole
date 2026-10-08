@@ -13,6 +13,27 @@
   /* Deep Blue rgb(37,114,176) */
   --color-brand-green: #A1B83E;
   /* Lime Green rgb(161,184,62) */
+  --color-brand-blue-dark: #1D5E93;
+  /* Hover on brand surfaces */
+  --color-brand-soft: #EEF5FB;
+  /* Light brand backgrounds */
+  /* Lime shades dark enough to carry white text (≥ 4:1) */
+  --color-brand-green-600: #6E8E1D;
+  --color-brand-green-700: #5E7F16;
+  --color-brand-green-soft: #F3F7E6;
+
+  /* Back-office "Soft UI" surfaces, back to front: shell → canvas → card (white) */
+  --color-shell: #F0F2F6;
+  --color-canvas: #FBFCFD;
+  /* Focus ring: dark slate, deliberately not brand-coloured */
+  --color-focus: #475569;
+  /* Hero tile background */
+  --color-navy-950: #0B1626;
+
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-lift: 0 10px 24px -10px rgba(15, 23, 42, 0.16), 0 2px 6px -2px rgba(15, 23, 42, 0.06);
+  --shadow-pop: 0 24px 48px -12px rgba(15, 23, 42, 0.22), 0 8px 16px -8px rgba(15, 23, 42, 0.08);
+  --shadow-brand: 0 1px 2px rgba(29, 94, 147, 0.25), 0 4px 12px -4px rgba(37, 114, 176, 0.45);
 
   --color-slate-50: #f8fafc;
   --color-slate-100: #e2e8f0;
@@ -68,10 +89,10 @@ body {
 .admin-dashboard {
   /* Inter is loaded by next/font on the root body. */
   font-family: inherit;
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 400;
   line-height: 1.5;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -105,15 +126,20 @@ body {
 }
 
 .admin-dashboard main .text-base {
-  font-size: 16px !important;
+  font-size: 15px !important;
 }
 
 .admin-dashboard main .text-sm {
-  font-size: 14px !important;
+  font-size: 13.5px !important;
+}
+
+.admin-dashboard main table .text-sm,
+.admin-dashboard main table.text-sm {
+  font-size: 13px !important;
 }
 
 .admin-dashboard main .text-xs {
-  font-size: 13px !important;
+  font-size: 12.5px !important;
 }
 
 .admin-dashboard main .text-\[8px\],
@@ -348,6 +374,29 @@ body {
   /* Bottom sheets must sit above the tab bar */
   .admin-dashboard .fixed.inset-0.flex.items-center.justify-center {
     z-index: 90 !important;
+  }
+}
+
+/* Back-office sidebar scrollbar */
+.admin-dashboard .admin-sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-dashboard .admin-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-dashboard .admin-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.12);
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-dashboard *,
+  .admin-dashboard *::before,
+  .admin-dashboard *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

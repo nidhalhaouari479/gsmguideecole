@@ -273,7 +273,7 @@ export default function CoursesAdminPage() {
     );
 
     const chipClassName = (checked: boolean) => cn(
-        'inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-brand-green/30',
+        'inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-focus/40',
         checked ? 'border-slate-400 bg-slate-50 text-slate-900' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
     );
 
@@ -596,7 +596,7 @@ export default function CoursesAdminPage() {
                             error={!imagePreview && !formData.image_url ? 'L’image est requise.' : undefined}
                         >
                             <div className={cn(
-                                'relative flex min-h-[140px] items-center justify-center overflow-hidden rounded-lg border border-dashed p-4 transition-colors focus-within:ring-2 focus-within:ring-brand-green/30',
+                                'relative flex min-h-[140px] items-center justify-center overflow-hidden rounded-lg border border-dashed p-4 transition-colors focus-within:ring-2 focus-within:ring-focus/40',
                                 imagePreview ? 'border-slate-200 bg-slate-50' : 'border-slate-300 bg-slate-50 hover:border-slate-400'
                             )}>
                                 <input

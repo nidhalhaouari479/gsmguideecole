@@ -96,9 +96,9 @@ export default function SettingsAdminPage() {
                                     onClick={() => setActiveTab(tab.id as any)}
                                     aria-current={isActive ? 'page' : undefined}
                                     className={cn(
-                                        'flex min-h-10 shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40 lg:w-full',
+                                        'flex min-h-10 shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 lg:w-full',
                                         isActive
-                                            ? 'bg-white font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200'
+                                            ? 'bg-white font-semibold text-slate-900 shadow-[var(--shadow-card)] ring-1 ring-slate-200/70'
                                             : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                                     )}
                                 >
@@ -233,7 +233,7 @@ export default function SettingsAdminPage() {
                                             onClick={() => setShowPasswords((value) => !value)}
                                             aria-label={showPasswords ? 'Masquer les mots de passe' : 'Afficher les mots de passe'}
                                             title={showPasswords ? 'Masquer les mots de passe' : 'Afficher les mots de passe'}
-                                            className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                                            className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
                                         >
                                             {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
                                         </button>

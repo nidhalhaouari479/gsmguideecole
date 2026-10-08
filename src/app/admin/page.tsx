@@ -1,32 +1,36 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { supabase } from '@/lib/supabase';
 import {
-    Users,
+    ArrowDown,
+    ArrowUp,
     BookOpen,
-    CreditCard,
-    GraduationCap,
-    Calendar,
-    ArrowUpRight,
-    Target,
-    X,
-    PieChart as PieIcon,
-    Layers,
-    Download,
-    ShieldCheck,
-    MessageSquare,
+    CalendarDays,
+    ChevronDown,
+    ChevronRight,
     CheckCircle2,
-    Facebook,
-    Youtube,
-    Instagram,
-    Chrome,
-    UsersRound,
-    CircleHelp
+    CirclePlay,
+    Download,
+    Flag,
+    Flame,
+    Gauge,
+    HandCoins,
+    ImageOff,
+    MessageSquare,
+    Minus,
+    Repeat,
+    User,
+    UserCheck,
+    UserPlus,
+    UserRoundX,
+    UserX,
+    Users,
+    Wallet,
+    X,
+    type LucideIcon,
 } from 'lucide-react';
 import {
     AreaChart,
@@ -39,454 +43,190 @@ import {
     PieChart,
     Pie,
     Cell,
-    BarChart,
-    Bar,
-    Legend,
-    LineChart,
-    Line
 } from 'recharts';
 import {
-    PageHeader,
-    Card,
-    CardHeader,
-    StatCard,
     Badge,
     Button,
-    IconButton,
-    FilterTabs,
+    Card,
     EmptyState,
+    IconButton,
     Skeleton,
     table,
     cn,
     formatDT,
 } from '@/components/admin/ui';
 
-// --- CHART SYSTEM ---
-// One accent (blue) for magnitude, slate for "rest", semantic colours only for status.
-const ACCENT = '#2563eb';
-const NEUTRAL_FILL = '#e2e8f0';
-const MUTED_SERIES = '#94a3b8';
-const STATUS_COLORS: Record<string, string> = { 'Validées': '#10b981', 'En attente': '#f59e0b', 'Refusées': '#f43f5e' };
+/* ------------------------------------------------------------------ */
+/* Data shapes (what /api/admin/dashboard returns)                     */
+/* ------------------------------------------------------------------ */
 
-const GRID_STROKE = '#f1f5f9';
-const AXIS_TICK = { fill: '#64748b', fontSize: 12 };
-const AXIS_TICK_SMALL = { fill: '#64748b', fontSize: 12 };
-const LEGEND_STYLE: React.CSSProperties = { fontSize: 12, color: '#475569', paddingBottom: 8 };
-const TOOLTIP_STYLE: React.CSSProperties = {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: 8,
-    boxShadow: '0 4px 12px -4px rgba(15, 23, 42, 0.12)',
-    fontSize: 13,
-    color: '#0f172a',
-    padding: '8px 12px',
+type Student = { id: string; full_name?: string | null; avatar_url?: string | null; source?: string | null; created_at?: string | null };
+type Teacher = { id: string; nom?: string | null; prenom?: string | null };
+type Course = { id: string; title_fr?: string | null; image_url?: string | null; instructor_id?: string | null };
+type Session = {
+    id: string;
+    course_id?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+    seats_available?: number | null;
+    schedule?: unknown;
+    courses?: Course | Course[] | null;
 };
-const TOOLTIP_LABEL_STYLE: React.CSSProperties = { color: '#0f172a', fontWeight: 600, marginBottom: 4 };
-const TOOLTIP_CURSOR = { fill: 'rgba(15,23,42,0.04)' };
-const truncateLabel = (value: string) => {
-    const text = String(value ?? '');
-    return text.length > 22 ? `${text.slice(0, 21)}…` : text;
+type Enrollment = {
+    id: string;
+    user_id: string;
+    session_id: string;
+    status?: string | null;
+    amount_paid?: number | string | null;
+    total_price?: number | string | null;
+    created_at?: string | null;
+};
+type SessionRequest = {
+    id: string;
+    full_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    availability?: string | null;
+    message?: string | null;
+    request_type?: string | null;
+    status?: string | null;
+    created_at: string;
+    courses?: { title_fr?: string | null } | null;
+};
+type AttendanceRecord = { status?: string | null; seance_date?: string | null };
+type DashboardData = {
+    students: Student[];
+    teachers: Teacher[];
+    sessions: Session[];
+    enrollments: Enrollment[];
+    courses: Course[];
+    sessionRequests: SessionRequest[];
+    attendance: AttendanceRecord[];
 };
 
-const SOURCE_META: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-    google: { label: 'Google', color: '#4285F4', icon: Chrome },
-    youtube: { label: 'YouTube', color: '#FF0000', icon: Youtube },
-    facebook: { label: 'Facebook', color: '#1877F2', icon: Facebook },
-    instagram: { label: 'Instagram', color: '#E4405F', icon: Instagram },
-    friend: { label: 'Ami / connaissance', color: '#A1B83E', icon: UsersRound },
-    other: { label: 'Autre', color: '#64748B', icon: CircleHelp },
-    unknown: { label: 'Inconnu', color: '#94A3B8', icon: CircleHelp },
+type Period = 'month' | 'year' | 'all';
+type FinanceRange = '7d' | '30d' | '3m' | 'year';
+type Trend = { direction: 'up' | 'down' | 'flat'; text: string; caption?: string } | null;
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+const PERIOD_LABEL: Record<Period, string> = { month: 'Ce mois', year: 'Cette année', all: 'Depuis le début' };
+const PERIOD_CAPTION: Record<Period, string> = { month: 'vs mois dernier', year: 'vs année dernière', all: '' };
+
+// Chart series, in the order of the reference design.
+const SERIES = { billed: '#8DAA2E', paid: '#2572B0', unpaid: '#E5484D' };
+
+const SOURCE_META: Record<string, { label: string; color: string }> = {
+    facebook: { label: 'Facebook', color: '#2572B0' },
+    instagram: { label: 'Instagram', color: '#E8578A' },
+    google: { label: 'Google', color: '#F5A524' },
+    youtube: { label: 'YouTube', color: '#E5484D' },
+    friend: { label: 'Recommandation', color: '#8DAA2E' },
+    other: { label: 'Autres', color: '#94A3B8' },
+    unknown: { label: 'Non renseigné', color: '#CBD5E1' },
 };
 
-const SourceAxisTick = ({ x = 0, y = 0, payload }: { x?: number; y?: number; payload?: { value: string } }) => {
-    const meta = SOURCE_META[payload?.value || 'unknown'] || SOURCE_META.unknown;
-    const Icon = meta.icon;
-    return (
-        <foreignObject x={x - 145} y={y - 14} width={140} height={28}>
-            <div className="flex h-full items-center justify-end gap-2 pr-1 text-xs text-slate-600">
-                <Icon size={14} className="text-slate-400" />
-                <span>{meta.label}</span>
-            </div>
-        </foreignObject>
-    );
+const fmtInt = (value: number) => value.toLocaleString('fr-FR');
+const fmtPct = (value: number) => `${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%`;
+const startOfDay = (date: Date) => { const d = new Date(date); d.setHours(0, 0, 0, 0); return d; };
+const addDays = (date: Date, days: number) => { const d = new Date(date); d.setDate(d.getDate() + days); return d; };
+const toDate = (value?: string | null) => (value ? new Date(value) : null);
+const inRange = (value: string | null | undefined, start: Date, end: Date) => {
+    const date = toDate(value);
+    return !!date && date >= start && date < end;
 };
+
+const billedOf = (e: Enrollment) => Number(e.total_price) || Number(e.amount_paid) || 0;
+const paidOf = (e: Enrollment) => Number(e.amount_paid) || 0;
+const dueOf = (e: Enrollment) => Math.max(billedOf(e) - paidOf(e), 0);
+
+const courseOf = (session?: Session | null): Course | null =>
+    (Array.isArray(session?.courses) ? session?.courses[0] : session?.courses) || null;
+
+const parseSchedule = (schedule: unknown): { instructor_id?: string; label?: string; seances?: Array<{ date?: string; start_time?: string }> } | null => {
+    if (!schedule) return null;
+    try {
+        return typeof schedule === 'string' ? JSON.parse(schedule) : (schedule as never);
+    } catch {
+        return null;
+    }
+};
+
+const normalizeSource = (value?: string | null) => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return 'unknown';
+    if (raw.includes('facebook')) return 'facebook';
+    if (raw.includes('instagram')) return 'instagram';
+    if (raw.includes('google')) return 'google';
+    if (raw.includes('youtube')) return 'youtube';
+    if (raw.includes('ami') || raw.includes('friend') || raw.includes('recommand')) return 'friend';
+    return 'other';
+};
+
+/** Current period window and the matching window just before it (same length, for a fair comparison). */
+const periodWindows = (period: Period, now: Date) => {
+    if (period === 'all') return { start: new Date(0), end: addDays(now, 1), prevStart: null, prevEnd: null };
+    const start = period === 'month' ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(now.getFullYear(), 0, 1);
+    const prevStart = period === 'month' ? new Date(now.getFullYear(), now.getMonth() - 1, 1) : new Date(now.getFullYear() - 1, 0, 1);
+    const elapsed = now.getTime() - start.getTime();
+    return { start, end: addDays(now, 1), prevStart, prevEnd: new Date(prevStart.getTime() + elapsed) };
+};
+
+const makeTrend = (current: number, previous: number | null, mode: 'pct' | 'abs', caption?: string): Trend => {
+    if (previous === null) return null;
+    const diff = current - previous;
+    if (diff === 0) return { direction: 'flat', text: 'Stable' };
+    const text = mode === 'abs'
+        ? fmtInt(Math.abs(diff))
+        : previous > 0 ? fmtPct((Math.abs(diff) / previous) * 100) : 'Nouveau';
+    return { direction: diff > 0 ? 'up' : 'down', text, caption };
+};
+
+const initialsOf = (name?: string | null) =>
+    String(name || '?').trim().split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase() || '').join('') || '?';
+
+const AVATAR_TINTS = ['bg-sky-100 text-sky-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-800', 'bg-violet-100 text-violet-700', 'bg-rose-100 text-rose-700', 'bg-teal-100 text-teal-700'];
+const tintOf = (key: string) => AVATAR_TINTS[[...key].reduce((sum, char) => sum + char.charCodeAt(0), 0) % AVATAR_TINTS.length];
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
 
 export default function AdminDashboard() {
-    const router = useRouter();
     const [loading, setLoading] = useState(true);
+    const [data, setData] = useState<DashboardData | null>(null);
+    const [requests, setRequests] = useState<SessionRequest[]>([]);
+    const [period, setPeriod] = useState<Period>('month');
+    const [financeRange, setFinanceRange] = useState<FinanceRange>('30d');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
-        const query = window.matchMedia('(max-width: 767px)');
-        const update = () => setIsMobile(query.matches);
-        update();
-        query.addEventListener('change', update);
-        return () => query.removeEventListener('change', update);
-    }, []);
-
-    // --- DATA STATE ---
-    const [stats, setStats] = useState({
-        students: 0,
-        courses: 0,
-        revenue: 0,
-        sessions: 0,
-        teachers: 0,
-        newToday: 0,
-        enrollments: 0,
-        enrolledStudents: 0
-    });
-
-    const [revenueTimeline, setRevenueTimeline] = useState<any[]>([]);
-    const [ageDistribution, setAgeDistribution] = useState<any[]>([]);
-    const [sourceDistribution, setSourceDistribution] = useState<any[]>([]);
-    const [coursePerformance, setCoursePerformance] = useState<any[]>([]);
-    const [studentsByCourse, setStudentsByCourse] = useState<any[]>([]);
-    const [enrollmentStatusData, setEnrollmentStatusData] = useState<any[]>([]);
-    const [sessionOccupancy, setSessionOccupancy] = useState<any[]>([]);
-    const [studentTimeline, setStudentTimeline] = useState<any[]>([]);
-    const [absenceHeatmap, setAbsenceHeatmap] = useState<any[]>([]);
-    const [upcomingSeances, setUpcomingSeances] = useState<any[]>([]);
-    const [sessionRequests, setSessionRequests] = useState<any[]>([]);
-    const [attendanceStats, setAttendanceStats] = useState({
-        total: 0,
-        present: 0,
-        absent: 0,
-        late: 0,
-        excused: 0,
-        rate: 0
-    });
-    
-    const [filterConfig, setFilterConfig] = useState({
-        dateType: 'all',
-        dateValue: ''
-    });
-
-    useEffect(() => {
-        fetchDashboardData();
-    }, []);
-
-    const fetchDashboardData = async () => {
-        setLoading(true);
-        try {
-            const response = await fetch('/api/admin/dashboard');
-            const data = await response.json();
-            
-            if (data.error) throw new Error(data.error);
-
-            processAllData(data);
-        } catch (error) {
-            console.error("Error fetching dashboard data:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const processAllData = (raw: any) => {
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-        setSessionRequests(raw.sessionRequests || []);
-
-        const attendance = raw.attendance || [];
-        const present = attendance.filter((record: any) => record.status === 'present').length;
-        const absent = attendance.filter((record: any) => record.status === 'absent').length;
-        const late = attendance.filter((record: any) => record.status === 'late').length;
-        const excused = attendance.filter((record: any) => record.status === 'excused').length;
-        const totalAttendance = attendance.length;
-        setAttendanceStats({
-            total: totalAttendance,
-            present,
-            absent,
-            late,
-            excused,
-            rate: totalAttendance > 0 ? Math.round(((present + late) / totalAttendance) * 100) : 0
-        });
-
-        // 1. Stats Counter
-        const confirmedEnrollments = raw.enrollments.filter((e: any) => e.status === 'approved');
-        const totalRevenue = confirmedEnrollments.reduce((sum: number, e: any) => sum + (e.amount_paid || 0), 0);
-        const newStudentsToday = raw.students.filter((s: any) => s.created_at?.startsWith(todayStr)).length;
-
-        setStats({
-            students: raw.students.length,
-            courses: raw.courses.length,
-            revenue: totalRevenue,
-            sessions: raw.sessions.length,
-            teachers: raw.teachers.length,
-            newToday: newStudentsToday,
-            enrollments: raw.enrollments.length,
-            enrolledStudents: new Set(confirmedEnrollments.map((enrollment: any) => enrollment.user_id)).size
-        });
-
-        // 2. Revenue Timeline (Last 6 Months)
-        const months: { name: string; month: number; year: number; revenue: number; siteStudents: number; trainingStudents: number }[] = [];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date();
-            d.setMonth(d.getMonth() - i);
-            months.push({
-                name: d.toLocaleDateString('fr-FR', { month: 'short' }),
-                month: d.getMonth(),
-                year: d.getFullYear(),
-                revenue: 0,
-                siteStudents: 0,
-                trainingStudents: 0
-            });
-        }
-
-        raw.students.forEach((student: any) => {
-            const date = new Date(student.created_at);
-            const entry = months.find(m => m.month === date.getMonth() && m.year === date.getFullYear());
-            if (entry) entry.siteStudents += 1;
-        });
-
-        const trainingStudentIdsByMonth = new Map<string, Set<string>>();
-        confirmedEnrollments.forEach((e: any) => {
-            const date = new Date(e.created_at);
-            const entry = months.find(m => m.month === date.getMonth() && m.year === date.getFullYear());
-            if (entry) {
-                entry.revenue += (Number(e.amount_paid) || 0);
-                const key = `${entry.year}-${entry.month}`;
-                const ids = trainingStudentIdsByMonth.get(key) || new Set<string>();
-                ids.add(e.user_id);
-                trainingStudentIdsByMonth.set(key, ids);
-            }
-        });
-        months.forEach((entry) => {
-            entry.trainingStudents = trainingStudentIdsByMonth.get(`${entry.year}-${entry.month}`)?.size || 0;
-        });
-        setRevenueTimeline(months);
-
-        // 3. Age Distribution
-        const ageGroups = {
-            '18-24': 0,
-            '25-34': 0,
-            '35-44': 0,
-            '45+': 0,
-            'N/D': 0
-        };
-
-        raw.students.forEach((s: any) => {
-            const age = s.age;
-            if (!age) ageGroups['N/D']++;
-            else if (age <= 24) ageGroups['18-24']++;
-            else if (age <= 34) ageGroups['25-34']++;
-            else if (age <= 44) ageGroups['35-44']++;
-            else ageGroups['45+']++;
-        });
-
-        setAgeDistribution(Object.entries(ageGroups).map(([name, value]) => ({ name, value })));
-
-        // 4. Source Distribution
-        const sources: Record<string, number> = {
-            google: 0,
-            youtube: 0,
-            facebook: 0,
-            instagram: 0,
-            friend: 0,
-            other: 0
-        };
-        raw.students.forEach((s: any) => {
-            const rawSource = String(s.source || 'unknown').trim().toLowerCase();
-            const src = rawSource.includes('google') ? 'google'
-                : rawSource.includes('youtube') ? 'youtube'
-                : rawSource.includes('facebook') ? 'facebook'
-                : rawSource.includes('instagram') ? 'instagram'
-                : rawSource.includes('ami') || rawSource.includes('friend') ? 'friend'
-                : rawSource === 'other' || rawSource.includes('autre') ? 'other'
-                : 'unknown';
-            sources[src] = (sources[src] || 0) + 1;
-        });
-        setSourceDistribution(Object.entries(sources).map(([name, value]) => ({
-            name,
-            label: (SOURCE_META[name] || SOURCE_META.unknown).label,
-            color: (SOURCE_META[name] || SOURCE_META.unknown).color,
-            value
-        })));
-
-        // Additional management charts
-        const enrollmentCountsByCourse: Record<string, number> = {};
-        confirmedEnrollments.forEach((enrollment: any) => {
-            const session = raw.sessions.find((item: any) => item.id === enrollment.session_id);
-            const course = raw.courses.find((item: any) => item.id === session?.course_id);
-            const name = course?.title_fr || 'Formation inconnue';
-            enrollmentCountsByCourse[name] = (enrollmentCountsByCourse[name] || 0) + 1;
-        });
-        setStudentsByCourse(Object.entries(enrollmentCountsByCourse)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value));
-
-        const legacyStatusCounts = { approved: 0, pending: 0, rejected: 0 };
-        raw.enrollments.forEach((enrollment: any) => {
-            if (enrollment.status in legacyStatusCounts) legacyStatusCounts[enrollment.status as keyof typeof legacyStatusCounts]++;
-        });
-        setEnrollmentStatusData([
-            { name: 'Validées', value: legacyStatusCounts.approved, color: '#10B981' },
-            { name: 'En attente', value: legacyStatusCounts.pending, color: '#F59E0B' },
-            { name: 'Refusées', value: legacyStatusCounts.rejected, color: '#F43F5E' }
-        ]);
-
-        setSessionOccupancy(raw.sessions.map((session: any) => {
-            const course = raw.courses.find((item: any) => item.id === session.course_id);
-            const occupied = confirmedEnrollments.filter((enrollment: any) => enrollment.session_id === session.id).length;
-            return {
-                name: course?.title_fr || 'Session',
-                occupied,
-                available: Math.max(Number(session.seats_available || 0) - occupied, 0),
-                capacity: Number(session.seats_available || 0)
-            };
-        }).slice(0, 10));
-
-        const registrationMonths: Array<{ name: string; students: number; month: number; year: number }> = [];
-        for (let index = 5; index >= 0; index--) {
-            const date = new Date();
-            date.setMonth(date.getMonth() - index);
-            registrationMonths.push({
-                name: date.toLocaleDateString('fr-FR', { month: 'short' }),
-                students: 0,
-                month: date.getMonth(),
-                year: date.getFullYear()
-            });
-        }
-        raw.students.forEach((student: any) => {
-            const date = new Date(student.created_at);
-            const month = registrationMonths.find(item => item.month === date.getMonth() && item.year === date.getFullYear());
-            if (month) month.students++;
-        });
-        setStudentTimeline(registrationMonths);
-
-        const absenceByDate: Record<string, number> = {};
-        (raw.attendance || []).forEach((record: any) => {
-            if (record.status === 'absent' && record.seance_date) {
-                absenceByDate[record.seance_date] = (absenceByDate[record.seance_date] || 0) + 1;
-            }
-        });
-        const legacyHeatmapDays = Array.from({ length: 42 }, (_, index) => {
-            const date = new Date();
-            date.setHours(0, 0, 0, 0);
-            date.setDate(date.getDate() - (41 - index));
-            const key = date.toISOString().split('T')[0];
-            return { date: key, day: date.getDate(), label: date.toLocaleDateString('fr-FR'), count: absenceByDate[key] || 0 };
-        });
-        setAbsenceHeatmap(legacyHeatmapDays);
-
-        // 5. Course Performance
-        const courseCounts: Record<string, number> = {};
-        confirmedEnrollments.forEach((e: any) => {
-            // Find session then course
-            const session = raw.sessions.find((s: any) => s.id === e.session_id);
-            const courseData = Array.isArray(session?.courses) ? session.courses[0] : session?.courses;
-            const courseTitle = courseData?.title_fr || 'Formation';
-            courseCounts[courseTitle] = (courseCounts[courseTitle] || 0) + 1;
-        });
-        setCoursePerformance(Object.entries(courseCounts)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 5)
-        );
-
-        const allCourseCounts: Record<string, number> = {};
-        raw.courses.forEach((course: any) => {
-            allCourseCounts[course.title_fr || 'Formation'] = 0;
-        });
-        confirmedEnrollments.forEach((enrollment: any) => {
-            const session = raw.sessions.find((item: any) => item.id === enrollment.session_id);
-            const course = Array.isArray(session?.courses) ? session.courses[0] : session?.courses;
-            const title = course?.title_fr || 'Formation';
-            allCourseCounts[title] = (allCourseCounts[title] || 0) + 1;
-        });
-        setStudentsByCourse(Object.entries(allCourseCounts).map(([name, value]) => ({ name, value })));
-
-        const statusCounts = raw.enrollments.reduce((counts: Record<string, number>, enrollment: any) => {
-            const status = enrollment.status === 'approved' || enrollment.status === 'confirmed'
-                ? 'Validées'
-                : enrollment.status === 'pending'
-                    ? 'En attente'
-                    : 'Refusées';
-            counts[status] = (counts[status] || 0) + 1;
-            return counts;
-        }, { 'Validées': 0, 'En attente': 0, 'Refusées': 0 });
-        setEnrollmentStatusData(Object.entries(statusCounts).map(([name, value]) => ({ name, value })));
-
-        setSessionOccupancy(raw.sessions.map((session: any) => {
-            const course = Array.isArray(session.courses) ? session.courses[0] : session.courses;
-            const occupied = confirmedEnrollments.filter((enrollment: any) => enrollment.session_id === session.id).length;
-            const capacity = Number(session.seats_available || 0);
-            return {
-                name: `${course?.title_fr || 'Session'} · ${new Date(session.start_date).toLocaleDateString('fr-FR')}`,
-                occupied,
-                available: Math.max(capacity - occupied, 0),
-                capacity
-            };
-        }).slice(0, 10));
-
-        const studentMonths: { name: string; month: number; year: number; value: number }[] = [];
-        for (let i = 5; i >= 0; i--) {
-            const date = new Date();
-            date.setMonth(date.getMonth() - i);
-            studentMonths.push({
-                name: date.toLocaleDateString('fr-FR', { month: 'short' }),
-                month: date.getMonth(),
-                year: date.getFullYear(),
-                value: 0
-            });
-        }
-        raw.students.forEach((student: any) => {
-            const createdAt = new Date(student.created_at);
-            const month = studentMonths.find(item => item.month === createdAt.getMonth() && item.year === createdAt.getFullYear());
-            if (month) month.value += 1;
-        });
-        setStudentTimeline(studentMonths);
-
-        const absenceCounts = (raw.attendance || [])
-            .filter((record: any) => record.status === 'absent')
-            .reduce((counts: Record<string, number>, record: any) => {
-                const date = String(record.seance_date || '').slice(0, 10);
-                if (date) counts[date] = (counts[date] || 0) + 1;
-                return counts;
-            }, {});
-        const heatmapDays = Array.from({ length: 84 }, (_, index) => {
-            const date = new Date();
-            date.setHours(0, 0, 0, 0);
-            date.setDate(date.getDate() - (83 - index));
-            const key = date.toISOString().slice(0, 10);
-            return { date, key, value: absenceCounts[key] || 0 };
-        });
-        setAbsenceHeatmap(heatmapDays);
-
-        // 6. Upcoming Seances
-        const allSeances: any[] = [];
-        raw.sessions.forEach((s: any) => {
+        const load = async () => {
             try {
-                const parsed = typeof s.schedule === 'string' ? JSON.parse(s.schedule) : s.schedule;
-                if (parsed?.seances) {
-                    parsed.seances.forEach((se: any) => {
-                        const seDate = new Date(se.date);
-                        if (seDate >= now) {
-                            allSeances.push({
-                                date: seDate,
-                                title: s.courses?.title_fr || 'Formation',
-                                label: parsed.label || 'Session Standard',
-                                time: se.start_time,
-                                room: 'Atelier principal'
-                            });
-                        }
-                    });
-                }
-            } catch (e) {
-                if (new Date(s.start_date) >= now) {
-                    allSeances.push({ date: new Date(s.start_date), title: s.courses?.title_fr, label: 'Début Session', time: '09:00', room: 'TBD' });
-                }
+                const response = await fetch('/api/admin/dashboard');
+                const payload = await response.json();
+                if (payload.error) throw new Error(payload.error);
+                setData(payload);
+                setRequests(payload.sessionRequests || []);
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+            } finally {
+                setLoading(false);
             }
-        });
-        setUpcomingSeances(allSeances.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 4));
-    };
+        };
+        load();
+    }, []);
+
+    const view = useMemo(() => (data ? buildDashboard(data, period, financeRange) : null), [data, period, financeRange]);
 
     const handleGenerateReport = () => {
+        if (!view) return;
         setIsGenerating(true);
         try {
             const doc = new jsPDF('p', 'mm', 'a4');
-            doc.setFillColor(15, 23, 42); // Navy Dark
+            doc.setFillColor(15, 23, 42);
             doc.rect(0, 0, 210, 40, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(22);
@@ -502,11 +242,11 @@ export default function AdminDashboard() {
                 startY: 60,
                 head: [['Métrique', 'Valeur']],
                 body: [
-                    ['Total Étudiants', stats.students.toString()],
-                    ['Nouveaux ce jour', stats.newToday.toString()],
-                    ['Chiffre d\'Affaires Global', `${stats.revenue.toLocaleString()} DT`],
-                    ['Nombre de Formations', stats.courses.toString()],
-                    ['Professeurs', stats.teachers.toString()]
+                    ['Total Étudiants', view.report.students.toString()],
+                    ['Nouveaux ce jour', view.report.newToday.toString()],
+                    ['Chiffre d\'Affaires Global', `${view.report.revenue.toLocaleString()} DT`],
+                    ['Nombre de Formations', view.report.courses.toString()],
+                    ['Professeurs', view.report.teachers.toString()]
                 ],
                 theme: 'striped',
                 headStyles: { fillColor: [15, 23, 42] }
@@ -529,69 +269,758 @@ export default function AdminDashboard() {
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error);
-            setSessionRequests(current => current.map(request => request.id === id ? { ...request, status } : request));
+            setRequests(current => current.map(request => request.id === id ? { ...request, status } : request));
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Impossible de mettre à jour la demande.');
         }
     };
 
-    // UI-only: which measure the main trend chart shows (avoids a dual-axis chart).
-    const [trendView, setTrendView] = useState<'revenue' | 'students'>('revenue');
+    const periodSelect = (
+        <label className="relative inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white pl-4 pr-9 text-[13.5px] text-slate-700 shadow-[var(--shadow-card)] transition-colors hover:border-slate-300 focus-within:ring-2 focus-within:ring-focus/40">
+            <CalendarDays size={17} className="text-slate-500" aria-hidden="true" />
+            <span className="hidden sm:inline">Période :</span>
+            <select
+                value={period}
+                onChange={(event) => setPeriod(event.target.value as Period)}
+                aria-label="Période"
+                className="cursor-pointer appearance-none border-none bg-transparent p-0 font-semibold text-slate-900 shadow-none focus:outline-none focus:ring-0"
+            >
+                {(Object.keys(PERIOD_LABEL) as Period[]).map(key => <option key={key} value={key}>{PERIOD_LABEL[key]}</option>)}
+            </select>
+            <ChevronDown size={16} className="pointer-events-none absolute right-3 text-slate-500" aria-hidden="true" />
+        </label>
+    );
 
-    if (loading) {
-        return (
-            <div className="admin-home-dashboard mx-auto max-w-[1600px] space-y-6" role="status" aria-live="polite">
-                <span className="sr-only">Chargement du tableau de bord…</span>
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-                    <div className="space-y-2">
-                        <Skeleton className="h-8 w-56" />
-                        <Skeleton className="h-4 w-72" />
+    const exportButton = (
+        <Button
+            icon={Download}
+            onClick={handleGenerateReport}
+            loading={isGenerating}
+            disabled={!view}
+            title={isGenerating ? 'Génération du rapport en cours' : 'Télécharger le rapport PDF'}
+            className="h-11 rounded-xl px-5"
+        >
+            {isGenerating ? 'Génération…' : 'Exporter rapport'}
+        </Button>
+    );
+
+    return (
+        <div className="admin-home-dashboard space-y-5">
+            {/* Title + controls */}
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                    <h1 className="text-[20px] font-extrabold uppercase tracking-[-0.01em] text-slate-900 md:text-[22px]">Tableau de bord</h1>
+                    <p className="mt-0.5 text-[13.5px] text-slate-500">Bienvenue, Admin ! Voici l’aperçu de votre académie.</p>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3">
+                    {periodSelect}
+                    <span className="hidden sm:inline-flex">{exportButton}</span>
+                    <IconButton label="Exporter le rapport PDF" icon={Download} variant="secondary" onClick={handleGenerateReport} disabled={!view || isGenerating} className="h-11 w-11 rounded-xl sm:hidden" />
+                </div>
+            </header>
+
+            {loading || !view ? <DashboardSkeleton /> : (
+                <>
+                    {/* KPIs */}
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-6">
+                        {view.kpis.map(kpi => <KpiCard key={kpi.label} {...kpi} />)}
                     </div>
-                    <Skeleton className="h-10 w-full md:w-44" />
-                </div>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className={cn('space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm', i === 4 && 'col-span-2 md:col-span-1')}>
-                            <Skeleton className="h-4 w-24" />
-                            <Skeleton className="h-7 w-20" />
-                            <Skeleton className="h-3 w-28" />
-                        </div>
-                    ))}
-                </div>
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    <Skeleton className="h-80 rounded-xl lg:col-span-2" />
-                    <Skeleton className="h-80 rounded-xl" />
-                </div>
-            </div>
-        );
-    }
 
-    const kpiTiles = [
-        { label: 'Étudiants', value: stats.students.toLocaleString('fr-FR'), sub: `+${stats.newToday} aujourd'hui`, icon: Users, href: '/admin/students' },
-        { label: "Chiffre d'affaires", value: formatDT(stats.revenue), sub: 'Revenus confirmés', icon: CreditCard, href: '/admin/payments' },
-        { label: 'Sessions', value: stats.sessions.toLocaleString('fr-FR'), sub: 'Planning opérationnel', icon: Calendar, href: '/admin/sessions' },
-        { label: 'Professeurs', value: stats.teachers.toLocaleString('fr-FR'), sub: 'Professeurs actifs', icon: GraduationCap, href: '/admin/teachers' },
-        { label: 'Étudiants inscrits', value: stats.enrolledStudents.toLocaleString('fr-FR'), sub: 'Inscriptions validées', icon: BookOpen, href: '/admin/students' },
+                    {/* Finance + to-do + upcoming sessions */}
+                    <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+                        <Card padded={false} className="min-w-0 overflow-hidden xl:col-span-8">
+                            <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
+                                <div className="min-w-0 p-5">
+                                    <SectionHeader
+                                        title="Performance financière"
+                                        actions={
+                                            <Segmented
+                                                label="Période du graphique"
+                                                value={financeRange}
+                                                onChange={setFinanceRange}
+                                                options={[
+                                                    { value: '7d', label: '7 jours' },
+                                                    { value: '30d', label: '30 jours' },
+                                                    { value: '3m', label: '3 mois' },
+                                                    { value: 'year', label: 'Année' },
+                                                ]}
+                                            />
+                                        }
+                                    />
+                                    <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-600" aria-label="Légende">
+                                        <LegendItem color={SERIES.billed} label="CA facturé" />
+                                        <LegendItem color={SERIES.paid} label="Encaissements" />
+                                        <LegendItem color={SERIES.unpaid} label="Impayés" />
+                                    </ul>
+                                    <div className="mt-3 h-60 w-full md:h-[270px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={view.finance} margin={{ top: 8, right: 8, left: -14, bottom: 0 }}>
+                                                <defs>
+                                                    {(['billed', 'paid'] as const).map(key => (
+                                                        <linearGradient key={key} id={`fin-${key}`} x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="0%" stopColor={SERIES[key]} stopOpacity={0.16} />
+                                                            <stop offset="100%" stopColor={SERIES[key]} stopOpacity={0} />
+                                                        </linearGradient>
+                                                    ))}
+                                                </defs>
+                                                <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" vertical={false} />
+                                                <XAxis dataKey="label" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} />
+                                                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={(val) => val >= 1000 ? `${Math.round(val / 100) / 10}k` : String(val)} />
+                                                <Tooltip content={<FinanceTooltip />} cursor={{ stroke: '#cbd5e1', strokeDasharray: '4 4' }} />
+                                                <Area type="monotone" dataKey="billed" name="CA facturé" stroke={SERIES.billed} strokeWidth={2.25} fill="url(#fin-billed)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                                                <Area type="monotone" dataKey="paid" name="Encaissements" stroke={SERIES.paid} strokeWidth={2.25} fill="url(#fin-paid)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                                                <Area type="monotone" dataKey="unpaid" name="Impayés" stroke={SERIES.unpaid} strokeWidth={2} fill="transparent" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-slate-100 p-5 lg:border-l lg:border-t-0">
+                                    <SectionHeader title="À traiter aujourd’hui" />
+                                    <ul className="mt-3 space-y-1">
+                                        {view.todo.map(item => (
+                                            <li key={item.label}>
+                                                <Link
+                                                    href={item.href}
+                                                    className="group flex min-h-12 items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
+                                                >
+                                                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', item.tile)}>
+                                                        <item.icon size={17} aria-hidden="true" />
+                                                    </span>
+                                                    <span className="min-w-0 flex-1 text-[13px] font-medium text-slate-800">{item.label}</span>
+                                                    <span className={cn('flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-[15px] font-bold tabular-nums', item.count > 0 ? item.badge : 'bg-slate-50 text-slate-400')}>
+                                                        {item.count}
+                                                    </span>
+                                                </Link>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Finance summary strip */}
+                            <dl className="grid grid-cols-2 gap-px border-t border-slate-100 bg-slate-100 sm:grid-cols-3 xl:grid-cols-6">
+                                {view.summary.map(item => (
+                                    <div key={item.label} className="min-w-0 bg-white px-5 py-4">
+                                        <dt className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">{item.label}</dt>
+                                        <dd className="mt-1.5">
+                                            {item.value}
+                                            {item.trend && <TrendText trend={item.trend} className="mt-1" />}
+                                        </dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        </Card>
+
+                        <Card padded={false} className="min-w-0 xl:col-span-4">
+                            <SectionHeader title="Prochaines sessions" className="p-5 pb-3" actions={<ViewAll href="/admin/sessions" />} />
+                            {view.upcoming.length === 0 ? (
+                                <EmptyState icon={CalendarDays} title="Aucune session à venir" description="Les prochaines sessions planifiées apparaîtront ici." />
+                            ) : (
+                                <ul className="divide-y divide-slate-100 px-5 pb-2">
+                                    {view.upcoming.map(session => (
+                                        <li key={session.id} className="flex items-center gap-4 py-3.5">
+                                            <div className="flex w-14 shrink-0 flex-col items-center rounded-xl border border-slate-200 py-2 text-center leading-none">
+                                                <span className="text-[20px] font-bold text-slate-900 tabular-nums">{session.day}</span>
+                                                <span className="mt-1 text-[10px] font-semibold uppercase text-slate-500">{session.month}</span>
+                                                {session.time && <span className="mt-1.5 text-[10px] font-medium text-slate-500 tabular-nums">{session.time}</span>}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-[14px] font-semibold text-slate-900">{session.title}</p>
+                                                <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                                                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                                                        <User size={13} aria-hidden="true" />
+                                                        <span className="truncate">{session.instructor || 'Sans professeur'}</span>
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1.5 tabular-nums">
+                                                        <Users size={13} aria-hidden="true" />
+                                                        {session.capacity > 0 ? `${session.occupied} / ${session.capacity}` : session.occupied}
+                                                    </span>
+                                                </p>
+                                                {session.label && <p className="mt-1 truncate text-xs text-slate-400">{session.label}</p>}
+                                            </div>
+                                            <Badge tone={session.badge.tone} dot={false} className="shrink-0 rounded-lg">{session.badge.label}</Badge>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </Card>
+                    </div>
+
+                    {/* Students, sources, popular courses */}
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                        <Card className="min-w-0">
+                            <SectionHeader title="Évolution des étudiants" actions={<Badge dot={false}>{PERIOD_LABEL[period]}</Badge>} />
+                            <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
+                                <ul className="space-y-2">
+                                    {view.studentFlow.map(item => (
+                                        <li key={item.label} className="flex items-center gap-3 rounded-xl px-1 py-1">
+                                            <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', item.tile)}>
+                                                <item.icon size={16} aria-hidden="true" />
+                                            </span>
+                                            <span className="min-w-0 flex-1 truncate text-[13px] text-slate-700">{item.label}</span>
+                                            <span className="text-[14px] font-bold text-slate-900 tabular-nums">{fmtInt(item.value)}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="space-y-4 border-slate-100 sm:border-l sm:pl-5">
+                                    {view.rates.map(rate => (
+                                        <div key={rate.label}>
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">{rate.label}</p>
+                                            <p className="mt-1 text-[15px] font-bold text-slate-900 tabular-nums">{rate.value === null ? '—' : fmtPct(rate.value)}</p>
+                                            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                                                <div className={cn('h-full rounded-full', rate.bar)} style={{ width: `${Math.min(100, rate.value || 0)}%` }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div>
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">Étudiants multi-formations</p>
+                                        <p className="mt-1 flex items-center gap-2 text-[15px] font-bold text-slate-900 tabular-nums">
+                                            {fmtInt(view.multiCourse)} <Repeat size={14} className="text-slate-400" aria-hidden="true" />
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        <Card className="min-w-0">
+                            <SectionHeader title="Origine des inscriptions" actions={<Badge dot={false}>Tous les étudiants</Badge>} />
+                            {view.sources.total === 0 ? (
+                                <EmptyState icon={Users} title="Aucun étudiant enregistré" className="py-10" />
+                            ) : (
+                                <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+                                    <div className="relative h-40 w-40 shrink-0">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={view.sources.rows} dataKey="count" nameKey="label" innerRadius={50} outerRadius={76} paddingAngle={2} stroke="none" startAngle={90} endAngle={-270}>
+                                                    {view.sources.rows.map(row => <Cell key={row.key} fill={row.color} />)}
+                                                </Pie>
+                                                <Tooltip formatter={(value, name) => [`${value} étudiants`, name]} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-[20px] font-bold text-slate-900 tabular-nums">{fmtInt(view.sources.total)}</span>
+                                            <span className="text-[11px] text-slate-500">étudiants</span>
+                                        </div>
+                                    </div>
+                                    <table className="w-full min-w-0 text-[12.5px]">
+                                        <caption className="sr-only">Origine des inscriptions</caption>
+                                        <tbody>
+                                            {view.sources.rows.map(row => (
+                                                <tr key={row.key}>
+                                                    <th scope="row" className="py-1.5 pr-2 text-left font-medium text-slate-700">
+                                                        <span className="inline-flex items-center gap-2">
+                                                            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: row.color }} aria-hidden="true" />
+                                                            {row.label}
+                                                        </span>
+                                                    </th>
+                                                    <td className="py-1.5 pr-2 text-right font-semibold text-slate-900 tabular-nums">{row.count}</td>
+                                                    <td className="py-1.5 pr-2 text-right text-slate-500 tabular-nums">({fmtPct(row.share)})</td>
+                                                    <td className="whitespace-nowrap py-1.5 text-right font-medium text-slate-700 tabular-nums">{formatDT(row.revenue)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className="border-t border-slate-100">
+                                                <th scope="row" className="pt-2.5 text-left font-semibold text-slate-900">Total</th>
+                                                <td className="pt-2.5 pr-2 text-right font-semibold text-slate-900 tabular-nums">{view.sources.total}</td>
+                                                <td className="pt-2.5 pr-2 text-right text-slate-500">(100%)</td>
+                                                <td className="whitespace-nowrap pt-2.5 text-right font-bold text-slate-900 tabular-nums">{formatDT(view.sources.revenue)}</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            )}
+                        </Card>
+
+                        <Card className="min-w-0 md:col-span-2 xl:col-span-1">
+                            <SectionHeader title="Formations populaires" actions={<ViewAll href="/admin/courses" />} />
+                            {view.popular.length === 0 ? (
+                                <EmptyState icon={BookOpen} title="Aucune inscription validée" description="Les formations les plus suivies apparaîtront ici." className="py-10" />
+                            ) : (
+                                <ul className="mt-3 space-y-3">
+                                    {view.popular.map(course => (
+                                        <li key={course.id} className="flex items-center gap-3">
+                                            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400">
+                                                {course.image ? (
+                                                    <img src={course.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <ImageOff size={18} aria-hidden="true" />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-[13.5px] font-semibold text-slate-900">{course.title}</p>
+                                                <p className="text-xs text-slate-500">{fmtInt(course.students)} étudiant{course.students > 1 ? 's' : ''}</p>
+                                                {course.fill !== null && (
+                                                    <div className="mt-1.5 flex items-center gap-2">
+                                                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                                                            <div className="h-full rounded-full bg-brand-green" style={{ width: `${Math.min(100, course.fill)}%` }} />
+                                                        </div>
+                                                        <span className="shrink-0 text-[11px] text-slate-500 tabular-nums">{Math.round(course.fill)}% rempli</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="shrink-0 text-right">
+                                                <p className="text-[14px] font-bold text-slate-900 tabular-nums">{formatDT(course.revenue)}</p>
+                                                <p className="text-[11px] text-slate-500">CA généré</p>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </Card>
+                    </div>
+
+                    {/* Recent enrollments */}
+                    <Card>
+                        <SectionHeader title="Inscriptions récentes" actions={<ViewAll href="/admin/students" />} />
+                        {view.recent.length === 0 ? (
+                            <EmptyState icon={UserPlus} title="Aucune inscription pour le moment" className="py-10" />
+                        ) : (
+                            <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                                {view.recent.map(item => (
+                                    <li key={item.id} className="flex min-w-0 items-start gap-3 rounded-xl border border-slate-200/80 p-3.5">
+                                        {item.avatar ? (
+                                            <img src={item.avatar} alt="" loading="lazy" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                                        ) : (
+                                            <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[13px] font-bold', tintOf(item.name))} aria-hidden="true">
+                                                {initialsOf(item.name)}
+                                            </span>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-[13.5px] font-semibold text-slate-900">{item.name}</p>
+                                            <p className="truncate text-xs text-slate-500">{item.course}</p>
+                                            <div className="mt-2 flex items-center justify-between gap-2">
+                                                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 tabular-nums">
+                                                    <CalendarDays size={12} aria-hidden="true" />{item.date}
+                                                </span>
+                                                <Badge tone={item.badge.tone} dot={false} className="rounded-lg px-2 text-[11px]">{item.badge.label}</Badge>
+                                            </div>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </Card>
+
+                    {/* Student requests (actionable) */}
+                    <RequestsCard requests={requests} onUpdate={updateSessionRequest} />
+                </>
+            )}
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/* Derived data                                                        */
+/* ------------------------------------------------------------------ */
+
+function buildDashboard(raw: DashboardData, period: Period, financeRange: FinanceRange) {
+    const now = new Date();
+    const today = startOfDay(now);
+    const tomorrow = addDays(today, 1);
+    const { start, end, prevStart, prevEnd } = periodWindows(period, now);
+    const caption = PERIOD_CAPTION[period];
+
+    const students = raw.students || [];
+    const sessions = raw.sessions || [];
+    const enrollments = raw.enrollments || [];
+    const approved = enrollments.filter(e => e.status === 'approved');
+    const sessionById = new Map(sessions.map(s => [s.id, s]));
+    const studentById = new Map(students.map(s => [s.id, s]));
+    const courseById = new Map((raw.courses || []).map(c => [c.id, c]));
+    const occupiedBySession = approved.reduce((map, e) => map.set(e.session_id, (map.get(e.session_id) || 0) + 1), new Map<string, number>());
+    const courseForSession = (session?: Session | null) => courseOf(session) || (session?.course_id ? courseById.get(session.course_id) || null : null);
+
+    const instructorName = (session: Session) => {
+        const id = parseSchedule(session.schedule)?.instructor_id || courseForSession(session)?.instructor_id;
+        const teacher = id ? raw.teachers.find(t => t.id === id) : null;
+        return teacher ? `${teacher.prenom || ''} ${teacher.nom || ''}`.trim() || null : null;
+    };
+
+    const sumPaid = (from: Date, to: Date) => approved.filter(e => inRange(e.created_at, from, to)).reduce((sum, e) => sum + paidOf(e), 0);
+    const countStudents = (from: Date, to: Date) => students.filter(s => inRange(s.created_at, from, to)).length;
+
+    // --- KPIs
+    const enrolledStudents = new Set(approved.map(e => e.user_id)).size;
+    const newStudents = countStudents(start, end);
+    const newStudentsPrev = prevStart && prevEnd ? countStudents(prevStart, prevEnd) : null;
+    const cashed = sumPaid(start, end);
+    const cashedPrev = prevStart && prevEnd ? sumPaid(prevStart, prevEnd) : null;
+    const openBalances = approved.filter(e => dueOf(e) > 0);
+    const toCollect = openBalances.reduce((sum, e) => sum + dueOf(e), 0);
+
+    const sessionStart = (s: Session) => toDate(s.start_date);
+    const sessionEnd = (s: Session) => toDate(s.end_date) || sessionStart(s);
+    const running = sessions.filter(s => { const a = sessionStart(s); const b = sessionEnd(s); return !!a && !!b && a < tomorrow && b >= today; });
+    const upcomingAll = sessions.filter(s => { const a = sessionStart(s); return !!a && a >= tomorrow; });
+    const liveOrNext = [...running, ...upcomingAll].filter(s => Number(s.seats_available) > 0);
+    const seatsTotal = liveOrNext.reduce((sum, s) => sum + Number(s.seats_available || 0), 0);
+    const seatsTaken = liveOrNext.reduce((sum, s) => sum + Math.min(occupiedBySession.get(s.id) || 0, Number(s.seats_available || 0)), 0);
+    const fillRate = seatsTotal > 0 ? (seatsTaken / seatsTotal) * 100 : null;
+
+    const kpis: KpiProps[] = [
+        { label: 'Étudiants actifs', value: fmtInt(enrolledStudents), icon: Users, tile: 'bg-brand-green', note: `${fmtInt(students.length)} comptes au total`, href: '/admin/students' },
+        { label: 'Nouveaux étudiants', value: fmtInt(newStudents), icon: UserPlus, tile: 'bg-[#4C8DF6]', trend: makeTrend(newStudents, newStudentsPrev, 'abs', caption), note: PERIOD_LABEL[period], href: '/admin/students' },
+        { label: 'CA encaissé', value: fmtInt(cashed), unit: 'DT', icon: Wallet, tile: 'bg-emerald-500', trend: makeTrend(cashed, cashedPrev, 'pct', caption), note: PERIOD_LABEL[period], href: '/admin/payments' },
+        { label: 'À encaisser', value: fmtInt(toCollect), unit: 'DT', icon: HandCoins, tile: 'bg-amber-500', note: `${fmtInt(openBalances.length)} solde${openBalances.length > 1 ? 's' : ''} ouvert${openBalances.length > 1 ? 's' : ''}`, href: '/admin/payments' },
+        { label: 'Sessions en cours', value: fmtInt(running.length), icon: CalendarDays, tile: 'bg-violet-500', note: `${fmtInt(upcomingAll.length)} à venir`, href: '/admin/sessions' },
+        { label: 'Taux de remplissage', value: fillRate === null ? '—' : fmtPct(Math.round(fillRate)), icon: Gauge, tile: 'bg-teal-500', note: seatsTotal > 0 ? `${fmtInt(seatsTaken)} / ${fmtInt(seatsTotal)} places` : 'Aucune session ouverte', href: '/admin/sessions' },
     ];
 
-    const pendingRequests = sessionRequests.filter(request => request.status === 'pending').length;
+    // --- Finance chart (amounts are dated by enrollment, as in the rest of the dashboard)
+    const buckets: Array<{ label: string; from: Date; to: Date }> = [];
+    if (financeRange === '7d' || financeRange === '30d') {
+        const days = financeRange === '7d' ? 7 : 30;
+        for (let i = days - 1; i >= 0; i--) {
+            const from = addDays(today, -i);
+            buckets.push({ label: from.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), from, to: addDays(from, 1) });
+        }
+    } else if (financeRange === '3m') {
+        for (let i = 12; i >= 0; i--) {
+            const to = addDays(tomorrow, -7 * i);
+            const from = addDays(to, -7);
+            buckets.push({ label: from.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), from, to });
+        }
+    } else {
+        for (let i = 11; i >= 0; i--) {
+            const from = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            buckets.push({ label: from.toLocaleDateString('fr-FR', { month: 'short' }), from, to: new Date(from.getFullYear(), from.getMonth() + 1, 1) });
+        }
+    }
+    const finance = buckets.map(({ label, from, to }) => {
+        const inBucket = approved.filter(e => inRange(e.created_at, from, to));
+        const billed = inBucket.reduce((sum, e) => sum + billedOf(e), 0);
+        const paid = inBucket.reduce((sum, e) => sum + paidOf(e), 0);
+        return { label, billed, paid, unpaid: Math.max(billed - paid, 0) };
+    });
 
-    const renderRequestTypeBadge = (request: any) => (
+    // --- Summary strip
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const elapsedMonth = now.getTime() - monthStart.getTime();
+    const elapsedYear = now.getTime() - yearStart.getTime();
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
+    const monthPaid = sumPaid(monthStart, tomorrow);
+    const yearPaid = sumPaid(yearStart, tomorrow);
+    const avgBasket = approved.length > 0 ? approved.reduce((sum, e) => sum + billedOf(e), 0) / approved.length : 0;
+
+    const revenueByCourse = new Map<string, { id: string; title: string; image: string | null; revenue: number; students: number }>();
+    approved.forEach(e => {
+        const course = courseForSession(sessionById.get(e.session_id));
+        const id = course?.id || 'unknown';
+        const entry = revenueByCourse.get(id) || { id, title: course?.title_fr || 'Formation', image: course?.image_url || null, revenue: 0, students: 0 };
+        entry.revenue += paidOf(e);
+        entry.students += 1;
+        revenueByCourse.set(id, entry);
+    });
+    const bestCourse = [...revenueByCourse.values()].sort((a, b) => b.revenue - a.revenue)[0];
+
+    const money = (value: number) => (
+        <span className="text-[18px] font-bold text-slate-900 tabular-nums">{fmtInt(Math.round(value))} <span className="text-[12px] font-semibold text-slate-500">DT</span></span>
+    );
+    const summary: Array<{ label: string; value: React.ReactNode; trend?: Trend }> = [
+        { label: 'Aujourd’hui', value: money(sumPaid(today, tomorrow)) },
+        { label: 'Ce mois', value: money(monthPaid), trend: makeTrend(monthPaid, sumPaid(lastMonthStart, new Date(lastMonthStart.getTime() + elapsedMonth)), 'pct') },
+        { label: 'Cette année', value: money(yearPaid), trend: makeTrend(yearPaid, sumPaid(lastYearStart, new Date(lastYearStart.getTime() + elapsedYear)), 'pct') },
+        { label: 'À encaisser', value: money(toCollect) },
+        { label: 'Panier moyen', value: money(avgBasket) },
+        {
+            label: 'Meilleure formation',
+            value: bestCourse ? (
+                <span className="block min-w-0">
+                    <span className="block truncate text-[13px] font-semibold text-slate-900" title={bestCourse.title}>{bestCourse.title}</span>
+                    <span className="text-xs text-slate-500 tabular-nums">{formatDT(bestCourse.revenue)}</span>
+                </span>
+            ) : <span className="text-[13px] text-slate-400">—</span>,
+        },
+    ];
+
+    // --- To-do list
+    const weekAgo = addDays(today, -7);
+    const nearlyFull = upcomingAll.filter(s => {
+        const cap = Number(s.seats_available || 0);
+        const occ = occupiedBySession.get(s.id) || 0;
+        return cap > 0 && occ / cap >= 0.8 && occ < cap;
+    }).length;
+    const todo: Array<{ label: string; count: number; icon: LucideIcon; tile: string; badge: string; href: string }> = [
+        { label: 'Inscriptions à confirmer', count: enrollments.filter(e => e.status === 'pending').length, icon: UserCheck, tile: 'bg-sky-50 text-sky-700', badge: 'bg-sky-50 text-sky-700', href: '/admin/payments' },
+        { label: 'Soldes impayés', count: openBalances.length, icon: Wallet, tile: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-700', href: '/admin/payments' },
+        { label: 'Sessions presque complètes', count: nearlyFull, icon: Flame, tile: 'bg-amber-50 text-amber-600', badge: 'bg-amber-50 text-amber-700', href: '/admin/sessions' },
+        { label: 'Absences (7 derniers jours)', count: (raw.attendance || []).filter(r => r.status === 'absent' && inRange(r.seance_date, weekAgo, tomorrow)).length, icon: UserX, tile: 'bg-violet-50 text-violet-600', badge: 'bg-violet-50 text-violet-700', href: '/admin/presence' },
+        { label: 'Sessions sans professeur', count: upcomingAll.filter(s => !instructorName(s)).length, icon: UserRoundX, tile: 'bg-orange-50 text-orange-600', badge: 'bg-orange-50 text-orange-700', href: '/admin/sessions' },
+        { label: 'Demandes d’étudiants', count: (raw.sessionRequests || []).filter(r => r.status === 'pending').length, icon: MessageSquare, tile: 'bg-teal-50 text-teal-600', badge: 'bg-teal-50 text-teal-700', href: '#demandes' },
+    ];
+
+    // --- Upcoming sessions
+    const upcoming = [...upcomingAll]
+        .sort((a, b) => (sessionStart(a)?.getTime() || 0) - (sessionStart(b)?.getTime() || 0))
+        .slice(0, 4)
+        .map(s => {
+            const startDate = sessionStart(s) as Date;
+            const schedule = parseSchedule(s.schedule);
+            const capacity = Number(s.seats_available || 0);
+            const occupied = occupiedBySession.get(s.id) || 0;
+            const ratio = capacity > 0 ? occupied / capacity : 0;
+            const badge: { tone: 'danger' | 'warning' | 'success'; label: string } = capacity > 0 && occupied >= capacity
+                ? { tone: 'danger', label: 'Complète' }
+                : ratio >= 0.8 ? { tone: 'warning', label: 'Presque complète' } : { tone: 'success', label: 'Places disponibles' };
+            return {
+                id: s.id,
+                day: String(startDate.getDate()).padStart(2, '0'),
+                month: startDate.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', ''),
+                time: schedule?.seances?.[0]?.start_time?.slice(0, 5) || '',
+                title: courseForSession(s)?.title_fr || 'Formation',
+                instructor: instructorName(s),
+                label: schedule?.label || '',
+                capacity,
+                occupied,
+                badge,
+            };
+        });
+
+    // --- Student flow & rates
+    const attendance = raw.attendance || [];
+    const present = attendance.filter(r => r.status === 'present' || r.status === 'late').length;
+    const absent = attendance.filter(r => r.status === 'absent').length;
+    const enrollmentsPerStudent = approved.reduce((map, e) => map.set(e.user_id, (map.get(e.user_id) || 0) + 1), new Map<string, number>());
+    const studentFlow: Array<{ label: string; value: number; icon: LucideIcon; tile: string }> = [
+        { label: 'Nouveaux étudiants', value: newStudents, icon: UserPlus, tile: 'bg-brand-green-soft text-brand-green-700' },
+        { label: 'Inscrits en formation', value: enrolledStudents, icon: CheckCircle2, tile: 'bg-sky-50 text-sky-700' },
+        { label: 'Formations en cours', value: approved.filter(e => { const s = sessionById.get(e.session_id); const a = s && sessionStart(s); const b = s && sessionEnd(s); return !!a && !!b && a < tomorrow && b >= today; }).length, icon: CirclePlay, tile: 'bg-amber-50 text-amber-700' },
+        { label: 'Formations terminées', value: approved.filter(e => { const s = sessionById.get(e.session_id); const b = s && sessionEnd(s); return !!b && b < today; }).length, icon: Flag, tile: 'bg-violet-50 text-violet-700' },
+        { label: 'Comptes créés', value: students.length, icon: Users, tile: 'bg-slate-100 text-slate-600' },
+    ];
+    const rates: Array<{ label: string; value: number | null; bar: string }> = [
+        { label: 'Taux d’assiduité', value: attendance.length ? (present / attendance.length) * 100 : null, bar: 'bg-brand-green' },
+        { label: 'Taux d’absence', value: attendance.length ? (absent / attendance.length) * 100 : null, bar: 'bg-rose-500' },
+        { label: 'Taux de conversion', value: students.length ? (enrolledStudents / students.length) * 100 : null, bar: 'bg-sky-500' },
+    ];
+    const multiCourse = [...enrollmentsPerStudent.values()].filter(count => count > 1).length;
+
+    // --- Sources
+    const sourceCounts = new Map<string, { count: number; revenue: number }>();
+    students.forEach(s => {
+        const key = normalizeSource(s.source);
+        const entry = sourceCounts.get(key) || { count: 0, revenue: 0 };
+        entry.count += 1;
+        sourceCounts.set(key, entry);
+    });
+    approved.forEach(e => {
+        const key = normalizeSource(studentById.get(e.user_id)?.source);
+        const entry = sourceCounts.get(key) || { count: 0, revenue: 0 };
+        entry.revenue += paidOf(e);
+        sourceCounts.set(key, entry);
+    });
+    const sourceRows = Object.keys(SOURCE_META)
+        .map(key => ({ key, ...SOURCE_META[key], ...(sourceCounts.get(key) || { count: 0, revenue: 0 }) }))
+        .filter(row => row.count > 0)
+        .map(row => ({ ...row, share: students.length ? (row.count / students.length) * 100 : 0 }));
+    const sources = {
+        rows: sourceRows,
+        total: students.length,
+        revenue: sourceRows.reduce((sum, row) => sum + row.revenue, 0),
+    };
+
+    // --- Popular courses
+    const seatsByCourse = new Map<string, { cap: number; occ: number }>();
+    sessions.forEach(s => {
+        const id = courseForSession(s)?.id;
+        if (!id) return;
+        const entry = seatsByCourse.get(id) || { cap: 0, occ: 0 };
+        entry.cap += Number(s.seats_available || 0);
+        entry.occ += occupiedBySession.get(s.id) || 0;
+        seatsByCourse.set(id, entry);
+    });
+    const popular = [...revenueByCourse.values()]
+        .sort((a, b) => b.students - a.students || b.revenue - a.revenue)
+        .slice(0, 4)
+        .map(course => {
+            const seats = seatsByCourse.get(course.id);
+            return { ...course, fill: seats && seats.cap > 0 ? (seats.occ / seats.cap) * 100 : null };
+        });
+
+    // --- Recent enrollments
+    const recent = [...enrollments]
+        .sort((a, b) => (toDate(b.created_at)?.getTime() || 0) - (toDate(a.created_at)?.getTime() || 0))
+        .slice(0, 5)
+        .map(e => {
+            const student = studentById.get(e.user_id);
+            const badge: { tone: 'success' | 'warning' | 'danger'; label: string } = e.status === 'approved'
+                ? { tone: 'success', label: 'Confirmée' }
+                : e.status === 'pending' ? { tone: 'warning', label: 'En attente' } : { tone: 'danger', label: 'Refusée' };
+            return {
+                id: e.id,
+                name: student?.full_name || 'Étudiant',
+                avatar: student?.avatar_url || null,
+                course: courseForSession(sessionById.get(e.session_id))?.title_fr || 'Formation',
+                date: e.created_at ? new Date(e.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+                badge,
+            };
+        });
+
+    const report = {
+        students: students.length,
+        newToday: countStudents(today, tomorrow),
+        revenue: approved.reduce((sum, e) => sum + paidOf(e), 0),
+        courses: (raw.courses || []).length,
+        teachers: (raw.teachers || []).length,
+    };
+
+    return { kpis, finance, summary, todo, upcoming, studentFlow, rates, multiCourse, sources, popular, recent, report };
+}
+
+/* ------------------------------------------------------------------ */
+/* Pieces                                                              */
+/* ------------------------------------------------------------------ */
+
+type KpiProps = {
+    label: string;
+    value: string;
+    unit?: string;
+    icon: LucideIcon;
+    tile: string;
+    trend?: Trend;
+    note?: string;
+    href: string;
+};
+
+function KpiCard({ label, value, unit, icon: Icon, tile, trend, note, href }: KpiProps) {
+    return (
+        <Link
+            href={href}
+            className="group flex min-w-0 flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 motion-reduce:hover:translate-y-0 md:p-5"
+        >
+            <div className="flex items-center gap-2.5">
+                <span className={cn('hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#fff] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] md:flex', tile)}>
+                    <Icon size={18} aria-hidden="true" />
+                </span>
+                <span className="min-w-0 text-[12px] font-medium text-slate-600 md:text-[11px] md:font-semibold md:uppercase md:leading-tight md:tracking-[0.02em]">{label}</span>
+            </div>
+            <p className="mt-3 text-[24px] font-bold leading-none tracking-tight text-slate-900 tabular-nums md:mt-4 md:text-[30px]">
+                {value}
+                {unit && <span className="ml-1 text-[13px] font-semibold text-slate-500 md:text-[16px]">{unit}</span>}
+            </p>
+            <div className="mt-auto pt-3">
+                {trend ? <TrendText trend={trend} /> : note ? <p className="truncate text-xs text-slate-500">{note}</p> : null}
+            </div>
+        </Link>
+    );
+}
+
+function TrendText({ trend, className }: { trend: NonNullable<Trend>; className?: string }) {
+    const Icon = trend.direction === 'up' ? ArrowUp : trend.direction === 'down' ? ArrowDown : Minus;
+    return (
+        <p className={cn('flex min-w-0 items-center gap-1 text-xs', className)}>
+            <span className={cn(
+                'inline-flex shrink-0 items-center gap-0.5 font-semibold tabular-nums',
+                trend.direction === 'up' ? 'text-emerald-700' : trend.direction === 'down' ? 'text-rose-600' : 'text-slate-500'
+            )}>
+                <Icon size={12} strokeWidth={2.5} aria-hidden="true" />
+                <span className="sr-only">{trend.direction === 'up' ? 'Hausse de' : trend.direction === 'down' ? 'Baisse de' : ''}</span>
+                {trend.text}
+            </span>
+            {trend.caption && <span className="truncate text-slate-500">{trend.caption}</span>}
+        </p>
+    );
+}
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+    return (
+        <li className="inline-flex items-center gap-2">
+            <span className="h-[3px] w-4 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+            {label}
+        </li>
+    );
+}
+
+function FinanceTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ dataKey?: string | number; value?: number | string; name?: string; color?: string }>; label?: string }) {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="min-w-44 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-[var(--shadow-pop)]">
+            <p className="mb-1.5 font-semibold text-slate-500">{label}</p>
+            {payload.map(entry => (
+                <p key={String(entry.dataKey)} className="flex items-center justify-between gap-4 py-0.5">
+                    <span className="inline-flex items-center gap-2 text-slate-600">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} aria-hidden="true" />
+                        {entry.name}
+                    </span>
+                    <span className="font-semibold text-slate-900 tabular-nums">{formatDT(Number(entry.value))}</span>
+                </p>
+            ))}
+        </div>
+    );
+}
+
+/** Dashboard section title: uppercase, as in the reference design. */
+function SectionHeader({ title, description, actions, className }: { title: React.ReactNode; description?: React.ReactNode; actions?: React.ReactNode; className?: string }) {
+    return (
+        <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', className)}>
+            <div className="min-w-0">
+                <h2 className="text-[13px] font-bold uppercase tracking-[0.02em] text-slate-900">{title}</h2>
+                {description && <p className="mt-0.5 text-[13px] text-slate-500">{description}</p>}
+            </div>
+            {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+        </div>
+    );
+}
+
+/** Segmented control with the lime active state of the reference design. */
+function Segmented<T extends string>({ options, value, onChange, label }: { options: Array<{ value: T; label: string }>; value: T; onChange: (value: T) => void; label: string }) {
+    return (
+        <div role="group" aria-label={label} className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-xl border border-slate-200/80 bg-white p-1">
+            {options.map(option => {
+                const active = option.value === value;
+                return (
+                    <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => onChange(option.value)}
+                        className={cn(
+                            'inline-flex h-8 shrink-0 cursor-pointer items-center rounded-lg px-3 text-[12.5px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50',
+                            active ? 'bg-brand-green-600 font-semibold text-[#fff]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                        )}
+                    >
+                        {option.label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+function ViewAll({ href }: { href: string }) {
+    return (
+        <Link
+            href={href}
+            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[13px] font-semibold text-brand-green-700 transition-colors hover:bg-brand-green-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
+        >
+            Voir tout <ChevronRight size={14} aria-hidden="true" />
+        </Link>
+    );
+}
+
+function RequestsCard({ requests, onUpdate }: { requests: SessionRequest[]; onUpdate: (id: string, status: 'processed' | 'rejected') => void }) {
+    const pending = requests.filter(request => request.status === 'pending').length;
+
+    const typeBadge = (request: SessionRequest) => (
         <Badge>{request.request_type === 'create_session' ? 'Créer une session' : 'Prochaine session'}</Badge>
     );
 
-    const renderRequestActions = (request: any) => request.status === 'pending' ? (
+    const actions = (request: SessionRequest) => request.status === 'pending' ? (
         <div className="flex gap-1">
             <IconButton
                 icon={CheckCircle2}
-                onClick={() => updateSessionRequest(request.id, 'processed')}
+                onClick={() => onUpdate(request.id, 'processed')}
                 title="Marquer comme traitée"
                 label={`Marquer la demande de ${request.full_name} comme traitée`}
                 className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
             />
             <IconButton
                 icon={X}
-                onClick={() => updateSessionRequest(request.id, 'rejected')}
+                onClick={() => onUpdate(request.id, 'rejected')}
                 title="Refuser"
                 label={`Refuser la demande de ${request.full_name}`}
                 className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
@@ -603,477 +1032,108 @@ export default function AdminDashboard() {
         </Badge>
     );
 
-    const hasStudentsByCourse = studentsByCourse.some(item => item.value > 0);
-    const hasEnrollmentStatus = enrollmentStatusData.some(item => item.value > 0);
-    const hasAgeData = ageDistribution.some(item => item.value > 0);
-    const hasSourceData = sourceDistribution.some(item => item.value > 0);
-
-    const attendanceItems = [
-        { label: 'Pointages', value: attendanceStats.total, className: 'text-slate-900' },
-        { label: 'Présents', value: attendanceStats.present, className: 'text-emerald-700' },
-        { label: 'Absents', value: attendanceStats.absent, className: 'text-rose-600' },
-        { label: 'Retards', value: attendanceStats.late, className: 'text-amber-700' },
-        { label: 'Excusés', value: attendanceStats.excused, className: 'text-slate-900' },
-    ];
-
     return (
-        <div className="admin-home-dashboard mx-auto max-w-[1600px] space-y-6 pb-4 md:pb-10">
-            <PageHeader
-                title="Tableau de bord"
-                description="Vue d’ensemble de l’activité de GSM Guide Academy."
-                actions={
-                    <>
-                        <span className="inline-flex h-10 items-center gap-2 px-1 text-sm text-slate-500">
-                            <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-                            Données en direct
-                        </span>
-                        <Button
-                            variant="primary"
-                            icon={Download}
-                            onClick={handleGenerateReport}
-                            loading={isGenerating}
-                            title={isGenerating ? 'Génération du rapport en cours' : 'Télécharger le rapport PDF'}
-                            className="w-full sm:w-auto"
-                        >
-                            {isGenerating ? 'Génération…' : 'Exporter le rapport'}
-                        </Button>
-                    </>
-                }
+        <Card padded={false} className="scroll-mt-24 overflow-hidden">
+            <div id="demandes" />
+            <SectionHeader
+                className="border-b border-slate-100 p-5"
+                title="Demandes d’étudiants"
+                description="Demandes de création et de prochaine session"
+                actions={<Badge tone={pending > 0 ? 'warning' : 'neutral'}>{pending} en attente</Badge>}
             />
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-                {kpiTiles.map((stat, i) => (
-                    <div key={stat.label} className={cn('min-w-0', i === 4 && 'col-span-2 md:col-span-1')}>
-                        <StatCard
-                            label={stat.label}
-                            value={stat.value}
-                            hint={stat.sub}
-                            icon={stat.icon}
-                            onClick={() => router.push(stat.href)}
-                        />
+            {requests.length === 0 ? (
+                <EmptyState icon={MessageSquare} title="Aucune demande d’étudiant" description="Les demandes envoyées depuis le site apparaîtront ici." />
+            ) : (
+                <>
+                    <ul className="divide-y divide-slate-100 md:hidden">
+                        {requests.map(request => (
+                            <li key={request.id} className="space-y-2.5 p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate font-medium text-slate-900">{request.full_name}</p>
+                                        <p className="truncate text-sm text-slate-500">{request.courses?.title_fr || 'Formation'}</p>
+                                    </div>
+                                    <span className="whitespace-nowrap text-xs text-slate-500 tabular-nums">{new Date(request.created_at).toLocaleDateString('fr-FR')}</span>
+                                </div>
+                                {typeBadge(request)}
+                                <div className="space-y-1 text-sm">
+                                    <p className="flex min-w-0 flex-wrap gap-x-2 gap-y-1">
+                                        {request.email && <a href={`mailto:${request.email}`} className="break-all text-brand-blue hover:underline">{request.email}</a>}
+                                        {request.phone && <a href={`tel:${request.phone}`} className="whitespace-nowrap text-brand-blue hover:underline">{request.phone}</a>}
+                                    </p>
+                                    {request.availability && <p className="break-words text-slate-700"><span className="text-slate-500">Disponibilité : </span>{request.availability}</p>}
+                                    {request.message && <p className="break-words text-slate-500">{request.message}</p>}
+                                </div>
+                                <div className="flex justify-end">{actions(request)}</div>
+                            </li>
+                        ))}
+                    </ul>
+                    <div className={cn(table.wrapper, 'hidden max-h-[520px] overflow-y-auto custom-scrollbar md:block')}>
+                        <table className={cn(table.table, 'min-w-[900px]')}>
+                            <thead className={table.thead}>
+                                <tr>
+                                    <th className={table.th}>Étudiant</th>
+                                    <th className={table.th}>Formation</th>
+                                    <th className={table.th}>Demande</th>
+                                    <th className={table.th}>Disponibilité</th>
+                                    <th className={table.th}>Date</th>
+                                    <th className={cn(table.th, 'text-right')}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className={table.tbody}>
+                                {requests.map(request => (
+                                    <tr key={request.id} className={table.tr}>
+                                        <td className={table.td}>
+                                            <p className="font-medium text-slate-900">{request.full_name}</p>
+                                            <p className="text-xs text-slate-500">
+                                                {request.email && <a href={`mailto:${request.email}`} className="text-brand-blue hover:underline">{request.email}</a>}
+                                                {request.email && request.phone && ' · '}
+                                                {request.phone && <a href={`tel:${request.phone}`} className="whitespace-nowrap text-brand-blue hover:underline">{request.phone}</a>}
+                                            </p>
+                                            {request.message && <p className="mt-1 max-w-xs truncate text-xs text-slate-500" title={request.message}>{request.message}</p>}
+                                        </td>
+                                        <td className={table.td}>{request.courses?.title_fr || 'Formation'}</td>
+                                        <td className={table.td}>{typeBadge(request)}</td>
+                                        <td className={cn(table.td, 'text-slate-500')}>{request.availability || <span className="text-slate-400">—</span>}</td>
+                                        <td className={cn(table.td, 'whitespace-nowrap text-slate-500 tabular-nums')}>{new Date(request.created_at).toLocaleDateString('fr-FR')}</td>
+                                        <td className={table.td}><div className="flex justify-end">{actions(request)}</div></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            )}
+        </Card>
+    );
+}
+
+function DashboardSkeleton() {
+    return (
+        <div className="space-y-5" role="status" aria-live="polite">
+            <span className="sr-only">Chargement du tableau de bord…</span>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="space-y-3 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[var(--shadow-card)]">
+                        <div className="flex items-center gap-2.5">
+                            <Skeleton className="h-9 w-9 rounded-xl" />
+                            <Skeleton className="h-3 w-20" />
+                        </div>
+                        <Skeleton className="h-8 w-24" />
+                        <Skeleton className="h-3 w-28" />
                     </div>
                 ))}
             </div>
-
-            {/* Trend + side lists */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <Card className="min-w-0 lg:col-span-2">
-                    <CardHeader
-                        title={trendView === 'revenue' ? 'Évolution des revenus' : 'Évolution des inscriptions'}
-                        description="6 derniers mois"
-                        actions={
-                            <FilterTabs
-                                label="Mesure affichée"
-                                value={trendView}
-                                onChange={setTrendView}
-                                options={[
-                                    { value: 'revenue', label: 'Revenus' },
-                                    { value: 'students', label: 'Inscriptions' },
-                                ]}
-                            />
-                        }
-                    />
-                    <div className="mt-5 h-64 w-full md:h-[320px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            {trendView === 'revenue' ? (
-                                <AreaChart data={revenueTimeline} margin={isMobile ? { left: -16, right: 4, top: 4 } : { top: 4, right: 8, left: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor={ACCENT} stopOpacity={0.12} />
-                                            <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid stroke={GRID_STROKE} vertical={false} />
-                                    <XAxis dataKey="name" tick={AXIS_TICK} tickLine={false} axisLine={false} />
-                                    <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} tickFormatter={(val) => `${val / 1000}k`} />
-                                    <Tooltip
-                                        contentStyle={TOOLTIP_STYLE}
-                                        labelStyle={TOOLTIP_LABEL_STYLE}
-                                        cursor={{ stroke: '#cbd5e1' }}
-                                        formatter={(value) => [formatDT(Number(value)), 'Revenus']}
-                                    />
-                                    <Area type="monotone" dataKey="revenue" name="Revenus (DT)" stroke={ACCENT} strokeWidth={2} fill="url(#colorRev)" activeDot={{ r: 4 }} />
-                                </AreaChart>
-                            ) : (
-                                <LineChart data={revenueTimeline} margin={isMobile ? { left: -16, right: 4, top: 4 } : { top: 4, right: 8, left: -8 }}>
-                                    <CartesianGrid stroke={GRID_STROKE} vertical={false} />
-                                    <XAxis dataKey="name" tick={AXIS_TICK} tickLine={false} axisLine={false} />
-                                    <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} allowDecimals={false} />
-                                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={{ stroke: '#cbd5e1' }} />
-                                    <Legend verticalAlign="top" align="right" height={32} iconType="circle" iconSize={8} wrapperStyle={LEGEND_STYLE} />
-                                    <Line type="monotone" dataKey="siteStudents" name="Inscrits sur le site" stroke={ACCENT} strokeWidth={2} dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }} activeDot={{ r: 4 }} />
-                                    <Line type="monotone" dataKey="trainingStudents" name="Inscrits en formation" stroke={MUTED_SERIES} strokeWidth={2} dot={{ r: 3, fill: MUTED_SERIES, strokeWidth: 0 }} activeDot={{ r: 4 }} />
-                                </LineChart>
-                            )}
-                        </ResponsiveContainer>
-                    </div>
-                </Card>
-
-                <div className="grid min-w-0 grid-cols-1 content-start gap-4">
-                    {/* Course popularity */}
-                    <Card className="min-w-0">
-                        <CardHeader title="Formations populaires" description="Top 5 des inscriptions validées" actions={<ViewLink href="/admin/courses" />} />
-                        {coursePerformance.length === 0 ? (
-                            <EmptyState icon={Layers} title="Aucune inscription validée" description="Les formations les plus suivies apparaîtront ici." className="py-8" />
-                        ) : (
-                            <ol className="mt-4 space-y-3.5">
-                                {coursePerformance.map((item, i) => (
-                                    <li key={item.name} className="space-y-1.5">
-                                        <div className="flex items-baseline justify-between gap-3 text-sm">
-                                            <span className="flex min-w-0 items-baseline gap-2">
-                                                <span className="text-xs text-slate-400 tabular-nums">{i + 1}</span>
-                                                <span className="truncate font-medium text-slate-700" title={item.name}>{item.name}</span>
-                                            </span>
-                                            <span className="shrink-0 text-xs text-slate-500 tabular-nums">{item.value} inscr.</span>
-                                        </div>
-                                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                                            <div
-                                                className="h-full rounded-full"
-                                                style={{ width: `${Math.min((item.value / Math.max(stats.enrollments, 1)) * 100, 100)}%`, backgroundColor: ACCENT }}
-                                            />
-                                        </div>
-                                    </li>
-                                ))}
-                            </ol>
-                        )}
-                    </Card>
-
-                    {/* Upcoming seances */}
-                    <Card className="min-w-0">
-                        <CardHeader title="Prochaines séances" description="Les 4 séances à venir" actions={<ViewLink href="/admin/sessions" />} />
-                        {upcomingSeances.length === 0 ? (
-                            <EmptyState icon={Calendar} title="Aucune séance planifiée" description="Les prochaines séances apparaîtront ici." className="py-8" />
-                        ) : (
-                            <ul className="mt-4 divide-y divide-slate-100">
-                                {upcomingSeances.map((s, i) => (
-                                    <li key={i} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                                        <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
-                                            <span className="text-sm font-semibold leading-none text-slate-900 tabular-nums">{s.date.getDate()}</span>
-                                            <span className="mt-0.5 text-[11px] leading-none text-slate-500">{s.date.toLocaleDateString('fr-FR', { month: 'short' })}</span>
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-medium text-slate-900" title={s.title}>{s.title}</p>
-                                            <p className="truncate text-xs text-slate-500">
-                                                {s.label} · <span className="tabular-nums">{s.time}</span> · {s.room}
-                                            </p>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </Card>
-                </div>
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+                <Skeleton className="h-[420px] rounded-2xl xl:col-span-8" />
+                <Skeleton className="h-[420px] rounded-2xl xl:col-span-4" />
             </div>
-
-            {/* Attendance */}
-            <Card>
-                <CardHeader
-                    title="Présences"
-                    description="Toutes les feuilles de présence enregistrées"
-                    actions={<ViewLink href="/admin/presence" label="Ouvrir les présences" />}
-                />
-                <div className="mt-5 flex items-end justify-between gap-4">
-                    <div>
-                        <p className="text-sm text-slate-500">Taux de présence</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{attendanceStats.rate} %</p>
-                    </div>
-                </div>
-                <div
-                    className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100"
-                    role="progressbar"
-                    aria-label="Taux de présence"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={attendanceStats.rate}
-                >
-                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${attendanceStats.rate}%` }} />
-                </div>
-                <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-slate-100 pt-4 sm:grid-cols-5">
-                    {attendanceItems.map((item) => (
-                        <div key={item.label} className="min-w-0">
-                            <dt className="text-xs text-slate-500">{item.label}</dt>
-                            <dd className={cn('mt-0.5 text-lg font-semibold tabular-nums', item.className)}>{item.value.toLocaleString('fr-FR')}</dd>
-                        </div>
-                    ))}
-                </dl>
-            </Card>
-
-            {/* Student requests */}
-            <Card padded={false} className="overflow-hidden">
-                <CardHeader
-                    className="border-b border-slate-200 p-5"
-                    title="Demandes d’étudiants"
-                    description="Demandes de création et de prochaine session"
-                    actions={<Badge tone={pendingRequests > 0 ? 'warning' : 'neutral'}>{pendingRequests} en attente</Badge>}
-                />
-
-                {sessionRequests.length === 0 ? (
-                    <EmptyState icon={MessageSquare} title="Aucune demande d’étudiant" description="Les demandes envoyées depuis le site apparaîtront ici." />
-                ) : (
-                    <>
-                        <ul className="divide-y divide-slate-100 md:hidden">
-                            {sessionRequests.map(request => (
-                                <li key={request.id} className="space-y-2.5 p-4">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <p className="truncate font-medium text-slate-900">{request.full_name}</p>
-                                            <p className="truncate text-sm text-slate-500">{request.courses?.title_fr || 'Formation'}</p>
-                                        </div>
-                                        <span className="whitespace-nowrap text-xs text-slate-500 tabular-nums">{new Date(request.created_at).toLocaleDateString('fr-FR')}</span>
-                                    </div>
-                                    {renderRequestTypeBadge(request)}
-                                    <div className="space-y-1 text-sm">
-                                        <p className="flex min-w-0 flex-wrap gap-x-2 gap-y-1">
-                                            {request.email && <a href={`mailto:${request.email}`} className="break-all text-brand-blue hover:underline">{request.email}</a>}
-                                            {request.phone && <a href={`tel:${request.phone}`} className="whitespace-nowrap text-brand-blue hover:underline">{request.phone}</a>}
-                                        </p>
-                                        {request.availability && <p className="break-words text-slate-700"><span className="text-slate-500">Disponibilité : </span>{request.availability}</p>}
-                                        {request.message && <p className="break-words text-slate-500">{request.message}</p>}
-                                    </div>
-                                    <div className="flex justify-end">{renderRequestActions(request)}</div>
-                                </li>
-                            ))}
-                        </ul>
-                        <div className={cn(table.wrapper, 'hidden max-h-[520px] overflow-y-auto custom-scrollbar md:block')}>
-                            <table className={cn(table.table, 'min-w-[900px]')}>
-                                <thead className={table.thead}>
-                                    <tr>
-                                        <th className={cn(table.th, 'pl-5')}>Étudiant</th>
-                                        <th className={table.th}>Formation</th>
-                                        <th className={table.th}>Demande</th>
-                                        <th className={table.th}>Disponibilité</th>
-                                        <th className={table.th}>Date</th>
-                                        <th className={cn(table.th, 'pr-5 text-right')}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className={table.tbody}>
-                                    {sessionRequests.map(request => (
-                                        <tr key={request.id} className={table.tr}>
-                                            <td className={cn(table.td, 'pl-5')}>
-                                                <p className="font-medium text-slate-900">{request.full_name}</p>
-                                                <p className="text-xs text-slate-500">
-                                                    {request.email && <a href={`mailto:${request.email}`} className="text-brand-blue hover:underline">{request.email}</a>}
-                                                    {request.email && request.phone && ' · '}
-                                                    {request.phone && <a href={`tel:${request.phone}`} className="whitespace-nowrap text-brand-blue hover:underline">{request.phone}</a>}
-                                                </p>
-                                                {request.message && <p className="mt-1 max-w-xs truncate text-xs text-slate-500" title={request.message}>{request.message}</p>}
-                                            </td>
-                                            <td className={table.td}>{request.courses?.title_fr || 'Formation'}</td>
-                                            <td className={table.td}>{renderRequestTypeBadge(request)}</td>
-                                            <td className={cn(table.td, 'text-slate-500')}>{request.availability || <span className="text-slate-400">—</span>}</td>
-                                            <td className={cn(table.td, 'whitespace-nowrap text-slate-500 tabular-nums')}>{new Date(request.created_at).toLocaleDateString('fr-FR')}</td>
-                                            <td className={cn(table.td, 'pr-5')}><div className="flex justify-end">{renderRequestActions(request)}</div></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </>
-                )}
-            </Card>
-
-            {/* Analytics charts */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {/* Age distribution */}
-                <Card className="min-w-0">
-                    <CardHeader title="Âge des étudiants" description="Répartition par tranche d’âge" actions={<ViewLink href="/admin/students" />} />
-                    {!hasAgeData ? <ChartEmpty icon={Users} title="Aucun étudiant enregistré" /> : (
-                        <div className="mt-4 h-64 w-full md:h-[280px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={ageDistribution} margin={{ top: 4, right: 4, left: -24 }}>
-                                    <CartesianGrid stroke={GRID_STROKE} vertical={false} />
-                                    <XAxis dataKey="name" tick={AXIS_TICK} tickLine={false} axisLine={false} />
-                                    <YAxis allowDecimals={false} tick={AXIS_TICK} tickLine={false} axisLine={false} />
-                                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={TOOLTIP_CURSOR} labelFormatter={(label) => label === 'N/D' ? 'Âge non renseigné' : `${label} ans`} formatter={(value) => [value, 'Étudiants']} />
-                                    <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
-                                        {ageDistribution.map((entry) => (
-                                            <Cell key={entry.name} fill={entry.name === 'N/D' ? NEUTRAL_FILL : ACCENT} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </Card>
-
-                {/* Source distribution */}
-                <Card className="min-w-0">
-                    <CardHeader title="Origine des inscriptions" description="Comment les étudiants nous ont connus" actions={<ViewLink href="/admin/students" />} />
-                    {!hasSourceData ? <ChartEmpty icon={Target} title="Aucune source renseignée" /> : (
-                        <div className="mt-4 h-64 w-full md:h-[280px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={sourceDistribution} layout="vertical" margin={{ right: 12 }}>
-                                    <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="name" type="category" width={150} axisLine={false} tickLine={false} tick={<SourceAxisTick />} />
-                                    <Tooltip
-                                        contentStyle={TOOLTIP_STYLE}
-                                        labelStyle={TOOLTIP_LABEL_STYLE}
-                                        cursor={TOOLTIP_CURSOR}
-                                        labelFormatter={(source) => (SOURCE_META[String(source)] || SOURCE_META.unknown).label}
-                                        formatter={(value) => [value, 'Inscriptions']}
-                                    />
-                                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
-                                        {sourceDistribution.map((source) => (
-                                            <Cell key={source.name} fill={source.name === 'unknown' || source.name === 'other' ? MUTED_SERIES : ACCENT} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </Card>
-
-                {/* Enrollment status */}
-                <Card className="min-w-0">
-                    <CardHeader title="Statut des inscriptions" description="Validées, en attente et refusées" actions={<ViewLink href="/admin/students" />} />
-                    {!hasEnrollmentStatus ? <ChartEmpty icon={PieIcon} title="Aucune inscription pour le moment" /> : (
-                        <div className="mt-4 h-64 md:h-[280px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={enrollmentStatusData} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={isMobile ? 56 : 66} outerRadius={isMobile ? 80 : 92} paddingAngle={2} stroke="#fff" strokeWidth={2}>
-                                        {enrollmentStatusData.map((entry) => <Cell key={entry.name} fill={STATUS_COLORS[entry.name] || MUTED_SERIES} />)}
-                                    </Pie>
-                                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value) => [value, 'Inscriptions']} />
-                                    <Legend verticalAlign="bottom" iconType="circle" iconSize={8} formatter={(value) => <span className="ml-1 text-xs text-slate-600">{value}</span>} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </Card>
-
-                {/* Students by course */}
-                <Card className="min-w-0">
-                    <CardHeader title="Étudiants par formation" description="Inscriptions validées par formation" actions={<ViewLink href="/admin/courses" />} />
-                    {!hasStudentsByCourse ? <ChartEmpty icon={BookOpen} title="Aucune inscription validée par formation" /> : (
-                        <div className="mt-4 h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={studentsByCourse} layout="vertical" margin={{ left: 0, right: 12 }}>
-                                    <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
-                                    <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} axisLine={false} tickLine={false} />
-                                    <YAxis dataKey="name" type="category" width={isMobile ? 110 : 150} tick={AXIS_TICK_SMALL} tickFormatter={truncateLabel} axisLine={false} tickLine={false} />
-                                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={TOOLTIP_CURSOR} formatter={(value) => [value, 'Étudiants']} />
-                                    <Bar dataKey="value" fill={ACCENT} radius={[0, 4, 4, 0]} barSize={14} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </Card>
-
-                {/* Session occupancy */}
-                <Card className="min-w-0">
-                    <CardHeader title="Remplissage des sessions" description="Places occupées et encore disponibles" actions={<ViewLink href="/admin/sessions" />} />
-                    {sessionOccupancy.length === 0 ? <ChartEmpty icon={Calendar} title="Aucune session créée" /> : (
-                        <div className="mt-4 h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={sessionOccupancy} layout="vertical" margin={{ left: 0, right: 12 }}>
-                                    <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
-                                    <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} axisLine={false} tickLine={false} />
-                                    <YAxis dataKey="name" type="category" width={isMobile ? 120 : 170} tick={AXIS_TICK_SMALL} tickFormatter={truncateLabel} axisLine={false} tickLine={false} />
-                                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={TOOLTIP_CURSOR} />
-                                    <Legend verticalAlign="top" align="right" height={28} iconType="circle" iconSize={8} wrapperStyle={LEGEND_STYLE} />
-                                    <Bar dataKey="occupied" name="Places occupées" stackId="capacity" fill={ACCENT} barSize={14} />
-                                    <Bar dataKey="available" name="Places disponibles" stackId="capacity" fill={NEUTRAL_FILL} radius={[0, 4, 4, 0]} barSize={14} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </Card>
-
-                {/* New registrations */}
-                <Card className="min-w-0">
-                    <CardHeader title="Nouvelles inscriptions" description="Six derniers mois" actions={<ViewLink href="/admin/students" />} />
-                    <div className="mt-4 h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={studentTimeline} margin={{ top: 4, right: 8, left: isMobile ? -16 : -8 }}>
-                                <defs>
-                                    <linearGradient id="studentGrowth" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={ACCENT} stopOpacity={0.12} />
-                                        <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid stroke={GRID_STROKE} vertical={false} />
-                                <XAxis dataKey="name" tick={AXIS_TICK} axisLine={false} tickLine={false} />
-                                <YAxis allowDecimals={false} tick={AXIS_TICK} axisLine={false} tickLine={false} />
-                                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={{ stroke: '#cbd5e1' }} formatter={(value) => [value, 'Nouveaux étudiants']} />
-                                <Area type="monotone" dataKey="value" stroke={ACCENT} strokeWidth={2} fill="url(#studentGrowth)" activeDot={{ r: 4 }} />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </Card>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                <Skeleton className="h-72 rounded-2xl" />
+                <Skeleton className="h-72 rounded-2xl" />
+                <Skeleton className="h-72 rounded-2xl" />
             </div>
-
-            {/* Absence heatmap */}
-            <Card className="min-w-0">
-                <CardHeader
-                    title="Calendrier des absences"
-                    description="12 dernières semaines — plus la case est foncée, plus il y a d’absences"
-                    actions={<ViewLink href="/admin/presence" />}
-                />
-                <div className="mt-5 overflow-x-auto pb-2 custom-scrollbar">
-                    <div className="grid min-w-[720px] grid-flow-col grid-rows-7 gap-1">
-                        {absenceHeatmap.map(day => {
-                            const intensity = day.value === 0 ? 'bg-slate-100' : day.value === 1 ? 'bg-rose-200' : day.value <= 3 ? 'bg-rose-400' : 'bg-rose-600';
-                            return <div key={day.key} title={`${day.date.toLocaleDateString('fr-FR')} : ${day.value} absence(s)`} className={`h-6 min-w-6 rounded ${intensity}`} />;
-                        })}
-                    </div>
-                </div>
-                <div className="mt-3 flex items-center justify-end gap-1.5 text-xs text-slate-500">
-                    <span className="mr-1">Moins</span>
-                    <span className="h-3 w-3 rounded-sm bg-slate-100 ring-1 ring-inset ring-slate-200" />
-                    <span className="h-3 w-3 rounded-sm bg-rose-200" />
-                    <span className="h-3 w-3 rounded-sm bg-rose-400" />
-                    <span className="h-3 w-3 rounded-sm bg-rose-600" />
-                    <span className="ml-1">Plus</span>
-                </div>
-            </Card>
-
-            {/* System status */}
-            <Card className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                        <ShieldCheck size={18} />
-                    </span>
-                    <div className="min-w-0">
-                        <h2 className="text-sm font-semibold text-slate-900">Système opérationnel</h2>
-                        <p className="text-sm text-slate-500">Connectivité Supabase stable · Disponibilité de 99,9 %</p>
-                    </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                    <div>
-                        <p className="text-xs text-slate-500">Latence</p>
-                        <p className="text-sm font-semibold text-slate-900 tabular-nums">14 ms</p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-slate-500">Sauvegarde</p>
-                        <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />Sécurisée
-                        </p>
-                    </div>
-                    <ViewLink href="/admin/analytics" label="Voir l’analyse du site" />
-                </div>
-            </Card>
-        </div>
-    );
-}
-
-function ViewLink({ href, label = 'Voir' }: { href: string; label?: string }) {
-    return (
-        <Link
-            href={href}
-            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
-        >
-            {label}
-            <ArrowUpRight size={14} />
-        </Link>
-    );
-}
-
-function ChartEmpty({ icon, title }: { icon: React.ComponentProps<typeof EmptyState>['icon']; title: string }) {
-    return (
-        <div className="mt-4 flex h-64 items-center justify-center rounded-lg border border-dashed border-slate-200 md:h-[280px]">
-            <EmptyState icon={icon} title={title} className="py-0" />
         </div>
     );
 }
