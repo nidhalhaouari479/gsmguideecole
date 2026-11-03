@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog, notify } from '@/components/FeedbackHost';
+
 import React, { useEffect, useState } from 'react';
 import {
     Users,
@@ -195,7 +197,7 @@ export default function StudentsAdminPage() {
             setSmsFeedback(null);
         } catch (error) {
             console.error('Error fetching student profile:', error);
-            alert('Impossible de charger le profil complet.');
+            notify.error('Impossible de charger le profil complet.');
             setIsProfileModalOpen(false);
         } finally {
             setProfileLoading(false);
@@ -240,14 +242,19 @@ export default function StudentsAdminPage() {
 
     const handleSendSms = async () => sendSms(smsMessage);
 
-    const sendPaymentReminder = (isLate: boolean) => {
+    const sendPaymentReminder = async (isLate: boolean) => {
         if (!selectedProfile) return;
         const remaining = Number(selectedProfile.total_remaining) || 0;
         const firstName = (selectedProfile.full_name?.replace(/^(M|Mme)\s+/i, '').trim().split(/\s+/)[0] || 'cher étudiant').slice(0, 18);
         const message = isLate
             ? `GSM Guide Academy : Bonjour ${firstName}, sauf erreur, un solde de ${remaining} DT reste dû. Merci de le régulariser rapidement.`
             : `GSM Guide Academy : Bonjour ${firstName}, rappel : il vous reste ${remaining} DT à régler. Merci de régulariser votre paiement.`;
-        if (!window.confirm(`Confirmer l’envoi du SMS ${isLate ? 'de retard' : 'de rappel'} de paiement à ${selectedProfile.phone} ?`)) return;
+        const confirmed = await confirmDialog({
+            title: `Envoyer le SMS ${isLate ? 'de retard' : 'de rappel'} ?`,
+            message: `Le SMS de paiement sera envoyé à ${selectedProfile.phone}.`,
+            confirmLabel: 'Envoyer le SMS',
+        });
+        if (!confirmed) return;
         void sendSms(message);
     };
 
@@ -275,7 +282,7 @@ export default function StudentsAdminPage() {
             } : current);
             setStudentNoteSaved(true);
         } catch (error) {
-            alert(error instanceof Error ? error.message : 'Erreur lors de l’enregistrement.');
+            notify.error(error instanceof Error ? error.message : 'Erreur lors de l’enregistrement.');
         } finally {
             setStudentNoteSaving(false);
         }
@@ -283,7 +290,7 @@ export default function StudentsAdminPage() {
 
     const handleDownloadPDF = async () => {
         if (!selectedProfile) {
-            alert("Aucun profil sélectionné.");
+            notify.info('Aucun profil sélectionné.');
             return;
         }
 
@@ -387,7 +394,7 @@ export default function StudentsAdminPage() {
             doc.save(`Facture_Etudiant_${selectedProfile.full_name?.replace(/\s+/g, '_') || 'inconnu'}.pdf`);
         } catch (error: any) {
             console.error('Error generating PDF:', error);
-            alert(`Erreur lors de la génération du PDF: ${error.message || error}`);
+            notify.error(`Erreur lors de la génération du PDF: ${error.message || error}`);
         }
     };
 
@@ -406,14 +413,14 @@ export default function StudentsAdminPage() {
             });
             const data = await response.json();
             if (data.error) {
-                alert(data.error);
+                notify.error(data.error);
             } else {
                 await fetchStudents();
                 setActiveDropdown(null);
             }
         } catch (error) {
             console.error('Action error:', error);
-            alert('Une erreur est survenue lors de l\'action.');
+            notify.error('Une erreur est survenue lors de l\'action.');
         } finally {
             setActionLoading(null);
         }
@@ -442,7 +449,7 @@ export default function StudentsAdminPage() {
             });
         } catch (error: any) {
             console.error('Create student error:', error);
-            alert(error.message || 'Erreur lors de la création de l\'étudiant.');
+            notify.error(error.message || 'Erreur lors de la création de l\'étudiant.');
         } finally {
             setIsCreating(false);
         }
@@ -450,7 +457,7 @@ export default function StudentsAdminPage() {
 
     const handleExportList = () => {
         if (sortedStudents.length === 0) {
-            alert("Aucune donnée à exporter.");
+            notify.info('Aucune donnée à exporter.');
             return;
         }
 
@@ -489,7 +496,7 @@ export default function StudentsAdminPage() {
 
     const handleExportPDFList = () => {
         if (sortedStudents.length === 0) {
-            alert("Aucune donnée à exporter.");
+            notify.info('Aucune donnée à exporter.');
             return;
         }
 
@@ -550,7 +557,7 @@ export default function StudentsAdminPage() {
             doc.save(`Liste_Etudiants_${new Date().toISOString().split('T')[0]}.pdf`);
         } catch (error: any) {
             console.error('Error generating PDF list:', error);
-            alert(`Erreur lors de la génération du PDF: ${error.message || error}`);
+            notify.error(`Erreur lors de la génération du PDF: ${error.message || error}`);
         }
     };
 

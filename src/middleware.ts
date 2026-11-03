@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { STAFF_ROLE_HEADER, STAFF_TOKEN_HEADER, STAFF_USER_HEADER, internalStaffToken } from '@/lib/internal-auth';
 
 export async function middleware(request: NextRequest) {
     let response = NextResponse.next({
@@ -115,6 +116,15 @@ export async function middleware(request: NextRequest) {
                 (path === '/api/admin/presence' && ['GET', 'POST'].includes(method));
             if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
+
+        // Hand the verified identity to the route so it does not query Supabase again.
+        const forwardedHeaders = new Headers(request.headers);
+        forwardedHeaders.set(STAFF_USER_HEADER, user.id);
+        forwardedHeaders.set(STAFF_ROLE_HEADER, role);
+        forwardedHeaders.set(STAFF_TOKEN_HEADER, await internalStaffToken());
+        const forwarded = NextResponse.next({ request: { headers: forwardedHeaders } });
+        response.cookies.getAll().forEach(cookie => forwarded.cookies.set(cookie));
+        return forwarded;
     }
 
     return response;

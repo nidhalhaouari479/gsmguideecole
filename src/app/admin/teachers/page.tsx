@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog, notify } from '@/components/FeedbackHost';
+
 import React, { useEffect, useState } from 'react';
 import { Users, Search, Loader2, X, Edit2, Plus } from 'lucide-react';
 import {
@@ -60,7 +62,13 @@ export default function TeachersAdminPage() {
 
     const handleAction = async (userId: string, action: 'block' | 'unblock' | 'delete') => {
         if (action === 'delete') {
-            if (!confirm('Êtes-vous sûr de vouloir supprimer définitivement ce professeur ?')) return;
+            const confirmed = await confirmDialog({
+                title: 'Supprimer ce professeur ?',
+                message: 'Son compte sera supprimé définitivement.',
+                confirmLabel: 'Supprimer',
+                tone: 'danger',
+            });
+            if (!confirmed) return;
         }
 
         setActionLoading(userId);
@@ -72,14 +80,14 @@ export default function TeachersAdminPage() {
             });
             const data = await response.json();
             if (data.error) {
-                alert(data.error);
+                notify.error(data.error);
             } else {
                 await fetchTeachers();
                 setActiveDropdown(null);
             }
         } catch (error) {
             console.error('Action error:', error);
-            alert('Une erreur est survenue.');
+            notify.error('Une erreur est survenue.');
         } finally {
             setActionLoading(null);
         }
@@ -123,7 +131,7 @@ export default function TeachersAdminPage() {
             await fetchTeachers();
             setIsModalOpen(false);
         } catch (error: any) {
-            alert(error.message || 'Une erreur est survenue.');
+            notify.error(error.message || 'Une erreur est survenue.');
         } finally {
             setIsSubmitting(false);
         }

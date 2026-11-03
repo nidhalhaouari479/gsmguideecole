@@ -241,9 +241,41 @@ export default function DashboardPage() {
 
     if (loading) {
         return (
-            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 bg-slate-50" role="status">
-                <Loader2 className="animate-spin text-brand-blue" size={36} />
-                <p className="text-sm font-medium text-slate-600">Chargement de votre espace...</p>
+            <div className="min-h-[60vh] bg-site-muted pb-24" role="status" aria-busy="true">
+                <p className="sr-only">Chargement de votre espace...</p>
+                <div className="site-container pt-6 md:pt-8" aria-hidden="true">
+                    <div className="flex animate-pulse items-center gap-4">
+                        <div className="h-14 w-14 rounded-2xl bg-white shadow-[var(--shadow-card)]" />
+                        <div className="space-y-2">
+                            <div className="h-3 w-28 rounded bg-white" />
+                            <div className="h-6 w-48 rounded bg-white" />
+                            <div className="h-3 w-36 rounded bg-white" />
+                        </div>
+                    </div>
+                    <div className="mt-6 grid animate-pulse grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+                        {[0, 1, 2, 3].map((i) => (
+                            <div key={i} className="site-card h-[112px] p-4 md:h-[132px] md:p-5">
+                                <div className="h-9 w-9 rounded-xl bg-slate-50" />
+                                <div className="mt-4 h-6 w-20 rounded bg-slate-50" />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-6 grid animate-pulse grid-cols-1 gap-5 lg:grid-cols-3">
+                        <div className="space-y-4 lg:col-span-2">
+                            {[0, 1].map((i) => (
+                                <div key={i} className="site-card p-5">
+                                    <div className="h-5 w-2/3 rounded bg-slate-50" />
+                                    <div className="mt-2 h-4 w-1/3 rounded bg-slate-50" />
+                                    <div className="mt-6 h-1.5 w-full rounded-full bg-slate-50" />
+                                    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                        {[0, 1, 2, 3].map((j) => <div key={j} className="h-10 rounded bg-slate-50" />)}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="site-card h-64" />
+                    </div>
+                </div>
             </div>
         );
     }
@@ -270,13 +302,13 @@ export default function DashboardPage() {
     const totalRemaining = Math.max(0, totals.total - totals.paid);
     const statusBadge = (en: any) => {
         const tone = en.status_raw === 'approved'
-            ? { wrap: 'border-emerald-200 bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' }
+            ? { wrap: 'bg-emerald-50 text-emerald-700 ring-emerald-200', dot: 'bg-emerald-500' }
             : en.status_raw === 'rejected'
-                ? { wrap: 'border-rose-200 bg-rose-50 text-rose-700', dot: 'bg-rose-500' }
-                : { wrap: 'border-amber-200 bg-amber-50 text-amber-800', dot: 'bg-amber-500' };
+                ? { wrap: 'bg-rose-50 text-rose-700 ring-rose-200', dot: 'bg-rose-500' }
+                : { wrap: 'bg-amber-50 text-amber-800 ring-amber-200', dot: 'bg-amber-500' };
         return (
-            <span className={`inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${tone.wrap}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+            <span className={`inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11.5px] font-semibold ring-1 ring-inset ${tone.wrap}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} aria-hidden="true" />
                 {en.status}
             </span>
         );
@@ -297,88 +329,104 @@ export default function DashboardPage() {
         return history;
     };
     const paymentStatusBadge = (status: string) => (
-        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${status === 'approved'
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11.5px] font-semibold ring-1 ring-inset ${status === 'approved'
+            ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
             : status === 'pending'
-                ? 'border-amber-200 bg-amber-50 text-amber-800'
-                : 'border-rose-200 bg-rose-50 text-rose-700'
+                ? 'bg-amber-50 text-amber-800 ring-amber-200'
+                : 'bg-rose-50 text-rose-700 ring-rose-200'
             }`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${status === 'approved' ? 'bg-emerald-500' : status === 'pending' ? 'bg-amber-500' : 'bg-rose-500'}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${status === 'approved' ? 'bg-emerald-500' : status === 'pending' ? 'bg-amber-500' : 'bg-rose-500'}`} aria-hidden="true" />
             {status === 'approved' ? 'Validé' : status === 'pending' ? 'En attente' : 'Rejeté'}
         </span>
     );
     const displayName = user?.user_metadata?.full_name || "Étudiant";
+    const amountOnly = (n: number) => (Number(n) || 0).toLocaleString('fr-FR');
+    const sectionTitle = 'text-[13px] font-bold uppercase tracking-[0.02em] text-slate-900';
+    const fieldLabel = 'text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500';
+    const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2';
+    const kpis = [
+        { label: 'Inscriptions', value: String(enrollments.length), unit: undefined as string | undefined, icon: BookOpen, tile: 'bg-brand-blue', tone: 'text-slate-900' },
+        { label: 'Montant total', value: amountOnly(totals.total), unit: 'DT', icon: CreditCard, tile: 'bg-violet-500', tone: 'text-slate-900' },
+        { label: 'Total payé (validé)', value: amountOnly(totals.paid), unit: 'DT', icon: CheckCircle, tile: 'bg-emerald-500', tone: 'text-emerald-700' },
+        { label: 'Reste à payer', value: amountOnly(totalRemaining), unit: 'DT', icon: Clock, tile: totalRemaining > 0 ? 'bg-amber-500' : 'bg-emerald-500', tone: totalRemaining > 0 ? 'text-amber-800' : 'text-emerald-700' },
+    ];
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-24">
-            <div className="border-b border-slate-200 bg-white py-6 md:py-8">
-                <div className="container mx-auto px-4 sm:px-6">
-                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex min-w-0 items-center gap-4">
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-blue text-2xl font-black uppercase text-[#fff] shadow-lg shadow-brand-blue/20 md:h-16 md:w-16">
-                                {user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t.nav.dashboard}</p>
-                                <h1 className="truncate text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
-                                    {displayName}
-                                </h1>
-                                <p className="truncate text-sm text-slate-600">{user?.email}</p>
-                            </div>
+        <div className="min-h-screen bg-site-muted pb-24">
+            <div className="site-container pt-6 md:pt-8">
+                {/* Header */}
+                <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-blue text-2xl font-bold uppercase text-[#fff] shadow-[var(--shadow-brand)] md:h-16 md:w-16" aria-hidden="true">
+                            {user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
                         </div>
-                        <div className="flex gap-2">
-                            <Link href="/formations" className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue">
-                                <BookOpen size={16} className="text-brand-blue" /> Formations
-                            </Link>
-                            <button onClick={handleLogout} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
-                                <LogOut size={16} /> {t.nav.logout}
-                            </button>
+                        <div className="min-w-0">
+                            <p className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-slate-500">{t.nav.dashboard}</p>
+                            <h1 className="truncate text-[20px] font-extrabold tracking-[-0.01em] text-slate-900 md:text-[24px]">
+                                {displayName}
+                            </h1>
+                            <p className="truncate text-[13.5px] text-slate-500">{user?.email}</p>
                         </div>
                     </div>
-                </div>
-            </div>
+                    <div className="grid grid-cols-2 gap-2 sm:flex">
+                        <Link href="/formations" className={`site-btn-secondary min-h-11 px-4 text-sm ${focusRing}`}>
+                            <BookOpen size={16} className="text-brand-blue" aria-hidden="true" /> Formations
+                        </Link>
+                        <button onClick={handleLogout} className={`site-btn-secondary min-h-11 px-4 text-sm text-slate-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 ${focusRing}`}>
+                            <LogOut size={16} aria-hidden="true" /> {t.nav.logout}
+                        </button>
+                    </div>
+                </header>
 
-            <div className="container mx-auto mt-6 px-4 sm:px-6 md:mt-8">
                 {uploadSuccess && (
-                    <div role="status" className="mb-6 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">
-                        <CheckCircle size={18} className="shrink-0" /> {uploadSuccess}
+                    <div role="status" className="mt-6 flex items-center gap-2 rounded-xl bg-emerald-50 p-3.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">
+                        <CheckCircle size={18} className="shrink-0 text-emerald-600" aria-hidden="true" /> {uploadSuccess}
                     </div>
                 )}
 
                 {/* KPI tiles */}
                 {enrollments.length > 0 && (
-                    <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3 md:mb-8 md:gap-4">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Inscriptions</p>
-                            <p className="mt-1 text-2xl font-black tabular-nums text-slate-900">{enrollments.length}</p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total payé (validé)</p>
-                            <p className="mt-1 text-2xl font-black tabular-nums text-emerald-700">{money(totals.paid)}</p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Reste à payer</p>
-                            <p className={`mt-1 text-2xl font-black tabular-nums ${totalRemaining > 0 ? 'text-amber-800' : 'text-emerald-700'}`}>{money(totalRemaining)}</p>
-                        </div>
+                    <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+                        {kpis.map(({ label, value, unit, icon: Icon, tile, tone }) => (
+                            <div key={label} className="site-card flex min-w-0 flex-col p-4 md:p-5">
+                                <div className="flex items-center gap-2.5">
+                                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#fff] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] ${tile}`} aria-hidden="true">
+                                        <Icon size={18} />
+                                    </span>
+                                    <span className="min-w-0 text-[11px] font-semibold uppercase leading-tight tracking-[0.02em] text-slate-600">{label}</span>
+                                </div>
+                                <p className={`mt-3 text-[22px] font-bold leading-none tracking-tight tabular-nums md:mt-4 md:text-[28px] ${tone}`}>
+                                    {value}
+                                    {unit && <span className="ml-1 text-[13px] font-semibold text-slate-500 md:text-[15px]">{unit}</span>}
+                                </p>
+                            </div>
+                        ))}
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+                <div className="mt-6 grid grid-cols-1 gap-5 md:mt-8 lg:grid-cols-3 lg:gap-6">
 
                     {/* Main Dashboard Area */}
-                    <div className="space-y-6 lg:col-span-2">
-                        <section>
-                            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-900">
-                                <BookOpen size={20} className="text-brand-blue" /> Mes inscriptions
-                            </h2>
+                    <div className="min-w-0 space-y-4 lg:col-span-2">
+                        <section aria-labelledby="enrollments-title">
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                                <h2 id="enrollments-title" className={`flex items-center gap-2 ${sectionTitle}`}>
+                                    <BookOpen size={16} className="text-brand-blue" aria-hidden="true" /> Mes inscriptions
+                                </h2>
+                                <Link href="/formations" className={`inline-flex min-h-11 items-center gap-1 rounded-md text-[13px] font-semibold text-brand-green-700 transition-colors duration-150 hover:text-brand-green-600 ${focusRing}`}>
+                                    Formations <ChevronRight size={15} aria-hidden="true" />
+                                </Link>
+                            </div>
                             <div className="space-y-4">
                                 {enrollments.length === 0 ? (
-                                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center md:p-12">
-                                        <BookOpen size={40} className="mx-auto mb-4 text-[#cbd5e1]" />
-                                        <h3 className="mb-1 text-lg font-bold text-slate-900">Aucune formation inscrite</h3>
-                                        <p className="mb-6 text-sm text-slate-600">Vous n&apos;êtes pas encore inscrit à une formation.</p>
-                                        <Link href="/formations" className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand-green px-5 text-sm font-bold text-black transition hover:brightness-95">
-                                            Voir les formations <ChevronRight size={16} />
+                                    <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-8 text-center md:p-12">
+                                        <span className="site-icon-tile mx-auto mb-4 bg-brand-blue" aria-hidden="true">
+                                            <BookOpen size={20} />
+                                        </span>
+                                        <h3 className="mb-1 text-[17px] font-semibold text-slate-900">Aucune formation inscrite</h3>
+                                        <p className="mb-6 text-sm text-slate-500">Vous n&apos;êtes pas encore inscrit à une formation.</p>
+                                        <Link href="/formations" className={`site-btn-primary ${focusRing}`}>
+                                            Voir les formations <ChevronRight size={16} aria-hidden="true" />
                                         </Link>
                                     </div>
                                 ) : (
@@ -394,77 +442,82 @@ export default function DashboardPage() {
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ duration: 0.3 }}
-                                                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6"
+                                                className="site-card overflow-hidden"
                                             >
-                                                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                    <div className="min-w-0">
-                                                        <h3 className="mb-1 text-lg font-bold leading-snug text-slate-900">{en.course_name}</h3>
-                                                        <div className="flex items-center gap-2 text-sm tabular-nums text-slate-600">
-                                                            <CalendarIcon size={15} className="shrink-0" /> {en.schedule_text}
+                                                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between md:p-5">
+                                                    <div className="flex min-w-0 items-start gap-3">
+                                                        <span className="site-icon-tile bg-brand-blue" aria-hidden="true">
+                                                            <BookOpen size={20} />
+                                                        </span>
+                                                        <div className="min-w-0">
+                                                            <h3 className="text-[16px] font-semibold leading-snug text-slate-900 md:text-[17px]">{en.course_name}</h3>
+                                                            <div className="mt-1 flex items-center gap-1.5 text-[13px] tabular-nums text-slate-500">
+                                                                <CalendarIcon size={14} className="shrink-0" aria-hidden="true" /> {en.schedule_text}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     {statusBadge(en)}
                                                 </div>
 
                                                 {/* Payment progress */}
-                                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                                <div className="px-4 pb-4 md:px-5 md:pb-5">
                                                     <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                                                        <p className="text-sm text-slate-600">
-                                                            <span className="font-bold tabular-nums text-slate-900">{money(paid)}</span> payés sur <span className="font-semibold tabular-nums text-slate-900">{money(total)}</span>
+                                                        <p className="text-[13px] text-slate-500">
+                                                            <span className="font-semibold tabular-nums text-slate-900">{money(paid)}</span> payés sur <span className="font-semibold tabular-nums text-slate-900">{money(total)}</span>
                                                         </p>
-                                                        <span className={`text-sm font-black tabular-nums ${complete ? 'text-emerald-700' : 'text-slate-900'}`}>{pct} %</span>
+                                                        <span className={`text-[13px] font-bold tabular-nums ${complete ? 'text-emerald-700' : 'text-slate-900'}`}>{pct} %</span>
                                                     </div>
                                                     <div
-                                                        className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200"
+                                                        className="h-1.5 w-full overflow-hidden rounded-full bg-slate-50 ring-1 ring-inset ring-slate-200/70"
                                                         role="progressbar"
                                                         aria-valuemin={0}
                                                         aria-valuemax={100}
                                                         aria-valuenow={pct}
                                                         aria-label={`Paiement : ${pct} %`}
                                                     >
-                                                        <div className={`h-full rounded-full transition-all ${complete ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${pct}%` }} />
+                                                        <div className={`h-full rounded-full transition-[width] duration-300 ${complete ? 'bg-emerald-500' : 'bg-brand-green'}`} style={{ width: `${pct}%` }} />
                                                     </div>
-                                                    <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                                        <div>
-                                                            <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Prix total</dt>
-                                                            <dd className="font-bold tabular-nums text-slate-900">{money(en.total_price)}</dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Montant payé</dt>
-                                                            <dd className="font-bold tabular-nums text-emerald-700">{money(en.paid)}</dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Reste à payer</dt>
-                                                            <dd className={`font-bold tabular-nums ${remaining > 0 ? 'text-amber-800' : 'text-emerald-700'}`}>{money(Math.max(0, remaining))}</dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Reçu</dt>
-                                                            <dd className="text-sm font-semibold text-slate-900">{en.receipt_status}</dd>
-                                                        </div>
-                                                    </dl>
                                                 </div>
+                                                <dl className="grid grid-cols-2 border-t border-slate-100 sm:grid-cols-4">
+                                                    <div className="min-w-0 border-b border-r border-slate-100 px-4 py-3 sm:border-b-0 md:px-5">
+                                                        <dt className={fieldLabel}>Prix total</dt>
+                                                        <dd className="mt-1 text-[14px] font-bold tabular-nums text-slate-900">{money(en.total_price)}</dd>
+                                                    </div>
+                                                    <div className="min-w-0 border-b border-slate-100 px-4 py-3 sm:border-b-0 sm:border-r md:px-5">
+                                                        <dt className={fieldLabel}>Montant payé</dt>
+                                                        <dd className="mt-1 text-[14px] font-bold tabular-nums text-emerald-700">{money(en.paid)}</dd>
+                                                    </div>
+                                                    <div className="min-w-0 border-r border-slate-100 px-4 py-3 md:px-5">
+                                                        <dt className={fieldLabel}>Reste à payer</dt>
+                                                        <dd className={`mt-1 text-[14px] font-bold tabular-nums ${remaining > 0 ? 'text-amber-800' : 'text-emerald-700'}`}>{money(Math.max(0, remaining))}</dd>
+                                                    </div>
+                                                    <div className="min-w-0 px-4 py-3 md:px-5">
+                                                        <dt className={fieldLabel}>Reçu</dt>
+                                                        <dd className="mt-1 text-[13px] font-semibold text-slate-900">{en.receipt_status}</dd>
+                                                    </div>
+                                                </dl>
 
-                                                <div className="mt-5">
+                                                <div className="border-t border-slate-100 bg-slate-50/60 p-4 md:p-5">
                                                     {activeUploadId === en.id ? (
-                                                        <div className="space-y-4 rounded-xl border border-brand-blue/20 bg-white p-4 md:p-5">
+                                                        <div className="space-y-4">
                                                             <div className="flex items-center justify-between gap-3">
-                                                                <h4 className="text-sm font-bold text-slate-900">Payer une autre tranche</h4>
+                                                                <h4 className={sectionTitle}>Payer une autre tranche</h4>
                                                                 <button
                                                                     onClick={() => setActiveUploadId(null)}
-                                                                    className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                                                                    className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition-colors duration-150 hover:bg-white hover:text-slate-900 ${focusRing}`}
                                                                 >
                                                                     Annuler
                                                                 </button>
                                                             </div>
-                                                            <div className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-                                                                <AlertCircle size={14} className="mt-0.5 shrink-0 text-brand-blue" />
-                                                                <span>Effectuez le virement sur le RIB <strong className="tabular-nums text-slate-900">{RIB}</strong>, puis joignez le reçu ci-dessous.</span>
+                                                            <div className="flex items-start gap-2 rounded-xl bg-brand-soft p-3 text-[13px] text-brand-blue-dark">
+                                                                <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                                                                <span>Effectuez le virement sur le RIB <strong className="tabular-nums">{RIB}</strong>, puis joignez le reçu ci-dessous.</span>
                                                             </div>
                                                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                                                 <div>
-                                                                    <label htmlFor={`tranche-amount-${en.id}`} className="mb-1.5 block text-sm font-semibold text-slate-900">Montant payé (DT)</label>
+                                                                    <label htmlFor={`tranche-amount-${en.id}`} className="site-label">Montant payé (DT)</label>
                                                                     <div className="relative">
-                                                                        <CreditCard className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                                                        <CreditCard className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} aria-hidden="true" />
                                                                         <input
                                                                             id={`tranche-amount-${en.id}`}
                                                                             type="number"
@@ -472,14 +525,14 @@ export default function DashboardPage() {
                                                                             placeholder="Montant payé (DT)"
                                                                             value={trancheAmount}
                                                                             onChange={(e) => setTrancheAmount(e.target.value)}
-                                                                            className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-bold tabular-nums text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-brand-green focus:outline-none focus:ring-2 focus:ring-brand-green/20"
+                                                                            className="site-input pl-10 font-semibold tabular-nums placeholder:font-normal"
                                                                         />
                                                                     </div>
-                                                                    {remaining > 0 && <p className="mt-1.5 text-xs text-slate-600">Reste à payer : <span className="font-bold tabular-nums text-slate-900">{money(remaining)}</span></p>}
+                                                                    {remaining > 0 && <p className="mt-1.5 text-xs text-slate-500">Reste à payer : <span className="font-bold tabular-nums text-slate-900">{money(remaining)}</span></p>}
                                                                 </div>
                                                                 <div>
-                                                                    <label htmlFor={`tranche-file-${en.id}`} className="mb-1.5 block text-sm font-semibold text-slate-900">Reçu (image ou PDF)</label>
-                                                                    <div className={`relative flex h-11 items-center rounded-xl border-2 border-dashed px-3 transition focus-within:ring-2 focus-within:ring-brand-green/30 ${trancheFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-white hover:border-slate-400'}`}>
+                                                                    <label htmlFor={`tranche-file-${en.id}`} className="site-label">Reçu (image ou PDF)</label>
+                                                                    <div className={`relative flex min-h-[88px] flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-3 py-3 text-center transition-colors duration-150 focus-within:ring-2 focus-within:ring-focus/50 focus-within:ring-offset-2 ${trancheFile ? 'border-emerald-300 bg-emerald-50' : 'border-slate-300 bg-white hover:border-brand-green hover:bg-brand-green-soft/40'}`}>
                                                                         <input
                                                                             id={`tranche-file-${en.id}`}
                                                                             type="file"
@@ -487,18 +540,18 @@ export default function DashboardPage() {
                                                                             onChange={handleFileChange}
                                                                             accept="image/*,.pdf"
                                                                         />
-                                                                        <div className="flex min-w-0 items-center gap-2.5">
-                                                                            {trancheFile ? <CheckCircle size={18} className="shrink-0 text-emerald-600" /> : <Upload size={18} className="shrink-0 text-slate-500" />}
-                                                                            <span className={`truncate text-sm font-semibold ${trancheFile ? 'text-emerald-800' : 'text-slate-600'}`}>
-                                                                                {trancheFile ? trancheFile.name : "Cliquez pour uploader le reçu"}
-                                                                            </span>
-                                                                        </div>
+                                                                        {trancheFile
+                                                                            ? <CheckCircle size={20} className="shrink-0 text-emerald-600" aria-hidden="true" />
+                                                                            : <Upload size={20} className="shrink-0 text-slate-500" aria-hidden="true" />}
+                                                                        <span className={`max-w-full truncate text-[13px] font-semibold ${trancheFile ? 'text-emerald-800' : 'text-slate-600'}`}>
+                                                                            {trancheFile ? trancheFile.name : "Cliquez pour uploader le reçu"}
+                                                                        </span>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                             {uploadError && (
-                                                                <p role="alert" className="flex items-center gap-1.5 text-sm font-medium text-rose-700">
-                                                                    <AlertCircle size={15} /> {uploadError}
+                                                                <p role="alert" className="flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200">
+                                                                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" aria-hidden="true" /> {uploadError}
                                                                 </p>
                                                             )}
                                                             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
@@ -509,9 +562,9 @@ export default function DashboardPage() {
                                                                     onClick={() => handleTrancheSubmit(en.id)}
                                                                     disabled={isSubmitting || !trancheFile || !trancheAmount}
                                                                     title={!trancheFile || !trancheAmount ? 'Indiquez le montant et joignez le reçu' : undefined}
-                                                                    className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-brand-green px-6 text-sm font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    className={`site-btn-primary min-h-11 text-sm ${focusRing}`}
                                                                 >
-                                                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                                                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Upload size={16} aria-hidden="true" />}
                                                                     Soumettre le reçu
                                                                 </button>
                                                             </div>
@@ -521,30 +574,30 @@ export default function DashboardPage() {
                                                             {en.remaining > 0 && !(en.status_raw === 'pending' && en.receipt_url) && (
                                                                 <button
                                                                     onClick={() => setActiveUploadId(en.id)}
-                                                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-green px-5 text-sm font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+                                                                    className={`site-btn-primary min-h-11 px-5 text-sm ${focusRing}`}
                                                                 >
-                                                                    <CreditCard size={16} /> Payer une tranche
+                                                                    <CreditCard size={16} aria-hidden="true" /> Payer une tranche
                                                                 </button>
                                                             )}
                                                             {en.schedule_raw && (
                                                                 <button
                                                                     onClick={() => handleOpenSchedule(en)}
-                                                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                                                                    className={`site-btn-secondary min-h-11 px-5 text-sm ${focusRing}`}
                                                                 >
-                                                                    <CalendarIcon size={16} className="text-brand-blue" /> Voir calendrier
+                                                                    <CalendarIcon size={16} className="text-brand-blue" aria-hidden="true" /> Voir calendrier
                                                                 </button>
                                                             )}
                                                             {en.receipt_url && (
                                                                 <button
                                                                     onClick={() => setHistoryModalEnrollment(en)}
-                                                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                                                                    className={`site-btn-secondary min-h-11 px-5 text-sm ${focusRing}`}
                                                                 >
-                                                                    <History size={16} className="text-slate-500" /> Voir historique
+                                                                    <History size={16} className="text-slate-500" aria-hidden="true" /> Voir historique
                                                                 </button>
                                                             )}
                                                             {en.status_raw === 'pending' && (
-                                                                <div className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800">
-                                                                    <Clock size={15} className="shrink-0" />
+                                                                <div className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
+                                                                    <Clock size={15} className="shrink-0" aria-hidden="true" />
                                                                     {en.receipt_url
                                                                         ? 'Paiement en cours de vérification'
                                                                         : 'Réservation en attente de validation'}
@@ -562,47 +615,50 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Sidebar Area */}
-                    <div className="space-y-6 lg:col-span-1">
-                        <div className="rounded-2xl border border-brand-blue/20 bg-white p-5 shadow-sm md:p-6">
-                            <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-900">
-                                <CreditCard size={20} className="text-brand-blue" /> Informations de paiement
-                            </h3>
-                            <p className="mb-5 text-sm leading-relaxed text-slate-600">
+                    <div className="min-w-0 space-y-4 lg:col-span-1 lg:pt-14">
+                        <div className="site-card p-5">
+                            <div className="mb-3 flex items-center gap-3">
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-green text-[#fff] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]" aria-hidden="true">
+                                    <CreditCard size={18} />
+                                </span>
+                                <h3 className={sectionTitle}>Informations de paiement</h3>
+                            </div>
+                            <p className="mb-4 text-[13.5px] leading-relaxed text-slate-500">
                                 Votre place peut être réservée sans acompte. Lorsque vous êtes prêt à payer, effectuez le transfert puis téléchargez le reçu depuis votre inscription.
                             </p>
-                            <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="space-y-3 rounded-xl border border-slate-200/80 bg-slate-50 p-4">
                                 <div>
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Nom de la banque</p>
-                                    <p className="font-bold text-slate-900">BANQUE DE TUNISIE</p>
+                                    <p className={fieldLabel}>Nom de la banque</p>
+                                    <p className="mt-0.5 text-[14px] font-bold text-slate-900">BANQUE DE TUNISIE</p>
                                 </div>
                                 <div>
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Numéro de compte (RIB)</p>
-                                    <p className="break-all font-mono font-bold tabular-nums text-slate-900">{RIB}</p>
+                                    <p className={fieldLabel}>Numéro de compte (RIB)</p>
+                                    <p className="mt-0.5 break-all font-mono text-[14px] font-bold tabular-nums text-slate-900">{RIB}</p>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={copyRib}
-                                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                                    className={`site-btn-secondary min-h-11 w-full text-sm ${focusRing}`}
                                     aria-live="polite"
                                 >
-                                    {ribCopied ? <><Check size={16} className="text-emerald-600" /> RIB copié</> : <><Copy size={16} /> Copier le RIB</>}
+                                    {ribCopied ? <><Check size={16} className="text-emerald-600" aria-hidden="true" /> RIB copié</> : <><Copy size={16} aria-hidden="true" /> Copier le RIB</>}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-                            <h3 className="mb-3 text-lg font-bold text-slate-900">Liens rapides</h3>
+                        <div className="site-card p-5">
+                            <h3 className={`mb-2 ${sectionTitle}`}>Liens rapides</h3>
                             <ul className="divide-y divide-slate-100">
                                 <li>
-                                    <Link href="/formations" className="group flex h-11 items-center justify-between">
-                                        <span className="font-medium text-slate-700 transition-colors group-hover:text-brand-blue">Parcourir plus de cours</span>
-                                        <ChevronRight size={18} className="text-slate-400 transition-transform group-hover:translate-x-1" />
+                                    <Link href="/formations" className={`group -mx-2 flex min-h-12 items-center justify-between rounded-lg px-2 transition-colors duration-150 hover:bg-slate-50 ${focusRing}`}>
+                                        <span className="text-[14px] font-medium text-slate-700 transition-colors duration-150 group-hover:text-slate-900">Parcourir plus de cours</span>
+                                        <ChevronRight size={18} className="text-slate-400 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
                                     </Link>
                                 </li>
                                 <li>
-                                    <Link href="/#contact" className="group flex h-11 items-center justify-between">
-                                        <span className="font-medium text-slate-700 transition-colors group-hover:text-brand-blue">Centre d&apos;assistance</span>
-                                        <LinkIcon size={18} className="text-slate-400 transition-transform group-hover:translate-x-1" />
+                                    <Link href="/#contact" className={`group -mx-2 flex min-h-12 items-center justify-between rounded-lg px-2 transition-colors duration-150 hover:bg-slate-50 ${focusRing}`}>
+                                        <span className="text-[14px] font-medium text-slate-700 transition-colors duration-150 group-hover:text-slate-900">Centre d&apos;assistance</span>
+                                        <LinkIcon size={18} className="text-slate-400 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
                                     </Link>
                                 </li>
                             </ul>
@@ -615,105 +671,112 @@ export default function DashboardPage() {
             {/* History Modal */}
             <AnimatePresence>
                 {historyModalEnrollment && (
-                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setHistoryModalEnrollment(null)}>
+                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-navy-950/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setHistoryModalEnrollment(null)}>
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
                             transition={{ duration: 0.2 }}
-                            className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
+                            className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-[var(--shadow-pop)] sm:rounded-2xl"
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="history-title"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white p-5">
-                                <div className="min-w-0">
-                                    <h3 id="history-title" className="text-lg font-bold text-slate-900">Historique de paiement</h3>
-                                    <p className="truncate text-sm text-slate-600">Formation : {historyModalEnrollment.course_name}</p>
+                            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-white px-5 py-4">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-blue text-[#fff]" aria-hidden="true">
+                                        <History size={18} />
+                                    </span>
+                                    <div className="min-w-0">
+                                        <h3 id="history-title" className="text-[16px] font-semibold text-slate-900">Historique de paiement</h3>
+                                        <p className="truncate text-[13px] text-slate-500">Formation : {historyModalEnrollment.course_name}</p>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={() => setHistoryModalEnrollment(null)}
-                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
                                     aria-label="Fermer"
                                     title="Fermer"
                                 >
-                                    <X size={20} />
+                                    <X size={20} aria-hidden="true" />
                                 </button>
                             </div>
 
-                            <div className="overflow-y-auto p-5">
+                            <div className="overflow-y-auto p-4 sm:p-5">
                                 {/* Desktop table */}
-                                <table className="hidden w-full text-left sm:table">
-                                    <thead>
-                                        <tr className="border-b border-slate-200">
-                                            <th className="pb-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">Date</th>
-                                            <th className="pb-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">Montant</th>
-                                            <th className="pb-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">Statut</th>
-                                            <th className="pb-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Reçu</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {historyRows(historyModalEnrollment).map((item: any, idx: number) => (
-                                            <tr key={idx} className="transition-colors hover:bg-slate-50">
-                                                <td className="whitespace-nowrap py-3 text-sm tabular-nums text-slate-700">
-                                                    {new Date(item.date).toLocaleDateString('fr-FR', {
-                                                        day: '2-digit',
-                                                        month: 'short',
-                                                        year: 'numeric'
-                                                    })}
-                                                </td>
-                                                <td className="whitespace-nowrap py-3 text-sm font-bold tabular-nums text-slate-900">
-                                                    {money(item.amount)}
-                                                </td>
-                                                <td className="py-3">{paymentStatusBadge(item.status)}</td>
-                                                <td className="py-3 text-right">
-                                                    <a
-                                                        href={item.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-sm font-bold text-brand-blue hover:bg-slate-100"
-                                                    >
-                                                        <ExternalLink size={14} /> Voir
-                                                    </a>
-                                                </td>
+                                <div className="hidden overflow-x-auto rounded-xl border border-slate-200/80 sm:block">
+                                    <table className="w-full text-left text-[13px]">
+                                        <thead className="bg-slate-50/80">
+                                            <tr className="border-b border-slate-200/80">
+                                                <th className="px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-slate-500">Date</th>
+                                                <th className="px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-slate-500">Montant</th>
+                                                <th className="px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-slate-500">Statut</th>
+                                                <th className="px-4 py-2.5 text-right text-[11.5px] font-semibold uppercase tracking-[0.04em] text-slate-500">Reçu</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {historyRows(historyModalEnrollment).map((item: any, idx: number) => (
+                                                <tr key={idx} className="transition-colors duration-150 hover:bg-slate-50/80">
+                                                    <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">
+                                                        {new Date(item.date).toLocaleDateString('fr-FR', {
+                                                            day: '2-digit',
+                                                            month: 'short',
+                                                            year: 'numeric'
+                                                        })}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-3 font-bold tabular-nums text-slate-900">
+                                                        {money(item.amount)}
+                                                    </td>
+                                                    <td className="px-4 py-3">{paymentStatusBadge(item.status)}</td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        <a
+                                                            href={item.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[13px] font-semibold text-brand-blue transition-colors duration-150 hover:bg-brand-soft hover:text-brand-blue-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
+                                                        >
+                                                            <ExternalLink size={14} aria-hidden="true" /> Voir
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
 
                                 {/* Mobile cards */}
                                 <ul className="space-y-3 sm:hidden">
                                     {historyRows(historyModalEnrollment).map((item: any, idx: number) => (
-                                        <li key={idx} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
+                                        <li key={idx} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 p-3.5">
                                             <div className="min-w-0">
-                                                <p className="font-bold tabular-nums text-slate-900">{money(item.amount)}</p>
-                                                <p className="text-xs tabular-nums text-slate-600">
+                                                <p className="text-[15px] font-bold tabular-nums text-slate-900">{money(item.amount)}</p>
+                                                <p className="text-xs tabular-nums text-slate-500">
                                                     {new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                 </p>
-                                                <div className="mt-1.5">{paymentStatusBadge(item.status)}</div>
+                                                <div className="mt-2">{paymentStatusBadge(item.status)}</div>
                                             </div>
                                             <a
                                                 href={item.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="inline-flex h-10 shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-3 text-sm font-bold text-brand-blue"
+                                                className="inline-flex h-11 shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-brand-blue transition-colors duration-150 hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
                                             >
-                                                <ExternalLink size={14} /> Voir
+                                                <ExternalLink size={14} aria-hidden="true" /> Voir
                                             </a>
                                         </li>
                                     ))}
                                 </ul>
                             </div>
 
-                            <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-slate-200 bg-slate-50 p-5">
+                            <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
                                 <div>
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total payé</p>
-                                    <p className="text-lg font-black tabular-nums text-emerald-700">{money(historyModalEnrollment.paid || 0)}</p>
+                                    <p className={fieldLabel}>Total payé</p>
+                                    <p className="mt-0.5 text-[18px] font-bold tabular-nums text-emerald-700">{money(historyModalEnrollment.paid || 0)}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Reste à payer</p>
-                                    <p className="text-lg font-black tabular-nums text-amber-800">{money((historyModalEnrollment.total_price || 0) - (historyModalEnrollment.paid || 0))}</p>
+                                    <p className={fieldLabel}>Reste à payer</p>
+                                    <p className="mt-0.5 text-[18px] font-bold tabular-nums text-amber-800">{money((historyModalEnrollment.total_price || 0) - (historyModalEnrollment.paid || 0))}</p>
                                 </div>
                             </div>
                         </motion.div>
@@ -724,35 +787,40 @@ export default function DashboardPage() {
             {/* Session Calendar Modal */}
             <AnimatePresence>
                 {selectedSchedule && (
-                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setSelectedSchedule(null)}>
+                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-navy-950/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setSelectedSchedule(null)}>
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
                             transition={{ duration: 0.2 }}
-                            className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:rounded-3xl"
+                            className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-[var(--shadow-pop)] sm:rounded-2xl"
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="schedule-title"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white p-5">
-                                <div className="min-w-0">
-                                    <h3 id="schedule-title" className="text-lg font-bold text-slate-900">Calendrier de session</h3>
-                                    <p className="truncate text-sm text-slate-600">{selectedSchedule.name}</p>
+                            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-white px-5 py-4">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-blue text-[#fff]" aria-hidden="true">
+                                        <CalendarIcon size={18} />
+                                    </span>
+                                    <div className="min-w-0">
+                                        <h3 id="schedule-title" className="text-[16px] font-semibold text-slate-900">Calendrier de session</h3>
+                                        <p className="truncate text-[13px] text-slate-500">{selectedSchedule.name}</p>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={() => setSelectedSchedule(null)}
-                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50"
                                     aria-label="Fermer"
                                     title="Fermer"
                                 >
-                                    <X size={20} />
+                                    <X size={20} aria-hidden="true" />
                                 </button>
                             </div>
 
-                            <div className="overflow-y-auto p-5">
-                                <div className="space-y-3">
+                            <div className="overflow-y-auto p-4 sm:p-5">
+                                <ul className="divide-y divide-slate-100">
                                     {selectedSchedule.seances && selectedSchedule.seances.length > 0 ? (
                                         selectedSchedule.seances.map((se: any, idx: number) => {
                                             const seDate = new Date(`${se.date}T00:00:00`);
@@ -768,53 +836,52 @@ export default function DashboardPage() {
                                             const attendanceBadge: Record<string, { label: string; className: string }> = {
                                                 present: {
                                                     label: 'Présent',
-                                                    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                                    className: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
                                                 },
                                                 absent: {
                                                     label: 'Absent',
-                                                    className: 'bg-rose-50 text-rose-700 border-rose-200',
+                                                    className: 'bg-rose-50 text-rose-700 ring-rose-200',
                                                 },
                                                 late: {
                                                     label: 'Retard',
-                                                    className: 'bg-amber-50 text-amber-800 border-amber-200',
+                                                    className: 'bg-amber-50 text-amber-800 ring-amber-200',
                                                 },
                                                 excused: {
                                                     label: 'Excusé',
-                                                    className: 'bg-sky-50 text-sky-700 border-sky-200',
+                                                    className: 'bg-brand-soft text-brand-blue-dark ring-brand-blue/20',
                                                 },
                                             };
                                             const recordedStatus = attendanceBadge[attendance?.status];
-                                            const pill = 'inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider';
+                                            const pill = 'inline-flex shrink-0 items-center whitespace-nowrap rounded-lg px-2.5 py-1 text-[11.5px] font-semibold ring-1 ring-inset';
                                             return (
-                                                <div
+                                                <li
                                                     key={idx}
-                                                    className={`flex items-center justify-between gap-3 rounded-xl border p-3 transition-all ${isPast
-                                                        ? 'border-slate-200 bg-slate-50'
-                                                        : isInProgress ? 'border-brand-blue/40 bg-white shadow-sm' : 'border-slate-200 bg-white'
-                                                        }`}
+                                                    className={`flex items-center justify-between gap-3 py-3 ${isPast ? 'opacity-80' : ''}`}
                                                 >
-                                                    <div className="flex min-w-0 items-center gap-3">
-                                                        <div className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl font-bold ${isPast ? 'bg-slate-200 text-slate-600' : 'bg-brand-blue/10 text-brand-blue'
+                                                    <div className="flex min-w-0 items-center gap-3.5">
+                                                        <div className={`flex w-14 shrink-0 flex-col items-center rounded-xl border py-2 text-center leading-none ${isInProgress
+                                                            ? 'border-brand-blue/40 bg-brand-soft'
+                                                            : isPast ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'
                                                             }`}>
-                                                            <span className="mb-0.5 text-[10px] uppercase leading-none">
-                                                                {seDate.toLocaleDateString('fr-FR', { month: 'short' })}
-                                                            </span>
-                                                            <span className="text-lg leading-none tabular-nums">
+                                                            <span className={`text-[20px] font-bold tabular-nums ${isPast ? 'text-slate-500' : 'text-slate-900'}`}>
                                                                 {seDate.getDate()}
+                                                            </span>
+                                                            <span className="mt-1 text-[10px] font-semibold uppercase text-slate-500">
+                                                                {seDate.toLocaleDateString('fr-FR', { month: 'short' })}
                                                             </span>
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <p className="font-bold capitalize text-slate-900">
+                                                            <p className="text-[14px] font-semibold capitalize text-slate-900">
                                                                 {seDate.toLocaleDateString('fr-FR', { weekday: 'long' })}
                                                             </p>
-                                                            <p className="flex items-center gap-1 text-xs tabular-nums text-slate-600">
-                                                                <Clock size={12} /> {se.start_time} - {se.end_time || (parseInt(se.start_time.split(':')[0]) + 4) + ':' + se.start_time.split(':')[1]}
+                                                            <p className="mt-0.5 flex items-center gap-1.5 text-xs tabular-nums text-slate-500">
+                                                                <Clock size={12} aria-hidden="true" /> {se.start_time} - {se.end_time || (parseInt(se.start_time.split(':')[0]) + 4) + ':' + se.start_time.split(':')[1]}
                                                             </p>
                                                         </div>
                                                     </div>
                                                     {isPast ? (
                                                         loadingScheduleAttendance ? (
-                                                            <span className={`${pill} border-slate-200 bg-slate-100 text-slate-600`}>
+                                                            <span className={`${pill} animate-pulse bg-slate-50 text-slate-500 ring-slate-200`}>
                                                                 Chargement
                                                             </span>
                                                         ) : recordedStatus ? (
@@ -822,39 +889,42 @@ export default function DashboardPage() {
                                                                 {recordedStatus.label}
                                                             </span>
                                                         ) : (
-                                                            <span className={`${pill} border-slate-200 bg-white text-slate-600`}>
+                                                            <span className={`${pill} bg-white text-slate-500 ring-slate-200`}>
                                                                 Non renseigné
                                                             </span>
                                                         )
                                                     ) : isInProgress ? (
-                                                        <span className={`${pill} border-sky-200 bg-sky-50 text-sky-700`}>
+                                                        <span className={`${pill} bg-brand-soft text-brand-blue-dark ring-brand-blue/20`}>
                                                             En cours
                                                         </span>
                                                     ) : (
-                                                        <span className={`${pill} border-emerald-200 bg-emerald-50 text-emerald-700`}>
+                                                        <span className={`${pill} bg-emerald-50 text-emerald-700 ring-emerald-200`}>
                                                             À venir
                                                         </span>
                                                     )}
-                                                </div>
+                                                </li>
                                             );
                                         })
                                     ) : (
-                                        <div className="py-12 text-center">
-                                            <CalendarIcon size={40} className="mx-auto mb-4 text-[#cbd5e1]" />
-                                            <p className="text-sm text-slate-600">Aucun calendrier détaillé disponible.</p>
-                                        </div>
+                                        <li className="py-12 text-center">
+                                            <span className="site-icon-tile mx-auto mb-4 bg-slate-400" aria-hidden="true">
+                                                <CalendarIcon size={20} />
+                                            </span>
+                                            <p className="text-sm text-slate-500">Aucun calendrier détaillé disponible.</p>
+                                        </li>
                                     )}
-                                </div>
+                                </ul>
                                 {scheduleAttendanceError && (
-                                    <div role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
+                                    <div role="alert" className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm font-medium text-amber-800 ring-1 ring-amber-200">
+                                        <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
                                         {scheduleAttendanceError}
                                     </div>
                                 )}
                             </div>
 
-                            <div className="flex shrink-0 items-start gap-3 border-t border-slate-200 bg-slate-50 p-5">
-                                <AlertCircle size={18} className="mt-0.5 shrink-0 text-brand-blue" />
-                                <p className="text-xs leading-relaxed text-slate-600">
+                            <div className="flex shrink-0 items-start gap-3 border-t border-slate-100 bg-brand-soft px-5 py-4">
+                                <AlertCircle size={18} className="mt-0.5 shrink-0 text-brand-blue" aria-hidden="true" />
+                                <p className="text-xs leading-relaxed text-brand-blue-dark">
                                     Veuillez noter que le calendrier peut être sujet à des modifications mineures. Consultez régulièrement votre boîte mail.
                                 </p>
                             </div>

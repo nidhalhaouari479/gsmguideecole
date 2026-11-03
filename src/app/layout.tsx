@@ -6,6 +6,7 @@ import MainLayoutWrapper from "@/components/layout/MainLayoutWrapper";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import PwaRegistration from "@/components/PwaRegistration";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
+import FeedbackHost from "@/components/FeedbackHost";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -46,6 +47,7 @@ export default function RootLayout({
             <PwaRegistration />
             <MainLayoutWrapper>{children}</MainLayoutWrapper>
             <WhatsAppButton />
+            <FeedbackHost />
           </AnalyticsProvider>
         </LanguageProvider>
       </body>

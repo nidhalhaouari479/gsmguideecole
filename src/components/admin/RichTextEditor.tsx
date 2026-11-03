@@ -1,5 +1,7 @@
 "use client";
 
+import { promptDialog } from '@/components/FeedbackHost';
+
 import { useEffect, useRef } from 'react';
 
 type RichTextEditorProps = {
@@ -50,9 +52,24 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
         updateValue();
     };
 
-    const insertLink = () => {
-        const url = window.prompt('Adresse du lien (https://...)');
-        if (url?.trim()) execute('createLink', url.trim());
+    const insertLink = async () => {
+        // The dialog takes focus, so keep the selected text to restore it afterwards.
+        const selection = window.getSelection();
+        const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+        const url = await promptDialog({
+            title: 'Insérer un lien',
+            label: 'Adresse du lien',
+            placeholder: 'https://...',
+            inputType: 'url',
+            confirmLabel: 'Insérer',
+        });
+        if (!url?.trim()) return;
+        editorRef.current?.focus();
+        if (range) {
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+        }
+        execute('createLink', url.trim());
     };
 
     return (

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { supabase } from '@/lib/supabase';
-import { UserPlus, Mail, Lock, User, Phone, AlertCircle, Loader2, ChevronDown, Calendar, Share2, Eye, EyeOff, CheckCircle2, XCircle, CreditCard } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, Phone, AlertCircle, Loader2, ChevronDown, Calendar, Share2, Eye, EyeOff, CheckCircle2, XCircle, CreditCard, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const HOW_DID_YOU_HEAR = [
@@ -17,13 +17,13 @@ const HOW_DID_YOU_HEAR = [
     { value: 'other', label: 'Autre' },
 ];
 
-const inputClass = "h-11 w-full pl-11 pr-3 rounded-xl border bg-white text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2";
-const fieldOk = "border-slate-200 focus:border-brand-green focus:ring-brand-green/20";
-const fieldErr = "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20";
-const labelClass = "block text-sm font-semibold mb-1.5 text-slate-900";
+const inputClass = "site-input pl-11";
+const fieldOk = "";
+const fieldErr = "border-rose-400 hover:border-rose-500 focus:border-rose-500 focus:shadow-[0_0_0_4px_rgba(244,63,94,0.15)]";
+const labelClass = "site-label";
 const errText = "mt-1.5 text-xs font-medium text-rose-700";
-const primaryBtn = "flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-green text-base font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
-const eyeBtn = "absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue";
+const primaryBtn = "site-btn-primary w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2";
+const eyeBtn = "absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50";
 
 // Password rules
 const passwordRules = [
@@ -223,26 +223,56 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-[80vh] flex items-center justify-center py-10 md:py-16 px-4 bg-slate-50">
+        <div className="min-h-[80vh] bg-site-muted py-8 md:py-14">
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
-                className="w-full max-w-2xl"
+                className="site-container grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-stretch"
             >
+                {/* Brand panel (desktop) */}
+                <aside className="relative hidden overflow-hidden rounded-2xl bg-navy-950 p-10 shadow-[var(--shadow-pop)] lg:flex lg:flex-col">
+                    <div className="pointer-events-none absolute -left-20 -top-24 h-72 w-72 rounded-full bg-brand-blue/40 blur-3xl" aria-hidden="true" />
+                    <div className="pointer-events-none absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-brand-green/20 blur-3xl" aria-hidden="true" />
+                    <div className="relative flex h-full flex-col">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff] p-2 shadow-[var(--shadow-card)]">
+                            <img src="/gsmlogo.png" alt="GSM Guide Academy" className="h-full w-full object-contain" />
+                        </div>
+                        <h2 className="mt-8 text-3xl font-extrabold leading-tight tracking-tight text-[#fff] text-balance">
+                            Rejoignez GSM Guide Academy
+                        </h2>
+                        <p className="mt-3 text-base leading-relaxed text-[#B4C0D3]">
+                            Commencez votre parcours vers l&apos;excellence technique.
+                        </p>
+                        <ul className="mt-8 space-y-4">
+                            {['Formations pratiques en réparation de smartphones', 'Réservation de vos sessions en ligne', 'Suivi de vos paiements depuis votre espace étudiant'].map((point) => (
+                                <li key={point} className="flex items-start gap-3 text-sm font-medium text-[#fff]">
+                                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-green/20 ring-1 ring-brand-green/40" aria-hidden="true">
+                                        <Check size={14} className="text-brand-green" strokeWidth={3} />
+                                    </span>
+                                    <span className="leading-relaxed">{point}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <p className="mt-auto pt-10 text-xs font-semibold uppercase tracking-wider text-[#B4C0D3]">
+                            GSM Guide Academy
+                        </p>
+                    </div>
+                </aside>
+
                 {success ? (
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm md:p-10"
+                        className="site-card flex flex-col justify-center p-6 text-center md:p-10"
                         role="status"
                     >
-                        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
-                            <CheckCircle2 size={36} className="text-emerald-600" />
+                        <div className="site-icon-tile mx-auto mb-6 h-16 w-16 rounded-2xl bg-emerald-500">
+                            <CheckCircle2 size={34} aria-hidden="true" />
                         </div>
 
-                        <h1 className="mb-3 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">Bienvenue à bord !</h1>
+                        <h1 className="site-title mb-3">Bienvenue à bord !</h1>
                         <p className="mb-8 text-base leading-relaxed text-slate-600">
                             Votre compte a été créé avec succès. Vous faites maintenant partie de <strong className="text-slate-900">GSM Guide Academy</strong>. <br />
                             Préparez-vous à transformer votre carrière !
@@ -252,18 +282,25 @@ export default function RegisterPage() {
                             onClick={() => router.push('/login')}
                             className={primaryBtn}
                         >
-                            Accéder à mon espace <ChevronDown className="-rotate-90" size={20} />
+                            Accéder à mon espace <ChevronDown className="-rotate-90" size={20} aria-hidden="true" />
                         </button>
                     </motion.div>
                 ) : (
-                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+                    <div className="site-card p-5 sm:p-8">
                         {/* Header */}
-                        <div className="text-center mb-6">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand-blue/20 bg-brand-blue/5 text-brand-blue font-bold text-[11px] uppercase tracking-wider mb-4">
-                                <UserPlus size={14} /> {verificationStep ? "Vérification" : "Rejoindre l'Académie"}
+                        <div className="mb-6">
+                            <div className="mb-5 flex items-center gap-3 lg:hidden">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#fff] p-1.5 ring-1 ring-slate-200">
+                                    <img src="/gsmlogo.png" alt="GSM Guide Academy" className="h-full w-full object-contain" />
+                                </div>
+                                <span className="text-sm font-bold text-slate-900">GSM Guide Academy</span>
                             </div>
-                            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 mb-1">{verificationStep ? "Vérifiez votre email" : t.nav.register}</h1>
-                            <p className="text-sm text-slate-600 break-words">
+                            <div className="site-eyebrow mb-4">
+                                <span className="h-1.5 w-1.5 rounded-full bg-brand-green" aria-hidden="true" />
+                                <UserPlus size={14} aria-hidden="true" /> {verificationStep ? "Vérification" : "Rejoindre l'Académie"}
+                            </div>
+                            <h1 className="site-title mb-2">{verificationStep ? "Vérifiez votre email" : t.nav.register}</h1>
+                            <p className="text-sm leading-relaxed text-slate-600 break-words md:text-base">
                                 {verificationStep
                                     ? `Un code de vérification a été envoyé à ${email}`
                                     : "Commencez votre parcours vers l'excellence technique."}
@@ -271,33 +308,38 @@ export default function RegisterPage() {
                         </div>
 
                         {/* Step indicator */}
-                        <ol className="mb-8 flex items-center gap-2" aria-label="Étapes d'inscription">
+                        <ol className="mb-8 flex items-center gap-3 rounded-xl bg-site-muted p-3" aria-label="Étapes d'inscription">
                             {['Vos informations', 'Vérification email'].map((label, i) => {
                                 const current = verificationStep ? 1 : 0;
+                                const done = i < current;
+                                const active = i === current;
                                 return (
-                                    <li key={label} className="flex min-w-0 flex-1 flex-col gap-1.5" aria-current={i === current ? 'step' : undefined}>
-                                        <span className={`h-1.5 rounded-full ${i < current ? 'bg-emerald-600' : i === current ? 'bg-brand-green' : 'bg-slate-200'}`} />
-                                        <span className={`truncate text-[11px] font-bold ${i <= current ? 'text-slate-900' : 'text-slate-500'}`}>{i + 1}. {label}</span>
+                                    <li key={label} className="flex min-w-0 flex-1 items-center gap-2.5" aria-current={active ? 'step' : undefined}>
+                                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums transition-colors duration-200 ${done ? 'bg-brand-green-600 text-[#fff]' : active ? 'bg-[#fff] text-brand-blue ring-2 ring-brand-blue' : 'bg-[#fff] text-slate-500 ring-1 ring-slate-200'}`}>
+                                            {done ? <Check size={16} strokeWidth={3} aria-hidden="true" /> : i + 1}
+                                        </span>
+                                        <span className={`truncate text-xs font-semibold sm:text-sm ${done || active ? 'text-slate-900' : 'text-slate-500'}`}>{label}</span>
+                                        {i === 0 && <span className={`hidden h-0.5 flex-1 rounded-full sm:block ${done ? 'bg-brand-green-600' : 'bg-slate-200'}`} aria-hidden="true" />}
                                     </li>
                                 );
                             })}
                         </ol>
 
                         {error && (
-                            <div role="alert" className="mb-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
-                                <AlertCircle className="text-rose-600 shrink-0 mt-0.5" size={18} />
+                            <div role="alert" className="mb-6 flex items-start gap-3 rounded-xl bg-rose-50 p-4 text-rose-800 ring-1 ring-rose-200">
+                                <AlertCircle className="text-rose-600 shrink-0 mt-0.5" size={18} aria-hidden="true" />
                                 <p className="text-sm font-medium text-rose-800">{error}</p>
                             </div>
                         )}
 
                         {!verificationStep ? (
-                            <form onSubmit={handleInitialSubmit} className="space-y-5" noValidate>
+                            <form onSubmit={handleInitialSubmit} className="space-y-4" noValidate>
                                 {/* Row 1: Name + Email */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div>
-                                        <label htmlFor="reg-name" className={`${labelClass} ${showErrors && !fullName ? 'text-rose-700' : ''}`}>Nom complet <span className="text-rose-600">*</span></label>
+                                        <label htmlFor="reg-name" className={`${labelClass} ${showErrors && !fullName ? 'text-rose-700' : ''}`}>Nom complet <span className="text-rose-500">*</span></label>
                                         <div className="relative">
-                                            <User className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && !fullName ? 'text-rose-500' : 'text-slate-400'}`} size={18} />
+                                            <User className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && !fullName ? 'text-rose-500' : 'text-slate-400'}`} size={18} aria-hidden="true" />
                                             <input
                                                 id="reg-name"
                                                 type="text"
@@ -312,9 +354,9 @@ export default function RegisterPage() {
                                         {showErrors && !fullName && <p className={errText}>Ce champ est obligatoire</p>}
                                     </div>
                                     <div>
-                                        <label htmlFor="reg-email" className={`${labelClass} ${showErrors && (!email || !isValidEmail(email)) ? 'text-rose-700' : ''}`}>Adresse email <span className="text-rose-600">*</span></label>
+                                        <label htmlFor="reg-email" className={`${labelClass} ${showErrors && (!email || !isValidEmail(email)) ? 'text-rose-700' : ''}`}>Adresse email <span className="text-rose-500">*</span></label>
                                         <div className="relative">
-                                            <Mail className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && (!email || !isValidEmail(email)) ? 'text-rose-500' : 'text-slate-400'}`} size={18} />
+                                            <Mail className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && (!email || !isValidEmail(email)) ? 'text-rose-500' : 'text-slate-400'}`} size={18} aria-hidden="true" />
                                             <input
                                                 id="reg-email"
                                                 type="email"
@@ -332,11 +374,11 @@ export default function RegisterPage() {
                                 </div>
 
                                 {/* Row 2: Phone + Age */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div>
-                                        <label htmlFor="reg-phone" className={`${labelClass} ${(showErrors || phone) && phone.length !== 8 ? 'text-rose-700' : ''}`}>Téléphone (8 chiffres) <span className="text-rose-600">*</span></label>
+                                        <label htmlFor="reg-phone" className={`${labelClass} ${(showErrors || phone) && phone.length !== 8 ? 'text-rose-700' : ''}`}>Téléphone (8 chiffres) <span className="text-rose-500">*</span></label>
                                         <div className="relative">
-                                            <Phone className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${(showErrors || phone) && phone.length !== 8 ? 'text-rose-500' : 'text-slate-400'}`} size={18} />
+                                            <Phone className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${(showErrors || phone) && phone.length !== 8 ? 'text-rose-500' : 'text-slate-400'}`} size={18} aria-hidden="true" />
                                             <input
                                                 id="reg-phone"
                                                 type="tel"
@@ -352,9 +394,9 @@ export default function RegisterPage() {
                                         {(showErrors || phone) && phone.length !== 8 && <p className={errText}>Doit contenir exactement 8 chiffres</p>}
                                     </div>
                                     <div>
-                                        <label htmlFor="reg-age" className={`${labelClass} ${(showErrors || age) && (age === '' || parseInt(age) < 18) ? 'text-rose-700' : ''}`}>Âge (18+) <span className="text-rose-600">*</span></label>
+                                        <label htmlFor="reg-age" className={`${labelClass} ${(showErrors || age) && (age === '' || parseInt(age) < 18) ? 'text-rose-700' : ''}`}>Âge (18+) <span className="text-rose-500">*</span></label>
                                         <div className="relative">
-                                            <Calendar className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${(showErrors || age) && (age === '' || parseInt(age) < 18) ? 'text-rose-500' : 'text-slate-400'}`} size={18} />
+                                            <Calendar className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${(showErrors || age) && (age === '' || parseInt(age) < 18) ? 'text-rose-500' : 'text-slate-400'}`} size={18} aria-hidden="true" />
                                             <input
                                                 id="reg-age"
                                                 type="number"
@@ -374,12 +416,12 @@ export default function RegisterPage() {
                                 </div>
 
                                 {/* Row 3: Source + CIN */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div>
-                                        <label htmlFor="reg-source" className={`${labelClass} ${showErrors && !source ? 'text-rose-700' : ''}`}>Comment nous avez-vous connus ? <span className="text-rose-600">*</span></label>
+                                        <label htmlFor="reg-source" className={`${labelClass} ${showErrors && !source ? 'text-rose-700' : ''}`}>Comment nous avez-vous connus ? <span className="text-rose-500">*</span></label>
                                         <div className="relative">
-                                            <Share2 className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && !source ? 'text-rose-500' : 'text-slate-400'} pointer-events-none z-10`} size={18} />
-                                            <ChevronDown className={`pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 ${showErrors && !source ? 'text-rose-500' : 'text-slate-400'} pointer-events-none z-10`} size={18} />
+                                            <Share2 className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && !source ? 'text-rose-500' : 'text-slate-400'} pointer-events-none z-10`} size={18} aria-hidden="true" />
+                                            <ChevronDown className={`pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 ${showErrors && !source ? 'text-rose-500' : 'text-slate-400'} pointer-events-none z-10`} size={18} aria-hidden="true" />
                                             <select
                                                 id="reg-source"
                                                 value={source}
@@ -397,10 +439,10 @@ export default function RegisterPage() {
                                     </div>
                                     <div>
                                         <label htmlFor="reg-cin" className={`${labelClass} ${(showErrors || cinNumber) && cinNumber.length !== 8 ? 'text-rose-700' : ''}`}>
-                                            Numéro CIN (8 chiffres) <span className="text-rose-600">*</span>
+                                            Numéro CIN (8 chiffres) <span className="text-rose-500">*</span>
                                         </label>
                                         <div className="relative group">
-                                            <CreditCard className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 ${(showErrors || cinNumber) && cinNumber.length !== 8 ? 'text-rose-500' : 'text-slate-400'}`} size={18} />
+                                            <CreditCard className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 ${(showErrors || cinNumber) && cinNumber.length !== 8 ? 'text-rose-500' : 'text-slate-400'}`} size={18} aria-hidden="true" />
                                             <input
                                                 id="reg-cin"
                                                 type="text"
@@ -418,7 +460,7 @@ export default function RegisterPage() {
 
                                 {/* Gender selector */}
                                 <div>
-                                    <p id="reg-gender" className={`${labelClass} ${showErrors && !gender ? 'text-rose-700' : ''}`}>Civilité <span className="text-rose-600">*</span></p>
+                                    <p id="reg-gender" className={`${labelClass} ${showErrors && !gender ? 'text-rose-700' : ''}`}>Civilité <span className="text-rose-500">*</span></p>
                                     <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-labelledby="reg-gender">
                                         {(['M', 'Mme'] as const).map((g) => (
                                             <button
@@ -427,9 +469,9 @@ export default function RegisterPage() {
                                                 role="radio"
                                                 aria-checked={gender === g}
                                                 onClick={() => setGender(g)}
-                                                className={`h-11 rounded-xl border-2 font-bold text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-1 ${gender === g
-                                                    ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
-                                                    : showErrors && !gender ? 'border-rose-400 text-rose-700 bg-rose-50' : 'border-slate-200 text-slate-700 hover:border-brand-blue/50'
+                                                className={`h-12 rounded-xl border text-sm font-bold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2 ${gender === g
+                                                    ? 'border-transparent bg-brand-green-soft/40 text-brand-green-700 ring-2 ring-brand-green-600'
+                                                    : showErrors && !gender ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-300 bg-[#fff] text-slate-700 shadow-[var(--shadow-card)] hover:border-slate-400 hover:bg-slate-50'
                                                     }`}
                                             >
                                                 {g === 'M' ? ' M.' : ' Mme'}
@@ -440,16 +482,18 @@ export default function RegisterPage() {
                                 </div>
 
                                 {/* Divider */}
-                                <div className="border-t border-slate-200 pt-5">
-                                    <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mb-4">Sécurité du compte</p>
+                                <div className="border-t border-slate-200 pt-6">
+                                    <p className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                        <Lock size={14} className="text-brand-blue" aria-hidden="true" /> Sécurité du compte
+                                    </p>
 
                                     {/* Row: Password + Confirm */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                         {/* Password */}
                                         <div>
-                                            <label htmlFor="reg-password" className={`${labelClass} ${showErrors && (!password || !isPasswordValid) ? 'text-rose-700' : ''}`}>Mot de passe <span className="text-rose-600">*</span></label>
+                                            <label htmlFor="reg-password" className={`${labelClass} ${showErrors && (!password || !isPasswordValid) ? 'text-rose-700' : ''}`}>Mot de passe <span className="text-rose-500">*</span></label>
                                             <div className="relative">
-                                                <Lock className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && (!password || !isPasswordValid) ? 'text-rose-500' : 'text-slate-400'}`} size={18} />
+                                                <Lock className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && (!password || !isPasswordValid) ? 'text-rose-500' : 'text-slate-400'}`} size={18} aria-hidden="true" />
                                                 <input
                                                     id="reg-password"
                                                     type={showPassword ? 'text' : 'password'}
@@ -462,7 +506,7 @@ export default function RegisterPage() {
                                                     required
                                                 />
                                                 <button type="button" onClick={() => setShowPassword(v => !v)} className={eyeBtn} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-pressed={showPassword}>
-                                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                                                 </button>
                                             </div>
 
@@ -480,7 +524,7 @@ export default function RegisterPage() {
                                                             const passed = rule.test(password);
                                                             return (
                                                                 <div key={rule.id} className={`flex items-center gap-2 text-xs font-medium transition-colors ${passed ? 'text-emerald-700' : 'text-slate-500'}`}>
-                                                                    {passed ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                                                                    {passed ? <CheckCircle2 size={13} aria-hidden="true" /> : <XCircle size={13} aria-hidden="true" />}
                                                                     {rule.label}
                                                                 </div>
                                                             );
@@ -492,21 +536,21 @@ export default function RegisterPage() {
 
                                         {/* Confirm Password */}
                                         <div>
-                                            <label htmlFor="reg-confirm" className={`${labelClass} ${showErrors && (!confirmPassword || confirmPassword !== password) ? 'text-rose-700' : ''}`}>Confirmer le mot de passe <span className="text-rose-600">*</span></label>
+                                            <label htmlFor="reg-confirm" className={`${labelClass} ${showErrors && (!confirmPassword || confirmPassword !== password) ? 'text-rose-700' : ''}`}>Confirmer le mot de passe <span className="text-rose-500">*</span></label>
                                             <div className="relative">
-                                                <Lock className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && (!confirmPassword || confirmPassword !== password) ? 'text-rose-500' : 'text-slate-400'}`} size={18} />
+                                                <Lock className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 ${showErrors && (!confirmPassword || confirmPassword !== password) ? 'text-rose-500' : 'text-slate-400'}`} size={18} aria-hidden="true" />
                                                 <input
                                                     id="reg-confirm"
                                                     type={showConfirm ? 'text' : 'password'}
                                                     autoComplete="new-password"
                                                     value={confirmPassword}
                                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                                    className={`${inputClass} pr-12 ${confirmPassword && confirmPassword !== password ? fieldErr : confirmPassword && confirmPassword === password ? 'border-emerald-500 focus:border-emerald-600 focus:ring-emerald-500/20' : showErrors && !confirmPassword ? fieldErr : fieldOk}`}
+                                                    className={`${inputClass} pr-12 ${confirmPassword && confirmPassword !== password ? fieldErr : confirmPassword && confirmPassword === password ? 'border-emerald-500 hover:border-emerald-600 focus:border-emerald-600 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.15)]' : showErrors && !confirmPassword ? fieldErr : fieldOk}`}
                                                     placeholder="••••••••"
                                                     required
                                                 />
                                                 <button type="button" onClick={() => setShowConfirm(v => !v)} className={eyeBtn} aria-label={showConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} title={showConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-pressed={showConfirm}>
-                                                    {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    {showConfirm ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                                                 </button>
                                             </div>
                                             {(showErrors || confirmPassword) && confirmPassword !== password && (
@@ -522,16 +566,19 @@ export default function RegisterPage() {
                                 <button
                                     type="submit"
                                     disabled={verifying}
-                                    className={primaryBtn}
+                                    className={`${primaryBtn} mt-2`}
                                 >
-                                    {verifying ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
+                                    {verifying ? <Loader2 className="animate-spin" size={20} aria-hidden="true" /> : <UserPlus size={20} aria-hidden="true" />}
                                     Continuer vers la vérification
                                 </button>
                             </form>
                         ) : (
-                            <form onSubmit={handleVerifyAndRegister} className="space-y-5">
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center">
-                                    <label htmlFor="reg-code" className="mb-3 block text-sm font-semibold text-slate-900">Veuillez saisir le code à 6 chiffres reçu par email.</label>
+                            <form onSubmit={handleVerifyAndRegister} className="space-y-4">
+                                <div className="rounded-xl bg-site-muted p-5 text-center sm:p-6">
+                                    <div className="site-icon-tile mx-auto mb-4 bg-brand-blue">
+                                        <Mail size={20} aria-hidden="true" />
+                                    </div>
+                                    <label htmlFor="reg-code" className="mb-4 block text-sm font-semibold text-slate-700">Veuillez saisir le code à 6 chiffres reçu par email.</label>
                                     <input
                                         id="reg-code"
                                         type="text"
@@ -540,7 +587,7 @@ export default function RegisterPage() {
                                         maxLength={6}
                                         value={verificationCode}
                                         onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                                        className="h-14 w-full rounded-xl border-2 border-slate-200 bg-white text-center text-2xl font-black tabular-nums tracking-[0.4em] text-slate-900 transition focus:border-brand-green focus:outline-none focus:ring-2 focus:ring-brand-green/20"
+                                        className="site-input mx-auto block h-14 max-w-xs text-center text-2xl font-bold tabular-nums tracking-[0.4em]"
                                         placeholder="000000"
                                         required
                                     />
@@ -551,7 +598,7 @@ export default function RegisterPage() {
                                     disabled={loading}
                                     className={primaryBtn}
                                 >
-                                    {loading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
+                                    {loading ? <Loader2 className="animate-spin" size={20} aria-hidden="true" /> : <CheckCircle2 size={20} aria-hidden="true" />}
                                     Vérifier et Créer mon compte
                                 </button>
 
@@ -559,7 +606,7 @@ export default function RegisterPage() {
                                     type="button"
                                     onClick={sendVerificationCode}
                                     disabled={verifying}
-                                    className="flex h-10 w-full items-center justify-center rounded-xl text-sm font-bold text-brand-blue transition-colors hover:bg-slate-50 disabled:opacity-60"
+                                    className="site-btn-secondary w-full text-brand-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2"
                                 >
                                     {verifying ? "Envoi en cours..." : "Renvoyer le code"}
                                 </button>
@@ -567,7 +614,7 @@ export default function RegisterPage() {
                                 <button
                                     type="button"
                                     onClick={() => setVerificationStep(false)}
-                                    className="flex h-10 w-full items-center justify-center text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline"
+                                    className="flex min-h-11 w-full items-center justify-center rounded-xl text-sm font-semibold text-slate-600 transition-colors duration-150 hover:text-slate-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2"
                                 >
                                     Modifier mes informations
                                 </button>
@@ -576,7 +623,7 @@ export default function RegisterPage() {
 
                         <p className="mt-6 border-t border-slate-200 pt-6 text-center text-sm text-slate-600">
                             Vous avez déjà un compte ?{' '}
-                            <Link href="/login" className="text-brand-blue font-bold hover:underline">{t.nav.login}</Link>
+                            <Link href="/login" className="rounded font-bold text-brand-blue hover:text-brand-blue-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2">{t.nav.login}</Link>
                         </p>
                     </div>
                 )}

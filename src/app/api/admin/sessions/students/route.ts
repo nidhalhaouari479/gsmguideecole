@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
 import { canAccessSession } from '@/lib/staff-session-access';
+import { readPaymentHistory } from '@/lib/payment-history';
 
 export async function GET(req: Request) {
     try {
@@ -23,18 +24,17 @@ export async function GET(req: Request) {
 
         const supabaseAdmin = createAdminClient();
 
-        // 1. Fetch enrollments for this session
-        const { data: enrollments, error: enrollError } = await supabaseAdmin
-            .from('enrollments')
-            .select(`
-                user_id,
-                status,
-                amount_paid,
-                total_price,
-                receipt_url,
-                created_at
-            `)
-            .eq('session_id', sessionId);
+        // 1. Enrollments and catalogue price (used by the admin for per-student discounts), in parallel.
+        const [{ data: enrollments, error: enrollError }, { data: sessionInfo }] = await Promise.all([
+            supabaseAdmin
+                .from('enrollments')
+                .select('user_id, status, amount_paid, total_price, receipt_url, created_at')
+                .eq('session_id', sessionId)
+                .order('created_at', { ascending: true }),
+            auth.role === 'admin'
+                ? supabaseAdmin.from('sessions').select('courses(base_price, sold_price)').eq('id', sessionId).maybeSingle()
+                : Promise.resolve({ data: null }),
+        ]);
 
         if (enrollError) throw enrollError;
 
@@ -42,9 +42,13 @@ export async function GET(req: Request) {
             return NextResponse.json([]);
         }
 
-        const userIds = enrollments.map(e => e.user_id);
+        const sessionCourse = (sessionInfo as { courses?: { base_price?: number; sold_price?: number } | { base_price?: number; sold_price?: number }[] } | null)?.courses;
+        const course = Array.isArray(sessionCourse) ? sessionCourse[0] : sessionCourse;
+        const catalogPrice = Number(course?.sold_price || course?.base_price || 0);
 
-        // 2. Fetch profiles for these users
+        const userIds = [...new Set(enrollments.map(e => e.user_id))];
+
+        // 2. Profiles for these users
         const { data: profiles, error: profileError } = await supabaseAdmin
             .from('profiles')
             .select('*')
@@ -52,18 +56,24 @@ export async function GET(req: Request) {
 
         if (profileError) throw profileError;
 
-        // 3. Fetch auth users to get emails (profiles might be missing them)
-        // Note: For a small number of users, we can just list them or fetch individually.
-        // Since this is for a specific session (max seats usually small), listing all might be overkill if many users,
-        // but Supabase listUsers doesn't support 'in' filter easily for many IDs without a loop or custom RPC.
-        // However, for admin panel, we can afford a bit of overhead or just rely on profiles if they have emails.
-        const { data: { users }, error: authError } = await supabaseAdmin.auth.admin.listUsers();
-        if (authError) {
-            console.error('Error fetching auth users:', authError);
-            // Non-blocking, we'll use profiles data
-        }
+        // 3. Auth accounts, only for students whose profile lacks an email or phone.
+        //    (Fetched one by one in parallel: listing every account was slow and capped at 50 users.)
+        const missingIds = userIds.filter(id => {
+            const profile = (profiles || []).find(p => p.id === id);
+            return !profile?.email || !profile?.phone;
+        });
+        const users = (await Promise.all(missingIds.map(async id => {
+            const { data, error } = await supabaseAdmin.auth.admin.getUserById(id);
+            if (error) console.error('Error fetching auth user:', error);
+            return data?.user || null;
+        }))).filter(user => user !== null);
 
-        const students = enrollments.map(enrollment => {
+        // Older data may contain the same student twice in a session: show them only once.
+        const uniqueEnrollments = enrollments.filter(
+            (enrollment, index) => enrollments.findIndex(e => e.user_id === enrollment.user_id) === index
+        );
+
+        const students = uniqueEnrollments.map(enrollment => {
             const profile = (profiles || []).find(p => p.id === enrollment.user_id);
             const authUser = (users || []).find(u => u.id === enrollment.user_id);
 
@@ -75,6 +85,10 @@ export async function GET(req: Request) {
                 status: enrollment.status,
                 amount_paid: auth.role === 'admin' ? enrollment.amount_paid : 0,
                 total_price: auth.role === 'admin' ? enrollment.total_price : 0,
+                catalog_price: catalogPrice,
+                payments: auth.role === 'admin'
+                    ? readPaymentHistory(enrollment).map((payment, index) => ({ ...payment, index }))
+                    : [],
                 has_financial_history: Number(enrollment.amount_paid || 0) > 0 || Boolean(enrollment.receipt_url),
                 enrolled_at: enrollment.created_at
             };

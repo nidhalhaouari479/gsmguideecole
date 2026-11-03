@@ -24,6 +24,8 @@
 
   /* Back-office "Soft UI" surfaces, back to front: shell → canvas → card (white) */
   --color-shell: #F0F2F6;
+  /* Public site: tinted section background */
+  --color-site-muted: #F6F7F9;
   --color-canvas: #FBFCFD;
   /* Focus ring: dark slate, deliberately not brand-coloured */
   --color-focus: #475569;
@@ -230,6 +232,218 @@ body {
   @media (min-width: 768px) {
     font-size: 4rem;
   }
+}
+
+/* ===== PUBLIC SITE KIT =====
+   Same visual language as the admin dashboard: white rounded cards, slate neutrals,
+   lime green for actions, GSM blue for accents. Tailwind utilities still override these. */
+
+@utility site-container {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+
+  @media (min-width: 640px) {
+    padding-inline: 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility site-section {
+  padding-block: 4rem;
+
+  @media (min-width: 768px) {
+    padding-block: 6rem;
+  }
+}
+
+/* Small pill above a section title */
+@utility site-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--color-brand-green-soft);
+  padding: 0.375rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-brand-green-700);
+  box-shadow: inset 0 0 0 1px rgba(161, 184, 62, 0.3);
+}
+
+@utility site-title {
+  font-size: 1.875rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+  text-wrap: balance;
+
+  @media (min-width: 768px) {
+    font-size: 2.5rem;
+  }
+}
+
+@utility site-lead {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #475569;
+
+  @media (min-width: 768px) {
+    font-size: 1.125rem;
+  }
+}
+
+@utility site-card {
+  border-radius: 1rem;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  background-color: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+/* Clickable card: lifts 2px on hover */
+@utility site-card-hover {
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+    border-color: #cbd5e1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
+@utility site-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding-inline: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-brand-green-700);
+  background-image: linear-gradient(to bottom, var(--color-brand-green-600), var(--color-brand-green-700));
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(94, 127, 22, 0.25), 0 6px 16px -6px rgba(110, 142, 29, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: filter 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+
+  &:hover {
+    filter: brightness(0.94);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+  }
+}
+
+@utility site-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding-inline: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background-color: #fff;
+  color: #0f172a;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+
+  &:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+  }
+}
+
+/* Form fields: 48px tall, neutral border, lime focus */
+@utility site-input {
+  width: 100%;
+  min-height: 3rem;
+  border-radius: 0.75rem;
+  border: 1px solid #cbd5e1;
+  background-color: #fff;
+  padding: 0.625rem 0.875rem;
+  font-size: 1rem;
+  color: #0f172a;
+  box-shadow: var(--shadow-card);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+
+  &:hover {
+    border-color: #94a3b8;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-brand-green-600);
+    box-shadow: 0 0 0 4px rgba(161, 184, 62, 0.18);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    background-color: #f8fafc;
+    color: #64748b;
+  }
+}
+
+@utility site-label {
+  display: block;
+  margin-bottom: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Solid colour icon square, as on the dashboard KPI tiles (add a bg-* class) */
+@utility site-icon-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.875rem;
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 /* Dashboard Specific Utilities */

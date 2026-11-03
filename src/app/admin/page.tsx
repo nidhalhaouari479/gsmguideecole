@@ -1,5 +1,7 @@
 "use client";
 
+import { notify } from '@/components/FeedbackHost';
+
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { jsPDF } from 'jspdf';
@@ -271,7 +273,7 @@ export default function AdminDashboard() {
             if (!response.ok) throw new Error(result.error);
             setRequests(current => current.map(request => request.id === id ? { ...request, status } : request));
         } catch (error) {
-            alert(error instanceof Error ? error.message : 'Impossible de mettre à jour la demande.');
+            notify.error(error instanceof Error ? error.message : 'Impossible de mettre à jour la demande.');
         }
     };
 

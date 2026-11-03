@@ -104,39 +104,39 @@ const UpcomingSessions = () => {
     }, []);
 
     return (
-        <section className="bg-slate-50 py-16 md:py-24">
-            <div className="container mx-auto px-4 sm:px-6">
+        <section className="site-section bg-white">
+            <div className="site-container">
                 <div className="mb-10 flex flex-col justify-between gap-6 md:mb-14 md:flex-row md:items-end">
                     <div className="max-w-2xl">
-                        <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-blue">
-                            <span className="h-[2px] w-8 bg-brand-blue"></span>
+                        <p className="site-eyebrow mb-4">
+                            <span className="h-1.5 w-1.5 rounded-full bg-brand-green" aria-hidden="true" />
                             {t.nav.formations}
-                        </div>
-                        <h2 className="mb-4 text-3xl font-black leading-tight tracking-tight text-slate-900 md:text-4xl">
+                        </p>
+                        <h2 className="site-title mb-4">
                             {t.sessions.upcoming}
                         </h2>
-                        <p className="text-base leading-relaxed text-slate-600">
+                        <p className="site-lead">
                             Ne manquez pas nos prochaines sessions. Les places sont limitées pour garantir une formation personnalisée de haute qualité avec nos ingénieurs experts.
                         </p>
                     </div>
                     <Link
                         href="/formations"
-                        className="group inline-flex h-11 w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-900 shadow-sm transition hover:border-brand-blue/40 hover:text-brand-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
+                        className="site-btn-secondary group w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2"
                     >
                         {t.common.seeMore}
-                        <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                        <ArrowRight size={18} aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none" />
                     </Link>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
                     {loading ? (
                         [0, 1, 2].map((i) => (
-                            <div key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-hidden="true">
-                                <div className="aspect-[16/10] animate-pulse bg-slate-100" />
+                            <div key={i} className="site-card overflow-hidden" aria-hidden="true">
+                                <div className="aspect-[16/10] animate-pulse bg-slate-50" />
                                 <div className="space-y-3 p-5 md:p-6">
-                                    <div className="h-3 w-24 animate-pulse rounded bg-slate-100" />
-                                    <div className="h-5 w-3/4 animate-pulse rounded bg-slate-100" />
-                                    <div className="h-10 w-full animate-pulse rounded-xl bg-slate-100" />
+                                    <div className="h-3 w-24 animate-pulse rounded-full bg-slate-50 ring-1 ring-inset ring-slate-200" />
+                                    <div className="h-5 w-3/4 animate-pulse rounded-md bg-slate-50 ring-1 ring-inset ring-slate-200" />
+                                    <div className="h-12 w-full animate-pulse rounded-xl bg-slate-50 ring-1 ring-inset ring-slate-200" />
                                 </div>
                             </div>
                         ))
@@ -151,19 +151,19 @@ const UpcomingSessions = () => {
                                     whileInView={{ opacity: 1, y: 0 }}
                                     viewport={{ once: true }}
                                     transition={{ delay: Math.min(index * 0.03, 0.12), duration: 0.3 }}
-                                    className="premium-card group relative flex h-full flex-col overflow-hidden bg-white"
+                                    className="site-card site-card-hover group relative flex h-full flex-col overflow-hidden"
                                 >
-                                    <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
+                                    <div className="relative aspect-[16/10] overflow-hidden bg-slate-50">
                                         {session.image && (
                                             <img
                                                 src={session.image}
                                                 alt={session.name[language]}
-                                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                                                 loading="lazy"
                                             />
                                         )}
                                         {session.category && (
-                                            <span className="absolute top-4 left-4 inline-flex items-center rounded-full bg-[#ffffffee] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-900 shadow-sm">
+                                            <span className="absolute top-3 left-3 inline-flex items-center rounded-full bg-[#ffffffee] px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-[var(--shadow-card)] ring-1 ring-inset ring-slate-200 backdrop-blur-sm">
                                                 {session.category}
                                             </span>
                                         )}
@@ -171,43 +171,43 @@ const UpcomingSessions = () => {
 
                                     <div className="flex flex-grow flex-col p-5 md:p-6">
                                         <div className="mb-3 flex flex-wrap items-center gap-2">
-                                            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-bold tabular-nums text-sky-800">
-                                                <Calendar size={13} />
+                                            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold tabular-nums text-brand-blue-dark ring-1 ring-inset ring-brand-blue/20">
+                                                <Calendar size={13} aria-hidden="true" />
                                                 {session.date[language]}
                                             </span>
-                                            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${isFull
-                                                ? 'border-rose-200 bg-rose-50 text-rose-700'
+                                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${isFull
+                                                ? 'bg-rose-50 text-rose-700 ring-rose-200'
                                                 : isLow
-                                                    ? 'border-amber-200 bg-amber-50 text-amber-800'
-                                                    : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                    ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                                                    : 'bg-emerald-50 text-emerald-700 ring-emerald-200'
                                                 }`}>
-                                                <Users size={13} />
+                                                <Users size={13} aria-hidden="true" />
                                                 {isFull ? 'Complet' : <><span className="tabular-nums">{session.seats}</span> {t.sessions.seatsLeft}</>}
                                             </span>
                                         </div>
 
-                                        <h3 className="mb-5 text-lg font-bold leading-snug text-slate-900 md:text-xl">
-                                            <Link href={`/formations/${session.id}`} className="transition-colors hover:text-brand-blue focus-visible:outline-none focus-visible:underline">
+                                        <h3 className="mb-5 text-lg font-bold leading-snug tracking-tight text-slate-900">
+                                            <Link href={`/formations/${session.id}`} className="rounded-sm transition-colors duration-200 hover:text-brand-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2">
                                                 {session.name[language]}
                                             </Link>
                                         </h3>
 
-                                        <div className="mt-auto flex items-end justify-between gap-4 border-t border-slate-200 pt-5">
+                                        <div className="mt-auto flex items-end justify-between gap-4 border-t border-slate-100 pt-5">
                                             <div className="flex min-w-0 flex-col">
-                                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Frais de formation</span>
+                                                <span className="text-xs font-semibold text-slate-500">Frais de formation</span>
                                                 <div className="flex flex-wrap items-baseline gap-x-2">
-                                                    <span className="text-xl font-black tabular-nums text-slate-900">{session.price}</span>
+                                                    <span className="text-2xl font-extrabold tracking-tight tabular-nums text-slate-900">{session.price}</span>
                                                     {session.oldPrice && (
-                                                        <span className="text-sm font-semibold tabular-nums text-slate-500 line-through">{session.oldPrice}</span>
+                                                        <span className="text-sm font-medium tabular-nums text-slate-400 line-through">{session.oldPrice}</span>
                                                     )}
                                                 </div>
                                             </div>
                                             <Link
                                                 href={`/formations/${session.id}`}
-                                                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-brand-green px-4 text-sm font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+                                                className="site-btn-primary shrink-0 px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2"
                                                 aria-label={`${t.sessions.book} : ${session.name[language]}`}
                                             >
-                                                Réserver <ArrowRight size={16} />
+                                                Réserver <ArrowRight size={16} aria-hidden="true" />
                                             </Link>
                                         </div>
                                     </div>
@@ -215,12 +215,14 @@ const UpcomingSessions = () => {
                             );
                         })
                     ) : (
-                        <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-                            <CalendarX size={36} className="mx-auto mb-3 text-[#cbd5e1]" />
+                        <div className="site-card col-span-full border-dashed px-6 py-12 text-center">
+                            <div className="site-icon-tile mx-auto mb-4 bg-slate-400">
+                                <CalendarX size={22} aria-hidden="true" />
+                            </div>
                             <p className="font-semibold text-slate-900">Aucune session disponible pour le moment.</p>
                             <p className="mt-1 text-sm text-slate-600">Consultez nos formations et demandez l&apos;ouverture d&apos;une session.</p>
-                            <Link href="/formations" className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-brand-green px-4 text-sm font-bold text-black hover:brightness-95">
-                                {t.hero.cta} <ArrowRight size={16} />
+                            <Link href="/formations" className="site-btn-primary mt-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2">
+                                {t.hero.cta} <ArrowRight size={16} aria-hidden="true" />
                             </Link>
                         </div>
                     )}

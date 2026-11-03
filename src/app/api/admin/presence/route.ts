@@ -66,7 +66,7 @@ export async function GET(req: Request) {
                 .select('user_id, status, arrival_time, note')
                 .eq('session_id', sessionId)
                 .eq('seance_key', seanceKey),
-            supabaseAdmin.auth.admin.listUsers(),
+            supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
         ]);
 
         if (profileError) throw new Error(profileError.message);

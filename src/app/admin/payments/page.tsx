@@ -1,5 +1,7 @@
 "use client";
 
+import { notify } from '@/components/FeedbackHost';
+
 import React, { useEffect, useState } from 'react';
 import {
     Search,
@@ -239,7 +241,7 @@ export default function PaymentsAdminPage() {
             ));
             setNoteSaved(enrollmentId);
         } catch (error) {
-            alert(error instanceof Error ? error.message : 'Erreur lors de l’enregistrement.');
+            notify.error(error instanceof Error ? error.message : 'Erreur lors de l’enregistrement.');
         } finally {
             setNoteLoading(null);
         }
@@ -268,9 +270,10 @@ export default function PaymentsAdminPage() {
 
             setIsAddPaymentOpen(false);
             resetPaymentForm();
+            notify.success('Paiement enregistré.');
             await fetchEnrollments();
         } catch (error) {
-            alert(error instanceof Error ? error.message : 'Impossible d’ajouter le paiement.');
+            notify.error(error instanceof Error ? error.message : 'Impossible d’ajouter le paiement.');
         } finally {
             setPaymentSubmitting(false);
         }
@@ -302,7 +305,7 @@ export default function PaymentsAdminPage() {
             ));
         } catch (error) {
             console.error('Update error:', error);
-            alert('Erreur lors de la mise à jour.');
+            notify.error('Erreur lors de la mise à jour.');
         } finally {
             setActionLoading(null);
         }
@@ -434,7 +437,7 @@ export default function PaymentsAdminPage() {
 
     const handleExportCSVList = () => {
         if (filteredEnrollments.length === 0) {
-            alert("Aucune donnée à exporter.");
+            notify.info('Aucune donnée à exporter.');
             return;
         }
         const headers = ["ID", "Candidat", "Email", "Session", "Statut", "Montant Payé", "Montant Total", "Date"];
@@ -458,7 +461,7 @@ export default function PaymentsAdminPage() {
 
     const handleExportPDFList = async () => {
         if (filteredEnrollments.length === 0) {
-            alert("Aucune donnée à exporter.");
+            notify.info('Aucune donnée à exporter.');
             return;
         }
 

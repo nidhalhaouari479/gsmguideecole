@@ -27,7 +27,7 @@ export async function GET() {
         if (enrollError) throw enrollError;
 
         // 3. Fetch all auth users to get emails (profiles might not have them)
-        const { data: { users }, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+        const { data: { users }, error: authError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
         if (authError) throw authError;
 
         // 4. Aggregate data

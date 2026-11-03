@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
 import { notifyUserBySms } from '@/lib/winsms';
+import { readPaymentHistory } from '@/lib/payment-history';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export async function GET() {
 
         let authUsers: any[] = [];
         try {
-            const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+            const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
             if (!authError && authData) authUsers = authData.users || [];
         } catch (authErr) {
             console.warn('Auth users fetch failed, falling back to profiles only:', authErr);
@@ -114,6 +115,8 @@ export async function POST(request: Request) {
             .select('id, amount_paid, total_price, receipt_url')
             .eq('user_id', userId)
             .eq('session_id', sessionId)
+            .order('created_at', { ascending: true })
+            .limit(1)
             .maybeSingle();
 
         if (enrollmentError) throw enrollmentError;
@@ -166,6 +169,12 @@ export async function POST(request: Request) {
                 })
                 .select('id, amount_paid, total_price, receipt_url')
                 .single();
+            if (createError?.code === '23505') {
+                return NextResponse.json(
+                    { error: 'Cet étudiant est déjà inscrit à cette session. Réessayez.' },
+                    { status: 409 }
+                );
+            }
             if (createError) throw createError;
             enrollment = created;
         }
@@ -186,32 +195,7 @@ export async function POST(request: Request) {
             );
         }
 
-        let history: Array<Record<string, unknown>> = [];
-        if (typeof enrollment.receipt_url === 'string' && enrollment.receipt_url.startsWith('[')) {
-            try {
-                const parsedHistory = JSON.parse(enrollment.receipt_url);
-                if (Array.isArray(parsedHistory)) history = parsedHistory;
-            } catch {
-                history = [];
-            }
-        } else if (enrollment.receipt_url) {
-            history.push({
-                url: enrollment.receipt_url,
-                amount: currentPaid,
-                status: 'approved',
-                source: 'legacy',
-                date: new Date().toISOString(),
-            });
-        } else if (currentPaid > 0) {
-            history.push({
-                url: null,
-                amount: currentPaid,
-                status: 'approved',
-                source: 'existing_balance',
-                date: new Date().toISOString(),
-            });
-        }
-
+        const history = readPaymentHistory(enrollment);
         history.push({
             url: typeof receiptUrl === 'string' && receiptUrl.trim() ? receiptUrl.trim() : null,
             amount: paymentAmount,
@@ -268,6 +252,95 @@ export async function POST(request: Request) {
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Impossible d’ajouter le paiement.';
         console.error('Manual Payment API Error:', error);
+        return NextResponse.json({ error: message }, { status: 500 });
+    }
+}
+
+/** Correct (new amount) or remove an approved payment from a student's session history. */
+export async function PATCH(request: Request) {
+    try {
+        const auth = await verifyAdmin();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
+        const { userId, sessionId, index, amount, remove = false } = await request.json();
+        const entryIndex = Number(index);
+        const newAmount = remove ? 0 : Number(amount);
+
+        if (!userId || !sessionId || !Number.isInteger(entryIndex) || entryIndex < 0) {
+            return NextResponse.json({ error: 'Paiement introuvable.' }, { status: 400 });
+        }
+        if (!remove && (!Number.isFinite(newAmount) || newAmount <= 0)) {
+            return NextResponse.json({ error: 'Le montant doit être supérieur à 0 DT.' }, { status: 400 });
+        }
+
+        const supabaseAdmin = createAdminClient();
+        const { data: enrollment, error: enrollmentError } = await supabaseAdmin
+            .from('enrollments')
+            .select('id, amount_paid, total_price, receipt_url')
+            .eq('user_id', userId)
+            .eq('session_id', sessionId)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+        if (enrollmentError) throw enrollmentError;
+        if (!enrollment) {
+            return NextResponse.json({ error: 'Cette inscription est introuvable.' }, { status: 404 });
+        }
+
+        const history = readPaymentHistory(enrollment);
+        const entry = history[entryIndex];
+        if (!entry) {
+            return NextResponse.json({ error: 'Ce paiement n’existe plus. Rechargez la liste.' }, { status: 404 });
+        }
+        if (entry.status !== 'approved') {
+            return NextResponse.json({ error: 'Seuls les paiements validés peuvent être modifiés.' }, { status: 400 });
+        }
+
+        const oldAmount = Number(entry.amount) || 0;
+        const currentPaid = Number(enrollment.amount_paid) || 0;
+        const totalPrice = Number(enrollment.total_price) || 0;
+        const newPaid = Math.max(currentPaid - oldAmount + newAmount, 0);
+
+        if (totalPrice > 0 && newPaid > totalPrice) {
+            const maxAmount = Math.max(totalPrice - (currentPaid - oldAmount), 0);
+            return NextResponse.json(
+                { error: `Le total payé dépasserait le prix (${totalPrice.toLocaleString('fr-FR')} DT). Montant maximum pour ce paiement : ${maxAmount.toLocaleString('fr-FR')} DT.` },
+                { status: 400 }
+            );
+        }
+
+        const now = new Date().toISOString();
+        if (remove) {
+            history.splice(entryIndex, 1);
+        } else {
+            history[entryIndex] = {
+                ...entry,
+                amount: newAmount,
+                original_amount: entry.original_amount ?? oldAmount,
+                corrected_at: now,
+                corrected_by: auth.user.id,
+            };
+        }
+
+        const { data, error: updateError } = await supabaseAdmin
+            .from('enrollments')
+            .update({
+                amount_paid: newPaid,
+                receipt_url: history.length > 0 ? JSON.stringify(history) : null,
+            })
+            .eq('id', enrollment.id)
+            .select('*')
+            .single();
+
+        if (updateError) throw updateError;
+
+        return NextResponse.json({ success: true, data });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Impossible de modifier le paiement.';
+        console.error('Payment Correction API Error:', error);
         return NextResponse.json({ error: message }, { status: 500 });
     }
 }

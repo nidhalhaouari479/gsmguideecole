@@ -22,7 +22,10 @@ import {
     Upload,
     Lock,
     Minus,
-    ChevronLeft
+    ChevronLeft,
+    Percent,
+    Pencil,
+    Receipt
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -49,6 +52,7 @@ import {
     textareaClass,
 } from '@/components/admin/ui';
 import { supabase } from '@/lib/supabase';
+import { confirmDialog, notify } from '@/components/FeedbackHost';
 
 interface Session {
     id: string;
@@ -150,6 +154,13 @@ export default function SessionsAdminPage() {
     const [paymentNote, setPaymentNote] = useState('');
     const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
     const [savingPayment, setSavingPayment] = useState(false);
+    const [discountStudent, setDiscountStudent] = useState<any | null>(null);
+    const [discountValue, setDiscountValue] = useState('');
+    const [savingDiscount, setSavingDiscount] = useState(false);
+    const [historyStudent, setHistoryStudent] = useState<any | null>(null);
+    const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
+    const [editingPaymentAmount, setEditingPaymentAmount] = useState('');
+    const [savingPaymentIndex, setSavingPaymentIndex] = useState<number | null>(null);
 
     // Manual Enrollment State
     const [isAddingStudent, setIsAddingStudent] = useState(false);
@@ -243,6 +254,7 @@ export default function SessionsAdminPage() {
             const data = await response.json();
             if (data.error) throw new Error(data.error);
             await fetchSessions();
+            notify.success(editingSessionId ? 'Session mise à jour.' : 'Session créée.');
             setIsModalOpen(false);
             setCurrentStep(1);
             setEditingSessionId(null);
@@ -255,22 +267,29 @@ export default function SessionsAdminPage() {
                 seances: [{ date: '', start_time: '09:00', end_time: '17:00' }]
             });
         } catch (error: any) {
-            alert(error.message);
+            notify.error(error.message);
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleDeleteSession = async (id: string) => {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cette session ? Cette action est irréversible.')) return;
-        
+        const confirmed = await confirmDialog({
+            title: 'Supprimer cette session ?',
+            message: 'Cette action est irréversible.',
+            confirmLabel: 'Supprimer',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
+
         try {
             const response = await fetch(`/api/admin/sessions?id=${id}`, { method: 'DELETE' });
             const data = await response.json();
             if (data.error) throw new Error(data.error);
             await fetchSessions();
+            notify.success('Session supprimée.');
         } catch (error: any) {
-            alert(error.message);
+            notify.error(error.message);
         }
     };
 
@@ -316,7 +335,7 @@ export default function SessionsAdminPage() {
             setManifestStudents(data);
         } catch (error) {
             console.error('Error fetching manifest:', error);
-            alert('Impossible de charger la liste des étudiants.');
+            notify.error('Impossible de charger la liste des étudiants.');
         } finally {
             setLoadingManifest(false);
         }
@@ -331,7 +350,7 @@ export default function SessionsAdminPage() {
             setAllStudents(data);
         } catch (error) {
             console.error('Error fetching students:', error);
-            alert('Impossible de charger la liste des étudiants.');
+            notify.error('Impossible de charger la liste des étudiants.');
         } finally {
             setLoadingStudents(false);
         }
@@ -344,6 +363,7 @@ export default function SessionsAdminPage() {
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         setManifestStudents(data);
+        return data as any[];
     };
 
     const resetNewStudentForm = () => {
@@ -378,8 +398,9 @@ export default function SessionsAdminPage() {
 
             await Promise.all([refreshManifest(), fetchSessions()]);
             setStudentSearchQuery('');
+            notify.success('Étudiant ajouté à la session.');
         } catch (error: any) {
-            alert(error.message);
+            notify.error(error.message);
         } finally {
             setEnrollingStudentId(null);
         }
@@ -391,7 +412,7 @@ export default function SessionsAdminPage() {
 
         const amountPaid = Number(newStudentForm.amountPaid);
         if (!Number.isFinite(amountPaid) || amountPaid < 0) {
-            alert('Le montant payé doit être zéro ou plus.');
+            notify.error('Le montant payé doit être zéro ou plus.');
             return;
         }
 
@@ -417,8 +438,9 @@ export default function SessionsAdminPage() {
 
             await Promise.all([refreshManifest(), fetchSessions(), fetchAllStudents()]);
             closeStudentPicker();
+            notify.success('Étudiant créé et inscrit à la session.');
         } catch (error: unknown) {
-            alert(error instanceof Error ? error.message : 'Impossible de créer cet étudiant.');
+            notify.error(error instanceof Error ? error.message : 'Impossible de créer cet étudiant.');
         } finally {
             setCreatingStudent(false);
         }
@@ -426,7 +448,17 @@ export default function SessionsAdminPage() {
 
     const handleRemoveStudent = async (student: any) => {
         if (!selectedSessionId) return;
-        if (!confirm(`Retirer ${student.full_name} de cette session ? Son compte étudiant ne sera pas supprimé.`)) return;
+        const force = Boolean(student.has_financial_history);
+        if (force && isProfessor) return;
+        const confirmed = await confirmDialog({
+            title: `Retirer ${student.full_name} ?`,
+            message: force
+                ? 'Son compte étudiant ne sera pas supprimé. Attention : cette inscription contient un paiement ou un justificatif. Ces données de paiement seront définitivement supprimées.'
+                : 'Son compte étudiant ne sera pas supprimé.',
+            confirmLabel: 'Retirer de la session',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
 
         setRemovingStudentId(student.id);
         try {
@@ -435,15 +467,17 @@ export default function SessionsAdminPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: student.id,
-                    sessionId: selectedSessionId
+                    sessionId: selectedSessionId,
+                    force
                 })
             });
             const data = await response.json();
             if (!response.ok || data.error) throw new Error(data.error || 'Impossible de retirer cet étudiant.');
 
             await Promise.all([refreshManifest(), fetchSessions()]);
+            notify.success(`${student.full_name} a été retiré de la session.`);
         } catch (error: any) {
-            alert(error.message);
+            notify.error(error.message);
         } finally {
             setRemovingStudentId(null);
         }
@@ -466,15 +500,15 @@ export default function SessionsAdminPage() {
         const remaining = Math.max(totalPrice - alreadyPaid, 0);
 
         if (!Number.isFinite(amount) || amount <= 0) {
-            alert('Saisissez un montant supérieur à 0 DT.');
+            notify.error('Saisissez un montant supérieur à 0 DT.');
             return;
         }
         if (totalPrice > 0 && amount > remaining) {
-            alert(`Le montant dépasse le reste à payer (${remaining.toLocaleString('fr-FR')} DT).`);
+            notify.error(`Le montant dépasse le reste à payer (${remaining.toLocaleString('fr-FR')} DT).`);
             return;
         }
         if (paymentReceipt && paymentReceipt.size > 10 * 1024 * 1024) {
-            alert('Le reçu ne doit pas dépasser 10 Mo.');
+            notify.error('Le reçu ne doit pas dépasser 10 Mo.');
             return;
         }
 
@@ -517,16 +551,123 @@ export default function SessionsAdminPage() {
             }
 
             closePaymentModal();
+            notify.success(`Paiement de ${formatDT(amount)} enregistré.`);
             try {
                 await Promise.all([refreshManifest(), fetchSessions()]);
             } catch (refreshError) {
                 console.error('Payment saved but refresh failed:', refreshError);
-                alert('Le paiement est enregistré. Rechargez la page pour actualiser les montants.');
+                notify.warning('Le paiement est enregistré. Rechargez la page pour actualiser les montants.');
             }
         } catch (error) {
-            alert(error instanceof Error ? error.message : 'Impossible d’enregistrer le paiement.');
+            notify.error(error instanceof Error ? error.message : 'Impossible d’enregistrer le paiement.');
         } finally {
             setSavingPayment(false);
+        }
+    };
+
+    const openDiscountModal = (student: any) => {
+        const catalog = Number(student.catalog_price || 0);
+        const total = Number(student.total_price || 0);
+        setDiscountValue(catalog > total ? String(catalog - total) : '');
+        setDiscountStudent(student);
+    };
+
+    const handleSaveDiscount = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!discountStudent || !selectedSessionId) return;
+
+        const discount = discountValue.trim() === '' ? 0 : Number(discountValue);
+        const catalog = Number(discountStudent.catalog_price || 0);
+        const paid = Number(discountStudent.amount_paid || 0);
+        if (!Number.isFinite(discount) || discount < 0) {
+            notify.error('La remise doit être un nombre positif ou zéro.');
+            return;
+        }
+        if (discount > catalog) {
+            notify.error(`La remise ne peut pas dépasser le prix de la formation (${formatDT(catalog)}).`);
+            return;
+        }
+        if (catalog - discount < paid) {
+            notify.error(`L’étudiant a déjà payé ${formatDT(paid)} : le nouveau prix ne peut pas être inférieur.`);
+            return;
+        }
+
+        setSavingDiscount(true);
+        try {
+            const response = await fetch('/api/admin/enrollments', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: discountStudent.id, sessionId: selectedSessionId, discount }),
+            });
+            const result = await response.json();
+            if (!response.ok || result.error) throw new Error(result.error || 'Impossible d’appliquer la remise.');
+
+            notify.success(
+                discount > 0
+                    ? `Remise de ${formatDT(discount)} appliquée : ${discountStudent.full_name} paiera ${formatDT(catalog - discount)}.`
+                    : `Prix rétabli à ${formatDT(catalog)} pour ${discountStudent.full_name}.`
+            );
+            setDiscountStudent(null);
+            await refreshManifest();
+        } catch (error) {
+            notify.error(error instanceof Error ? error.message : 'Impossible d’appliquer la remise.');
+        } finally {
+            setSavingDiscount(false);
+        }
+    };
+
+    const closeHistoryModal = () => {
+        setHistoryStudent(null);
+        setEditingPaymentIndex(null);
+        setEditingPaymentAmount('');
+    };
+
+    const handleCorrectPayment = async (payment: any, remove = false) => {
+        if (!historyStudent || !selectedSessionId) return;
+
+        const amount = Number(editingPaymentAmount);
+        if (!remove && (!Number.isFinite(amount) || amount <= 0)) {
+            notify.error('Saisissez un montant supérieur à 0 DT.');
+            return;
+        }
+        if (remove) {
+            const confirmed = await confirmDialog({
+                title: 'Supprimer ce paiement ?',
+                message: `Le paiement de ${formatDT(payment.amount)} sera retiré de l’historique et du total payé de ${historyStudent.full_name}.`,
+                confirmLabel: 'Supprimer le paiement',
+                tone: 'danger',
+            });
+            if (!confirmed) return;
+        }
+
+        setSavingPaymentIndex(payment.index);
+        try {
+            const response = await fetch('/api/admin/payments', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: historyStudent.id,
+                    sessionId: selectedSessionId,
+                    index: payment.index,
+                    amount,
+                    remove,
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok || result.error) throw new Error(result.error || 'Impossible de modifier le paiement.');
+
+            notify.success(remove
+                ? `Paiement de ${formatDT(payment.amount)} supprimé.`
+                : `Paiement corrigé : ${formatDT(payment.amount)} → ${formatDT(amount)}.`);
+            setEditingPaymentIndex(null);
+            setEditingPaymentAmount('');
+            const students = await refreshManifest();
+            setHistoryStudent(students?.find(student => student.id === historyStudent.id) || null);
+            fetchSessions();
+        } catch (error) {
+            notify.error(error instanceof Error ? error.message : 'Impossible de modifier le paiement.');
+        } finally {
+            setSavingPaymentIndex(null);
         }
     };
 
@@ -645,32 +786,64 @@ export default function SessionsAdminPage() {
     };
 
     const renderStudentRemoveButton = (student: any, extraClassName = '', compact = false) => {
-        const label = student.has_financial_history
+        const locked = student.has_financial_history && isProfessor;
+        const label = locked
             ? 'Suppression impossible : cette inscription contient un paiement ou un justificatif.'
-            : 'Retirer de la session';
+            : student.has_financial_history
+                ? 'Retirer de la session (paiement lié)'
+                : 'Retirer de la session';
         return (
             <button
                 type="button"
                 onClick={() => handleRemoveStudent(student)}
-                disabled={removingStudentId === student.id || student.has_financial_history}
+                disabled={removingStudentId === student.id || locked}
                 aria-label={label}
                 title={label}
                 className={cn(
-                    buttonClass(compact ? 'ghost' : 'secondary', compact ? 'md' : 'sm'),
-                    compact && 'w-10 px-0',
-                    student.has_financial_history
-                        ? 'text-slate-400'
-                        : 'text-rose-600 hover:bg-rose-50 hover:text-rose-700',
+                    buttonClass(locked ? 'secondary' : 'danger', 'md'),
+                    compact && 'h-10 w-10 px-0',
+                    locked && 'text-slate-400',
                     extraClassName
                 )}
             >
                 {removingStudentId === student.id
-                    ? <Loader2 size={16} className="animate-spin" />
-                    : student.has_financial_history
-                        ? <Lock size={16} />
-                        : <Trash2 size={16} />}
-                {!compact && (student.has_financial_history ? 'Paiement lié' : 'Retirer')}
+                    ? <Loader2 size={20} className="animate-spin" />
+                    : locked
+                        ? <Lock size={20} />
+                        : <Trash2 size={20} />}
+                {!compact && (locked ? 'Paiement lié' : 'Retirer')}
             </button>
+        );
+    };
+
+    const renderStudentFinanceActions = (student: any, fullWidth = false) => {
+        if (isProfessor) return null;
+        const catalog = Number(student.catalog_price || 0);
+        const total = Number(student.total_price || 0);
+        const discount = catalog > total ? catalog - total : 0;
+        const paymentsCount = (student.payments || []).length;
+        return (
+            <>
+                <button
+                    type="button"
+                    onClick={() => openDiscountModal(student)}
+                    title={discount > 0 ? `Remise actuelle : ${formatDT(discount)}` : 'Appliquer une remise pour cet étudiant'}
+                    className={cn(buttonClass('secondary', 'md'), discount > 0 && 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100', fullWidth && 'w-full')}
+                >
+                    <Percent size={16} />
+                    {discount > 0 ? `-${formatDT(discount)}` : 'Remise'}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => { setEditingPaymentIndex(null); setHistoryStudent(student); }}
+                    disabled={paymentsCount === 0}
+                    title={paymentsCount === 0 ? 'Aucun paiement à modifier' : 'Modifier ou supprimer un paiement'}
+                    className={cn(buttonClass('secondary', 'md'), fullWidth && 'w-full')}
+                >
+                    <Pencil size={16} />
+                    Modifier
+                </button>
+            </>
         );
     };
 
@@ -1281,6 +1454,9 @@ export default function SessionsAdminPage() {
                                                     </div>
                                                     <div className="mt-3 flex flex-col gap-2">
                                                         {!isProfessor && renderStudentPaymentButton(student, 'w-full')}
+                                                        {!isProfessor && (
+                                                            <div className="grid grid-cols-2 gap-2">{renderStudentFinanceActions(student, true)}</div>
+                                                        )}
                                                         {renderStudentRemoveButton(student, 'w-full')}
                                                     </div>
                                                 </div>
@@ -1331,7 +1507,10 @@ export default function SessionsAdminPage() {
                                                             <td className={table.td}>{renderStudentPaymentButton(student)}</td>
                                                         )}
                                                         <td className={cn(table.td, 'text-right')}>
-                                                            {renderStudentRemoveButton(student, '', true)}
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                {renderStudentFinanceActions(student)}
+                                                                {renderStudentRemoveButton(student, '', true)}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -1484,6 +1663,163 @@ export default function SessionsAdminPage() {
                     </Modal>
                 );
             })()}
+
+            {/* DISCOUNT MODAL - ADMIN ONLY */}
+            {(() => {
+                const catalog = Number(discountStudent?.catalog_price || 0);
+                const paid = Number(discountStudent?.amount_paid || 0);
+                const discount = discountValue.trim() === '' ? 0 : Number(discountValue);
+                const newPrice = Number.isFinite(discount) ? Math.max(catalog - discount, 0) : catalog;
+                return (
+                    <Modal
+                        open={Boolean(discountStudent) && !isProfessor}
+                        onClose={() => { if (!savingDiscount) setDiscountStudent(null); }}
+                        title="Remise sur la formation"
+                        description={discountStudent ? <>{discountStudent.full_name} · {selectedSessionLabel}</> : undefined}
+                        size="sm"
+                        footer={
+                            <>
+                                <Button variant="secondary" onClick={() => setDiscountStudent(null)}>Annuler</Button>
+                                <Button type="submit" form="session-discount-form" variant="primary" icon={Check} loading={savingDiscount}>
+                                    Appliquer
+                                </Button>
+                            </>
+                        }
+                    >
+                        <form id="session-discount-form" onSubmit={handleSaveDiscount} className="space-y-5">
+                            <Field
+                                label="Montant de la remise"
+                                htmlFor="session-discount-amount"
+                                hint="Laissez vide ou 0 pour revenir au prix normal. La remise ne concerne que cet étudiant."
+                            >
+                                <div className="relative">
+                                    <input
+                                        id="session-discount-amount"
+                                        autoFocus
+                                        type="number"
+                                        min="0"
+                                        step="0.001"
+                                        max={catalog || undefined}
+                                        value={discountValue}
+                                        onChange={(event) => setDiscountValue(event.target.value)}
+                                        placeholder="Exemple : 200"
+                                        className={`${inputClass} pr-12 tabular-nums`}
+                                    />
+                                    {dtSuffix}
+                                </div>
+                            </Field>
+                            <dl className="grid grid-cols-3 gap-2 rounded-lg border border-slate-200 p-4">
+                                <div>
+                                    <dt className="text-xs text-slate-500">Prix formation</dt>
+                                    <dd className="mt-0.5 text-sm font-semibold text-slate-500 tabular-nums">{formatDT(catalog)}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-xs text-slate-500">Nouveau prix</dt>
+                                    <dd className={cn('mt-0.5 text-sm font-semibold tabular-nums', newPrice < paid ? 'text-rose-600' : 'text-slate-900')}>{formatDT(newPrice)}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-xs text-slate-500">Déjà payé</dt>
+                                    <dd className="mt-0.5 text-sm font-semibold text-emerald-700 tabular-nums">{formatDT(paid)}</dd>
+                                </div>
+                            </dl>
+                        </form>
+                    </Modal>
+                );
+            })()}
+
+            {/* PAYMENT CORRECTION MODAL - ADMIN ONLY */}
+            <Modal
+                open={Boolean(historyStudent) && !isProfessor}
+                onClose={() => { if (savingPaymentIndex === null) closeHistoryModal(); }}
+                title="Modifier les paiements"
+                description={historyStudent ? <>{historyStudent.full_name} · {formatDT(historyStudent.amount_paid)} / {formatDT(historyStudent.total_price)}</> : undefined}
+                size="md"
+                footer={<Button variant="secondary" onClick={closeHistoryModal}>Fermer</Button>}
+            >
+                {(historyStudent?.payments || []).length === 0 ? (
+                    <EmptyState icon={Receipt} title="Aucun paiement enregistré" />
+                ) : (
+                    <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                        {(historyStudent?.payments || []).map((payment: any) => {
+                            const editable = payment.status === 'approved';
+                            const isEditing = editingPaymentIndex === payment.index;
+                            const isSaving = savingPaymentIndex === payment.index;
+                            return (
+                                <li key={payment.index} className="p-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-slate-900 tabular-nums">
+                                                {formatDT(payment.amount)}
+                                                {payment.original_amount !== undefined && Number(payment.original_amount) !== Number(payment.amount) && (
+                                                    <span className="ml-2 text-xs font-normal text-slate-400 line-through">{formatDT(payment.original_amount)}</span>
+                                                )}
+                                            </p>
+                                            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
+                                                <span className="tabular-nums">{payment.date ? new Date(payment.date).toLocaleDateString('fr-FR') : '—'}</span>
+                                                {payment.status !== 'approved' && (
+                                                    <Badge tone={payment.status === 'rejected' ? 'danger' : 'warning'}>
+                                                        {payment.status === 'rejected' ? 'Refusé' : 'En attente'}
+                                                    </Badge>
+                                                )}
+                                                {payment.url && (
+                                                    <a href={payment.url} target="_blank" rel="noreferrer" className="font-medium text-brand-blue hover:underline">Voir le reçu</a>
+                                                )}
+                                            </p>
+                                        </div>
+                                        {editable && !isEditing && (
+                                            <div className="flex shrink-0 items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    icon={Pencil}
+                                                    disabled={savingPaymentIndex !== null}
+                                                    onClick={() => { setEditingPaymentIndex(payment.index); setEditingPaymentAmount(String(payment.amount)); }}
+                                                >
+                                                    Corriger
+                                                </Button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCorrectPayment(payment, true)}
+                                                    disabled={savingPaymentIndex !== null}
+                                                    aria-label="Supprimer ce paiement"
+                                                    title="Supprimer ce paiement"
+                                                    className={cn(buttonClass('danger', 'sm'), 'w-8 px-0')}
+                                                >
+                                                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {isEditing && (
+                                        <form
+                                            onSubmit={(event) => { event.preventDefault(); handleCorrectPayment(payment); }}
+                                            className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center"
+                                        >
+                                            <div className="relative flex-1">
+                                                <input
+                                                    autoFocus
+                                                    required
+                                                    type="number"
+                                                    min="0.001"
+                                                    step="0.001"
+                                                    value={editingPaymentAmount}
+                                                    onChange={(event) => setEditingPaymentAmount(event.target.value)}
+                                                    aria-label="Montant corrigé"
+                                                    className={`${inputClass} pr-12 tabular-nums`}
+                                                />
+                                                {dtSuffix}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button size="sm" onClick={() => setEditingPaymentIndex(null)} disabled={isSaving}>Annuler</Button>
+                                                <Button size="sm" type="submit" variant="primary" icon={Check} loading={isSaving}>Enregistrer</Button>
+                                            </div>
+                                        </form>
+                                    )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </Modal>
 
             {/* STUDENT PICKER MODAL */}
             <Modal

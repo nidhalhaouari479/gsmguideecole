@@ -23,6 +23,7 @@ export async function POST(req: Request) {
             .select('id')
             .eq('user_id', user.id)
             .eq('session_id', sessionId)
+            .limit(1)
             .maybeSingle();
 
         if (existingError) throw existingError;
@@ -95,6 +96,12 @@ export async function POST(req: Request) {
             .select('id')
             .single();
 
+        if (enrollError?.code === '23505') {
+            return NextResponse.json(
+                { error: 'Vous avez déjà réservé une place dans cette session.' },
+                { status: 409 }
+            );
+        }
         if (enrollError) throw enrollError;
 
         const studentName = user.user_metadata?.full_name || user.email || 'Un étudiant';

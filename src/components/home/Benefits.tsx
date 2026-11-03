@@ -5,6 +5,8 @@ import { useLanguage } from '@/context/LanguageContext';
 import { CheckCircle2, Award, Microscope, Briefcase, VolumeX, Volume2, X, PlayCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const tileColors = ['bg-brand-green', 'bg-brand-blue', 'bg-violet-500', 'bg-amber-500'];
+
 const BenefitCard = ({ benefit, index }: { benefit: any, index: number }) => {
     const [showVideo, setShowVideo] = useState(false);
     const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -28,7 +30,7 @@ const BenefitCard = ({ benefit, index }: { benefit: any, index: number }) => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: Math.min(index * 0.03, 0.12), duration: 0.3 }}
-            className={`premium-card relative overflow-hidden min-h-[220px] md:min-h-[280px] flex flex-col ${showVideo ? 'p-0' : 'p-5 md:p-6'} cursor-pointer group hover:border-brand-blue/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue`}
+            className={`site-card group relative flex min-h-[240px] flex-col overflow-hidden md:min-h-[290px] ${showVideo ? 'p-0' : 'site-card-hover cursor-pointer p-6'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2`}
             onClick={() => !showVideo && setShowVideo(true)}
             role={showVideo ? undefined : 'button'}
             tabIndex={showVideo ? undefined : 0}
@@ -42,15 +44,17 @@ const BenefitCard = ({ benefit, index }: { benefit: any, index: number }) => {
         >
             {!showVideo ? (
                 <>
-                    <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green/15">{benefit.icon}</div>
-                    <h3 className="mb-2 text-lg font-bold text-slate-900">{benefit.title}</h3>
+                    <div className={`site-icon-tile mb-5 ${tileColors[index % tileColors.length]}`}>{benefit.icon}</div>
+                    <h3 className="mb-2 text-lg font-bold tracking-tight text-slate-900">{benefit.title}</h3>
                     <p className="text-sm leading-relaxed text-slate-600">
                         {benefit.desc}
                     </p>
-                    <span className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-bold text-brand-blue">
-                        <PlayCircle size={18} /> Voir la vidéo
-                    </span>
-                    <div className="absolute inset-x-0 bottom-0 h-1 bg-brand-green scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+                    <div className="mt-auto pt-5">
+                        <span className="inline-flex items-center gap-2 rounded-full bg-brand-soft px-3 py-1.5 text-sm font-bold text-brand-blue transition-colors duration-200 group-hover:bg-brand-blue group-hover:text-[#fff]">
+                            <PlayCircle size={16} aria-hidden="true" /> Voir la vidéo
+                        </span>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 h-1 origin-left scale-x-0 bg-brand-green transition-transform duration-300 group-hover:scale-x-100 motion-reduce:transition-none" aria-hidden="true" />
                 </>
             ) : (
                 <div 
@@ -59,11 +63,11 @@ const BenefitCard = ({ benefit, index }: { benefit: any, index: number }) => {
                 >
                      <button 
                         onClick={(e) => { e.stopPropagation(); setShowVideo(false); setIsMuted(true); }}
-                        className="absolute top-3 right-3 z-50 w-10 h-10 rounded-full bg-black/60 text-[#fff] flex items-center justify-center hover:bg-black/80 border border-[#ffffff33] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fff]"
+                        className="absolute top-3 right-3 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-[#ffffff33] bg-black/60 text-[#fff] backdrop-blur-sm transition-colors duration-200 hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fff]"
                         aria-label="Fermer la vidéo"
                         title="Fermer la vidéo"
                      >
-                        <X size={18} />
+                        <X size={18} aria-hidden="true" />
                      </button>
                     
                      <iframe
@@ -81,8 +85,8 @@ const BenefitCard = ({ benefit, index }: { benefit: any, index: number }) => {
                     <div className="absolute inset-0 z-30 pointer-events-none" />
 
                     <div className="absolute bottom-4 right-4 z-30 pointer-events-none">
-                        <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-[#ffffff33] flex items-center justify-center text-[#fff] transition-colors duration-300 group-hover:bg-black/70" title={isMuted ? 'Touchez pour activer le son' : 'Touchez pour couper le son'}>
-                            {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                        <div className="flex h-10 w-10 items-center rounded-full bg-black/50 backdrop-blur-sm border border-[#ffffff33] justify-center text-[#fff] transition-colors duration-300 group-hover:bg-black/70" title={isMuted ? 'Touchez pour activer le son' : 'Touchez pour couper le son'}>
+                            {isMuted ? <VolumeX size={18} aria-hidden="true" /> : <Volume2 size={18} aria-hidden="true" />}
                         </div>
                     </div>
                 </div>
@@ -98,41 +102,44 @@ const Benefits = () => {
         {
             title: t.benefits.practical,
             desc: t.benefits.practicalDesc,
-            icon: <CheckCircle2 className="text-slate-900" size={24} />,
+            icon: <CheckCircle2 className="text-[#fff]" size={22} aria-hidden="true" />,
             videoId: 'tGcxQn0x7Es'
         },
         {
             title: t.benefits.certified,
             desc: t.benefits.certifiedDesc,
-            icon: <Award className="text-slate-900" size={24} />,
+            icon: <Award className="text-[#fff]" size={22} aria-hidden="true" />,
             videoId: 'z5CHxszlr7s'
         },
         {
             title: t.benefits.lab,
             desc: t.benefits.labDesc,
-            icon: <Microscope className="text-slate-900" size={24} />,
+            icon: <Microscope className="text-[#fff]" size={22} aria-hidden="true" />,
             videoId: 'G7Npbz5_nrQ'
         },
         {
             title: t.benefits.career,
             desc: t.benefits.careerDesc,
-            icon: <Briefcase className="text-slate-900" size={24} />,
+            icon: <Briefcase className="text-[#fff]" size={22} aria-hidden="true" />,
             videoId: 'KYz2dwz7RfA'
         },
     ];
 
     return (
-        <section className="py-16 md:py-24 bg-slate-50">
-            <div className="container mx-auto px-4 sm:px-6">
+        <section className="site-section bg-site-muted">
+            <div className="site-container">
                 <div className="mx-auto mb-10 max-w-2xl text-center md:mb-14">
-                    <p className="mb-3 text-xs font-bold uppercase tracking-wider text-brand-blue">Nos atouts</p>
-                    <h2 className="mb-4 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Pourquoi choisir GSM Guide Academy ?</h2>
-                    <p className="text-base leading-relaxed text-slate-600">
+                    <p className="site-eyebrow mb-4">
+                        <span className="h-1.5 w-1.5 rounded-full bg-brand-green" aria-hidden="true" />
+                        Nos atouts
+                    </p>
+                    <h2 className="site-title mb-4">Pourquoi choisir <span className="text-brand-blue">GSM Guide Academy</span> ?</h2>
+                    <p className="site-lead">
                         Nous offrons la formation en réparation de smartphones la plus complète d&apos;Afrique du Nord, alliant théorie et pratique intensive. Cliquez sur une carte pour découvrir en vidéo.
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
                     {benefits.map((benefit, index) => (
                         <BenefitCard key={index} benefit={benefit} index={index} />
                     ))}

@@ -42,6 +42,7 @@ export async function POST(req: Request) {
             .select('id')
             .eq('user_id', userId)
             .eq('session_id', sessionId)
+            .limit(1)
             .maybeSingle() : { data: null, error: null };
 
         if (existingError) throw existingError;
@@ -119,6 +120,9 @@ export async function POST(req: Request) {
             .select()
             .single();
 
+        if (enrollError?.code === '23505') {
+            return NextResponse.json({ error: 'Cet étudiant est déjà inscrit à cette session.' }, { status: 409 });
+        }
         if (enrollError) throw enrollError;
         enrollmentSaved = true;
 
@@ -158,7 +162,7 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
         }
 
-        const { userId, sessionId } = await req.json();
+        const { userId, sessionId, force = false } = await req.json();
         if (!userId || !sessionId) {
             return NextResponse.json({ error: 'Étudiant et session requis.' }, { status: 400 });
         }
@@ -169,20 +173,29 @@ export async function DELETE(req: Request) {
 
         const supabaseAdmin = createAdminClient();
 
-        const { data: enrollment, error: enrollmentError } = await supabaseAdmin
+        // Fetch every row (older data may contain duplicates for the same student/session).
+        const { data: enrollments, error: enrollmentError } = await supabaseAdmin
             .from('enrollments')
             .select('id, amount_paid, receipt_url')
             .eq('user_id', userId)
-            .eq('session_id', sessionId)
-            .maybeSingle();
+            .eq('session_id', sessionId);
 
         if (enrollmentError) throw enrollmentError;
-        if (!enrollment) {
+        if (!enrollments || enrollments.length === 0) {
             return NextResponse.json({ error: 'Cette inscription est introuvable.' }, { status: 404 });
         }
-        if (Number(enrollment.amount_paid || 0) > 0 || Boolean(enrollment.receipt_url)) {
+        const enrollment = enrollments[0];
+        const hasFinancialHistory = enrollments.some(
+            e => Number(e.amount_paid || 0) > 0 || Boolean(e.receipt_url)
+        );
+        if (hasFinancialHistory && (auth.role !== 'admin' || !force)) {
             return NextResponse.json(
-                { error: 'Impossible de retirer cet étudiant : son inscription contient déjà un paiement ou un justificatif.' },
+                {
+                    error: auth.role === 'admin'
+                        ? 'Cette inscription contient un paiement ou un justificatif. Confirmez la suppression forcée.'
+                        : 'Impossible de retirer cet étudiant : son inscription contient déjà un paiement ou un justificatif. Contactez un administrateur.',
+                    code: 'HAS_PAYMENT',
+                },
                 { status: 409 }
             );
         }
@@ -199,7 +212,7 @@ export async function DELETE(req: Request) {
         const { error: deleteError } = await supabaseAdmin
             .from('enrollments')
             .delete()
-            .eq('id', enrollment.id);
+            .in('id', enrollments.map(e => e.id));
 
         if (deleteError) throw deleteError;
 
@@ -233,6 +246,93 @@ export async function DELETE(req: Request) {
         console.error('Remove Enrollment Error:', error);
         return NextResponse.json(
             { error: error.message || 'Impossible de retirer cet étudiant de la session.' },
+            { status: 500 }
+        );
+    }
+}
+
+/** Per-student discount: the student's price becomes the catalogue price minus `discount`. */
+export async function PATCH(req: Request) {
+    try {
+        const auth = await verifyStaff();
+        if ('error' in auth) {
+            return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+        if (auth.role !== 'admin') {
+            return NextResponse.json({ error: 'Action réservée aux administrateurs.' }, { status: 403 });
+        }
+
+        const { userId, sessionId, discount } = await req.json();
+        const discountAmount = Number(discount);
+        if (!userId || !sessionId) {
+            return NextResponse.json({ error: 'Étudiant et session requis.' }, { status: 400 });
+        }
+        if (!Number.isFinite(discountAmount) || discountAmount < 0 || discount === '' || discount === null) {
+            return NextResponse.json({ error: 'La remise doit être un nombre positif ou zéro.' }, { status: 400 });
+        }
+
+        const supabaseAdmin = createAdminClient();
+        const { data: session, error: sessionError } = await supabaseAdmin
+            .from('sessions')
+            .select('course_id')
+            .eq('id', sessionId)
+            .single();
+        if (sessionError || !session) {
+            return NextResponse.json({ error: 'Session introuvable.' }, { status: 404 });
+        }
+
+        const { data: course, error: courseError } = await supabaseAdmin
+            .from('courses')
+            .select('base_price, sold_price')
+            .eq('id', session.course_id)
+            .single();
+        if (courseError || !course) {
+            return NextResponse.json({ error: 'Formation introuvable.' }, { status: 404 });
+        }
+
+        const catalogPrice = Number(course.sold_price || course.base_price || 0);
+        if (discountAmount > catalogPrice) {
+            return NextResponse.json(
+                { error: `La remise ne peut pas dépasser le prix de la formation (${catalogPrice.toLocaleString('fr-FR')} DT).` },
+                { status: 400 }
+            );
+        }
+
+        const { data: enrollment, error: enrollmentError } = await supabaseAdmin
+            .from('enrollments')
+            .select('id, amount_paid')
+            .eq('user_id', userId)
+            .eq('session_id', sessionId)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+        if (enrollmentError) throw enrollmentError;
+        if (!enrollment) {
+            return NextResponse.json({ error: 'Cette inscription est introuvable.' }, { status: 404 });
+        }
+
+        const newPrice = catalogPrice - discountAmount;
+        const paid = Number(enrollment.amount_paid) || 0;
+        if (paid > newPrice) {
+            return NextResponse.json(
+                { error: `L’étudiant a déjà payé ${paid.toLocaleString('fr-FR')} DT : le nouveau prix (${newPrice.toLocaleString('fr-FR')} DT) ne peut pas être inférieur. Corrigez d’abord ses paiements.` },
+                { status: 400 }
+            );
+        }
+
+        const { data, error: updateError } = await supabaseAdmin
+            .from('enrollments')
+            .update({ total_price: newPrice })
+            .eq('id', enrollment.id)
+            .select('*')
+            .single();
+        if (updateError) throw updateError;
+
+        return NextResponse.json({ success: true, data });
+    } catch (error: unknown) {
+        console.error('Enrollment Discount Error:', error);
+        return NextResponse.json(
+            { error: error instanceof Error ? error.message : 'Impossible d’appliquer la remise.' },
             { status: 500 }
         );
     }

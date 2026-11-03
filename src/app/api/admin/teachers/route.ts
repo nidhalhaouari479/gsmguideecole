@@ -18,7 +18,7 @@ export async function GET() {
 
         if (error) throw error;
 
-        const { data: authUsersData, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+        const { data: authUsersData, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
         if (authUsersError) throw authUsersError;
 
         const teachersWithEmails = (professeurs || []).map(professeur => ({

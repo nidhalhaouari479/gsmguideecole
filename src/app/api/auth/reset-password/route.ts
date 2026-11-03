@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 
         // 3. Find profile by email and verify CIN
         // Look up user by email using auth.admin.listUsers
-        const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
         if (listError) {
             return NextResponse.json({ error: "Erreur serveur lors de la recherche du compte." }, { status: 500 });
         }

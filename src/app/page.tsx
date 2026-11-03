@@ -20,23 +20,30 @@ export default function Home() {
       <VideoReel />
 
       {/* About Section */}
-      <section id="about" className="scroll-mt-24 bg-white py-16 md:py-24">
-        <div className="container mx-auto px-4 sm:px-6">
+      <section id="about" className="site-section scroll-mt-24 bg-white">
+        <div className="site-container">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-brand-blue">À propos</p>
-            <h2 className="mb-5 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
-              Professionnalisme. Précision. Excellence.
+            <p className="site-eyebrow mb-4">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-green" aria-hidden="true" />
+              À propos
+            </p>
+            <h2 className="site-title mb-5">
+              Professionnalisme. Précision. <span className="text-brand-blue">Excellence.</span>
             </h2>
-            <p className="text-base leading-relaxed text-slate-600 md:text-lg">
+            <p className="site-lead">
               GSM Guide Academy est le premier centre de formation avancée en réparation de smartphones en Tunisie. Fondé par des vétérans de l&apos;industrie, nous comblons le fossé entre les réparations amateurs et l&apos;ingénierie professionnelle. Notre laboratoire est équipé des derniers outils de diagnostic et de micro-soudure.
             </p>
           </div>
 
-          <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3 md:mt-12">
-            {stats.map((stat) => (
-              <div key={stat.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
-                <p className="mb-1 text-4xl font-black tabular-nums text-brand-blue">{stat.value}</p>
-                <p className="text-sm font-semibold text-slate-700">{stat.label}</p>
+          <div className="mx-auto mt-10 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-3 md:mt-12 md:gap-5">
+            {stats.map((stat, index) => (
+              <div key={stat.label} className="site-card relative overflow-hidden p-6 text-center">
+                <span
+                  aria-hidden="true"
+                  className={`absolute inset-x-0 top-0 h-1 ${index === 0 ? 'bg-brand-green' : index === 1 ? 'bg-brand-blue' : 'bg-amber-500'}`}
+                />
+                <p className="mb-1.5 text-[40px] font-bold leading-none tracking-tight tabular-nums text-slate-900">{stat.value}</p>
+                <p className="text-sm font-medium text-slate-600">{stat.label}</p>
               </div>
             ))}
           </div>

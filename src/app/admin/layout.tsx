@@ -430,7 +430,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
 
     return (
-        <div className="admin-dashboard flex h-dvh overflow-hidden bg-shell text-slate-900">
+        <div className="admin-dashboard fixed inset-0 flex overflow-hidden bg-shell text-slate-900">
             <a
                 href="#admin-main"
                 className="sr-only rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-[var(--shadow-pop)] focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200] focus:outline-none focus:ring-2 focus:ring-focus/50"
@@ -577,7 +577,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             {/* Desktop sidebar */}
             <aside className={cn(
-                'hidden shrink-0 flex-col bg-shell transition-[width] duration-200 md:flex',
+                'hidden h-full shrink-0 flex-col bg-shell transition-[width] duration-200 md:flex',
                 isCollapsed ? 'w-[72px]' : 'w-[264px]'
             )}>
                 {renderSidebar(isCollapsed)}
@@ -622,11 +622,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         aria-label={unreadNotifications > 0 ? `Notifications (${unreadNotifications} non lues)` : 'Notifications'}
                                         aria-expanded={isNotifOpen}
                                         title="Notifications"
-                                        className={buttonClass('ghost', 'md', cn('relative w-9 px-0', isNotifOpen && 'bg-slate-100 text-slate-900'))}
+                                        className={buttonClass('ghost', 'md', cn('relative h-11 w-11 px-0', isNotifOpen && 'bg-slate-100 text-slate-900'))}
                                     >
-                                        <Bell size={18} aria-hidden="true" />
+                                        <Bell size={24} aria-hidden="true" />
                                         {unreadNotifications > 0 && (
-                                            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-[#fff] tabular-nums ring-2 ring-canvas">
+                                            <span className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[11px] font-semibold leading-none text-[#fff] tabular-nums ring-2 ring-canvas">
                                                 {unreadNotifications > 9 ? '9+' : unreadNotifications}
                                             </span>
                                         )}

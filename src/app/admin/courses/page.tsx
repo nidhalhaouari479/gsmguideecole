@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog, notify } from '@/components/FeedbackHost';
+
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -127,7 +129,13 @@ export default function CoursesAdminPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cette formation ?')) return;
+        const confirmed = await confirmDialog({
+            title: 'Supprimer cette formation ?',
+            message: 'Cette action est irréversible.',
+            confirmLabel: 'Supprimer',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
 
         try {
             const res = await fetch(`/api/admin/courses?id=${id}`, { method: 'DELETE' });
@@ -136,9 +144,10 @@ export default function CoursesAdminPage() {
 
             setCourses(courses.filter(c => c.id !== id));
             setActiveDropdown(null);
+            notify.success('Formation supprimée.');
         } catch (error) {
             console.error('Delete error:', error);
-            alert('Erreur lors de la suppression.');
+            notify.error('Erreur lors de la suppression.');
         }
     };
 
@@ -229,7 +238,7 @@ export default function CoursesAdminPage() {
             await fetchData();
             setIsModalOpen(false);
         } catch (error: any) {
-            alert(error.message || 'Une erreur est survenue.');
+            notify.error(error.message || 'Une erreur est survenue.');
         } finally {
             setIsSubmitting(false);
         }

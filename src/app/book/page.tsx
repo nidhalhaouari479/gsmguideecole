@@ -199,8 +199,8 @@ function BookingContent() {
 
     if (loading) {
         return (
-            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 bg-slate-50" role="status">
-                <Loader2 className="animate-spin text-brand-blue" size={36} />
+            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 bg-site-muted" role="status">
+                <Loader2 className="animate-spin text-brand-blue" size={36} aria-hidden="true" />
                 <p className="text-sm font-medium text-slate-600">Chargement de votre réservation...</p>
             </div>
         );
@@ -208,18 +208,18 @@ function BookingContent() {
 
     if (success) {
         return (
-            <div className="flex min-h-[70vh] items-center justify-center bg-slate-50 px-4 py-10">
+            <div className="flex min-h-[70vh] items-center justify-center bg-site-muted px-4 py-10">
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm md:p-10"
+                    className="site-card w-full max-w-md p-6 text-center md:p-10"
                     role="status"
                 >
-                    <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
-                        <CheckCircle size={36} className="text-emerald-600" />
+                    <div className="site-icon-tile mx-auto mb-6 h-16 w-16 rounded-2xl bg-emerald-500">
+                        <CheckCircle size={34} aria-hidden="true" />
                     </div>
-                    <h1 className="mb-3 text-2xl font-black text-slate-900">
+                    <h1 className="mb-3 text-2xl font-extrabold tracking-tight text-slate-900">
                         Demande envoyée !
                     </h1>
                     <p className="mb-8 text-sm leading-relaxed text-slate-600">
@@ -229,7 +229,7 @@ function BookingContent() {
                             ? "Votre réservation sans paiement est en attente de validation par l’administration. Le montant reçu est de 0 DT."
                             : "Votre reçu a bien été transmis. Nous allons vérifier votre paiement et vous recevrez une confirmation après sa validation."}
                     </p>
-                    <Link href={requestSubmitted ? "/formations" : "/dashboard"} className="flex h-12 w-full items-center justify-center rounded-xl bg-brand-green text-base font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2">
+                    <Link href={requestSubmitted ? "/formations" : "/dashboard"} className="site-btn-primary w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2">
                         {requestSubmitted ? 'Voir les formations' : 'Mon tableau de bord'}
                     </Link>
                 </motion.div>
@@ -239,42 +239,46 @@ function BookingContent() {
 
     if (!course) {
         return (
-            <div className="flex min-h-[60vh] flex-col items-center justify-center bg-slate-50 px-4 text-center">
-                <AlertCircle size={36} className="mb-3 text-[#cbd5e1]" />
-                <p className="font-bold text-slate-900">Formation introuvable.</p>
-                <Link href="/formations" className="mt-5 inline-flex h-10 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 hover:bg-slate-50">Voir les formations</Link>
+            <div className="flex min-h-[60vh] items-center justify-center bg-site-muted px-4 py-10">
+                <div className="site-card flex w-full max-w-md flex-col items-center p-8 text-center">
+                    <div className="site-icon-tile mb-4 bg-amber-500">
+                        <AlertCircle size={22} aria-hidden="true" />
+                    </div>
+                    <p className="text-lg font-bold text-slate-900">Formation introuvable.</p>
+                    <Link href="/formations" className="site-btn-secondary mt-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2">Voir les formations</Link>
+                </div>
             </div>
         );
     }
 
-    const fieldLabel = "mb-1.5 block text-sm font-semibold text-slate-900";
-    const fieldInput = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-green focus:outline-none focus:ring-2 focus:ring-brand-green/20";
+    const fieldLabel = "site-label";
+    const fieldInput = "site-input";
 
     if (sessions.length === 0) {
         return (
-            <div className="min-h-screen bg-slate-50 px-4 py-10 md:py-16">
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-10">
-                    <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green/15 text-slate-900"><Calendar size={24} /></div>
-                    <h2 className="text-2xl font-black text-slate-900">Demander une nouvelle session</h2>
+            <div className="min-h-screen bg-site-muted px-4 py-10 md:py-16">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="site-card mx-auto max-w-xl p-5 sm:p-8 md:p-10">
+                    <div className="site-icon-tile mb-5 bg-brand-blue"><Calendar size={22} aria-hidden="true" /></div>
+                    <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Demander une nouvelle session</h2>
                     <p className="mt-2 text-sm leading-relaxed text-slate-600">Aucune session n’est actuellement ouverte pour <strong className="text-slate-900">{course.title_fr}</strong>. Remplissez ce formulaire et notre équipe vous contactera.</p>
 
-                    <form onSubmit={handleSessionRequest} className="mt-8 space-y-5">
+                    <form onSubmit={handleSessionRequest} className="mt-8 space-y-4">
                         <div>
-                            <label htmlFor="req-type" className={fieldLabel}>Votre demande <span className="text-rose-600">*</span></label>
+                            <label htmlFor="req-type" className={fieldLabel}>Votre demande <span className="text-rose-500">*</span></label>
                             <select id="req-type" required value={requestForm.requestType} onChange={e => setRequestForm({ ...requestForm, requestType: e.target.value })} className={fieldInput}>
                                 <option value="create_session">Demander la création d’une session</option>
                                 <option value="next_session">M’enregistrer pour la prochaine session</option>
                             </select>
                         </div>
-                        <div className="grid gap-5 md:grid-cols-2">
-                            <div><label htmlFor="req-phone" className={fieldLabel}>Téléphone <span className="text-rose-600">*</span></label><input id="req-phone" required type="tel" autoComplete="tel" value={requestForm.phone} onChange={e => setRequestForm({ ...requestForm, phone: e.target.value })} placeholder="Ex. +216 20 000 000" className={fieldInput} /></div>
-                            <div><label htmlFor="req-avail" className={fieldLabel}>Disponibilité <span className="text-rose-600">*</span></label><input id="req-avail" required value={requestForm.availability} onChange={e => setRequestForm({ ...requestForm, availability: e.target.value })} placeholder="Ex. week-end, septembre" className={fieldInput} /></div>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div><label htmlFor="req-phone" className={fieldLabel}>Téléphone <span className="text-rose-500">*</span></label><input id="req-phone" required type="tel" autoComplete="tel" value={requestForm.phone} onChange={e => setRequestForm({ ...requestForm, phone: e.target.value })} placeholder="Ex. +216 20 000 000" className={fieldInput} /></div>
+                            <div><label htmlFor="req-avail" className={fieldLabel}>Disponibilité <span className="text-rose-500">*</span></label><input id="req-avail" required value={requestForm.availability} onChange={e => setRequestForm({ ...requestForm, availability: e.target.value })} placeholder="Ex. week-end, septembre" className={fieldInput} /></div>
                         </div>
-                        <div><label htmlFor="req-msg" className={fieldLabel}>Message <span className="font-normal text-slate-500">(optionnel)</span></label><textarea id="req-msg" rows={4} value={requestForm.message} onChange={e => setRequestForm({ ...requestForm, message: e.target.value })} placeholder="Précisez vos préférences..." className={`${fieldInput} h-auto resize-none py-3`} /></div>
-                        {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-800"><AlertCircle size={17} className="mt-0.5 shrink-0" />{error}</div>}
-                        <button disabled={submitting} type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-green text-base font-bold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">{submitting ? <Loader2 size={19} className="animate-spin" /> : <Send size={19} />}{submitting ? 'Envoi en cours...' : 'Envoyer ma demande'}</button>
+                        <div><label htmlFor="req-msg" className={fieldLabel}>Message <span className="font-normal text-slate-500">(optionnel)</span></label><textarea id="req-msg" rows={4} value={requestForm.message} onChange={e => setRequestForm({ ...requestForm, message: e.target.value })} placeholder="Précisez vos préférences..." className={`${fieldInput} min-h-28 resize-none py-3`} /></div>
+                        {error && <div role="alert" className="flex items-start gap-3 rounded-xl bg-rose-50 p-4 text-sm font-medium text-rose-800 ring-1 ring-rose-200"><AlertCircle size={18} className="mt-0.5 shrink-0 text-rose-600" aria-hidden="true" />{error}</div>}
+                        <button disabled={submitting} type="submit" className="site-btn-primary w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2">{submitting ? <Loader2 size={19} className="animate-spin" aria-hidden="true" /> : <Send size={19} aria-hidden="true" />}{submitting ? 'Envoi en cours...' : 'Envoyer ma demande'}</button>
                     </form>
-                    <Link href="/formations" className="mt-5 flex h-10 items-center justify-center text-sm font-bold text-slate-600 hover:text-slate-900">Voir d’autres formations</Link>
+                    <Link href="/formations" className="mt-4 flex min-h-11 items-center justify-center rounded-xl text-sm font-semibold text-slate-600 transition-colors duration-150 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2">Voir d’autres formations</Link>
                 </motion.div>
             </div>
         );
@@ -310,40 +314,41 @@ function BookingContent() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 md:py-10">
-            <div className="mx-auto max-w-5xl">
-                <button onClick={() => router.back()} className="mb-5 inline-flex h-10 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue">
-                    <ArrowLeft size={18} /> Retour
+        <div className="min-h-screen bg-site-muted py-6 md:py-10">
+            <div className="site-container max-w-6xl">
+                <button onClick={() => router.back()} className="site-btn-secondary mb-6 min-h-11 px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2">
+                    <ArrowLeft size={18} aria-hidden="true" /> Retour
                 </button>
 
                 <div className="mb-6">
-                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-blue/20 bg-brand-blue/5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-brand-blue">
-                        <ShieldCheck size={14} /> Inscription sécurisée
+                    <div className="site-eyebrow mb-3">
+                        <span className="h-1.5 w-1.5 rounded-full bg-brand-green" aria-hidden="true" />
+                        <ShieldCheck size={14} aria-hidden="true" /> Inscription sécurisée
                     </div>
-                    <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
+                    <h1 className="site-title">
                         {language === 'fr' ? course.title_fr : course.title_en}
                     </h1>
                 </div>
 
                 {/* Stepper */}
-                <ol className="mb-6 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4" aria-label="Étapes de réservation">
+                <ol className="site-card mb-6 flex items-center gap-2 p-3 sm:gap-3 md:p-4" aria-label="Étapes de réservation">
                     {steps.map((label, i) => {
                         const n = i + 1;
                         const done = n < currentStep;
                         const active = n === currentStep;
                         return (
-                            <li key={label} className="flex min-w-0 flex-1 items-center gap-2" aria-current={active ? 'step' : undefined}>
-                                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-black tabular-nums ${done ? 'bg-emerald-600 text-[#fff]' : active ? 'bg-brand-green text-black' : 'bg-slate-100 text-slate-500'}`}>
-                                    {done ? <CheckCircle size={16} /> : n}
+                            <li key={label} className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5" aria-current={active ? 'step' : undefined}>
+                                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums transition-colors duration-200 ${done ? 'bg-brand-green-600 text-[#fff]' : active ? 'bg-[#fff] text-brand-blue ring-2 ring-brand-blue' : 'bg-slate-50 text-slate-500 ring-1 ring-slate-200'}`}>
+                                    {done ? <Check size={16} strokeWidth={3} aria-hidden="true" /> : n}
                                 </span>
-                                <span className={`truncate text-xs font-bold sm:text-sm ${active || done ? 'text-slate-900' : 'text-slate-500'}`}>{label}</span>
-                                {n < steps.length && <span className={`hidden h-0.5 flex-1 rounded-full sm:block ${done ? 'bg-emerald-600' : 'bg-slate-200'}`} />}
+                                <span className={`truncate text-xs font-semibold sm:text-sm ${active || done ? 'text-slate-900' : 'text-slate-500'}`}>{label}</span>
+                                {n < steps.length && <span className={`hidden h-0.5 flex-1 rounded-full sm:block ${done ? 'bg-brand-green-600' : 'bg-slate-200'}`} aria-hidden="true" />}
                             </li>
                         );
                     })}
                 </ol>
 
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -351,12 +356,12 @@ function BookingContent() {
                         className="space-y-6"
                     >
                         {/* Step 1 */}
-                        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6" aria-labelledby="step1-title">
-                            <h2 id="step1-title" className="mb-1 flex items-center gap-2 text-lg font-bold text-slate-900">
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0f172a] text-xs font-black text-[#fff]">1</span>
+                        <section className="site-card p-5 md:p-6" aria-labelledby="step1-title">
+                            <h2 id="step1-title" className="mb-1 flex items-center gap-2.5 text-lg font-bold text-slate-900">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-blue text-xs font-bold text-[#fff]" aria-hidden="true">1</span>
                                 Choisissez votre session
                             </h2>
-                            <p className="mb-4 text-sm text-slate-600">Sélectionnez les dates qui vous conviennent.</p>
+                            <p className="mb-5 text-sm text-slate-600">Sélectionnez les dates qui vous conviennent.</p>
                             <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-labelledby="step1-title">
                                 {sessions.map((s) => {
                                     const selected = selectedSessionId === s.id;
@@ -370,16 +375,16 @@ function BookingContent() {
                                             onClick={() => s.real_seats_available > 0 && setSelectedSessionId(s.id)}
                                             disabled={s.real_seats_available <= 0}
                                             title={full ? 'Session complète' : undefined}
-                                            className={`flex w-full items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-1 ${selected
-                                                ? 'border-brand-blue bg-brand-blue/5'
+                                            className={`flex w-full items-center justify-between gap-3 rounded-xl border p-4 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2 ${selected
+                                                ? 'border-transparent bg-brand-green-soft/40 ring-2 ring-brand-green-600'
                                                 : full
                                                     ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-70'
-                                                    : 'border-slate-200 bg-white hover:border-brand-blue/40'
+                                                    : 'border-slate-200 bg-[#fff] hover:border-slate-300 hover:bg-slate-50'
                                                 }`}
                                         >
                                             <div className="min-w-0">
                                                 <div className="mb-1 flex items-center gap-2">
-                                                    <Calendar size={16} className={selected ? 'text-brand-blue' : 'text-slate-500'} />
+                                                    <Calendar size={16} className={selected ? 'text-brand-green-700' : 'text-slate-500'} aria-hidden="true" />
                                                     <span className="font-bold tabular-nums text-slate-900">
                                                         {new Date(s.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })}
                                                         {' → '}
@@ -388,14 +393,14 @@ function BookingContent() {
                                                 </div>
                                                 <div className="ml-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
                                                     <span>Rythme : {formatSchedule(s.schedule)}</span>
-                                                    <span className="h-1 w-1 rounded-full bg-slate-300"></span>
-                                                    <span className={`font-bold ${full ? 'text-rose-700' : s.real_seats_available <= 5 ? 'text-amber-800' : 'text-emerald-700'}`}>
+                                                    <span className="h-1 w-1 rounded-full bg-slate-300" aria-hidden="true"></span>
+                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-bold tabular-nums ring-1 ${full ? 'bg-rose-50 text-rose-700 ring-rose-200' : s.real_seats_available <= 5 ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200'}`}>
                                                         {s.real_seats_available > 0 ? `${s.real_seats_available} places restantes` : 'Session complète'}
                                                     </span>
                                                 </div>
                                             </div>
-                                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? 'border-brand-blue bg-brand-blue' : 'border-slate-300'}`}>
-                                                {selected && <span className="h-2 w-2 rounded-full bg-[#fff]" />}
+                                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150 ${selected ? 'border-brand-green-600 bg-brand-green-600' : 'border-slate-300 bg-[#fff]'}`} aria-hidden="true">
+                                                {selected && <Check size={14} strokeWidth={3} className="text-[#fff]" />}
                                             </span>
                                         </button>
                                     );
@@ -404,10 +409,10 @@ function BookingContent() {
                         </section>
 
                         {/* Step 2 */}
-                        <form onSubmit={handleBooking} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6" aria-labelledby="step2-title">
+                        <form onSubmit={handleBooking} className="site-card space-y-5 p-5 md:p-6" aria-labelledby="step2-title">
                             <div>
-                                <h2 id="step2-title" className="mb-1 flex items-center gap-2 text-lg font-bold text-slate-900">
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0f172a] text-xs font-black text-[#fff]">2</span>
+                                <h2 id="step2-title" className="mb-1 flex items-center gap-2.5 text-lg font-bold text-slate-900">
+                                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-blue text-xs font-bold text-[#fff]" aria-hidden="true">2</span>
                                     Choisissez quand payer
                                 </h2>
                                 <p className="text-sm text-slate-600">Réservez gratuitement ou envoyez directement votre justificatif.</p>
@@ -422,15 +427,18 @@ function BookingContent() {
                                         setPaymentMode('later');
                                         setError(null);
                                     }}
-                                    className={`rounded-xl border-2 p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-1 ${paymentMode === 'later'
-                                        ? 'border-brand-green bg-brand-green/10'
-                                        : 'border-slate-200 hover:border-brand-green/50'
+                                    className={`rounded-xl border p-4 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2 ${paymentMode === 'later'
+                                        ? 'border-transparent bg-brand-green-soft/40 ring-2 ring-brand-green-600'
+                                        : 'border-slate-200 bg-[#fff] hover:border-slate-300 hover:bg-slate-50'
                                         }`}
                                 >
                                     <div className="mb-1.5 flex items-center justify-between gap-3">
-                                        <span className="font-bold text-slate-900">Réserver sans payer</span>
-                                        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMode === 'later' ? 'border-[#0f172a] bg-[#0f172a]' : 'border-slate-300'}`}>
-                                            {paymentMode === 'later' && <span className="h-2 w-2 rounded-full bg-[#fff]" />}
+                                        <span className="flex items-center gap-2 font-bold text-slate-900">
+                                            <Calendar size={16} className="text-brand-green-700" aria-hidden="true" />
+                                            Réserver sans payer
+                                        </span>
+                                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150 ${paymentMode === 'later' ? 'border-brand-green-600 bg-brand-green-600' : 'border-slate-300 bg-[#fff]'}`} aria-hidden="true">
+                                            {paymentMode === 'later' && <Check size={14} strokeWidth={3} className="text-[#fff]" />}
                                         </span>
                                     </div>
                                     <p className="text-xs leading-relaxed text-slate-600">
@@ -446,15 +454,18 @@ function BookingContent() {
                                         setPaymentMode('now');
                                         setError(null);
                                     }}
-                                    className={`rounded-xl border-2 p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-1 ${paymentMode === 'now'
-                                        ? 'border-brand-blue bg-brand-blue/5'
-                                        : 'border-slate-200 hover:border-brand-blue/40'
+                                    className={`rounded-xl border p-4 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2 ${paymentMode === 'now'
+                                        ? 'border-transparent bg-brand-green-soft/40 ring-2 ring-brand-green-600'
+                                        : 'border-slate-200 bg-[#fff] hover:border-slate-300 hover:bg-slate-50'
                                         }`}
                                 >
                                     <div className="mb-1.5 flex items-center justify-between gap-3">
-                                        <span className="font-bold text-slate-900">J’ai déjà payé</span>
-                                        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMode === 'now' ? 'border-brand-blue bg-brand-blue' : 'border-slate-300'}`}>
-                                            {paymentMode === 'now' && <span className="h-2 w-2 rounded-full bg-[#fff]" />}
+                                        <span className="flex items-center gap-2 font-bold text-slate-900">
+                                            <CreditCard size={16} className="text-brand-blue" aria-hidden="true" />
+                                            J’ai déjà payé
+                                        </span>
+                                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150 ${paymentMode === 'now' ? 'border-brand-green-600 bg-brand-green-600' : 'border-slate-300 bg-[#fff]'}`} aria-hidden="true">
+                                            {paymentMode === 'now' && <Check size={14} strokeWidth={3} className="text-[#fff]" />}
                                         </span>
                                     </div>
                                     <p className="text-xs leading-relaxed text-slate-600">
@@ -464,24 +475,29 @@ function BookingContent() {
                             </div>
 
                             {paymentMode === 'now' && (
-                                <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div className="space-y-5 rounded-xl bg-site-muted p-4 sm:p-5">
                                     {/* Bank details */}
-                                    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-                                        <div className="min-w-0">
-                                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Virement · Banque de Tunisie · RIB</p>
-                                            <p className="break-all font-mono text-base font-bold tabular-nums text-slate-900">{RIB}</p>
+                                    <div className="site-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 items-start gap-3">
+                                            <div className="site-icon-tile bg-brand-blue">
+                                                <CreditCard size={20} aria-hidden="true" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Virement · Banque de Tunisie · RIB</p>
+                                                <p className="mt-1 break-all rounded-lg bg-site-muted px-2.5 py-1.5 font-mono text-base font-bold tabular-nums text-slate-900 ring-1 ring-slate-200">{RIB}</p>
+                                            </div>
                                         </div>
                                         <button
                                             type="button"
                                             onClick={copyRib}
-                                            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                                            className="site-btn-secondary min-h-11 shrink-0 px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2"
                                             aria-live="polite"
                                         >
-                                            {ribCopied ? <><Check size={16} className="text-emerald-600" /> Copié</> : <><Copy size={16} /> Copier le RIB</>}
+                                            {ribCopied ? <><Check size={16} className="text-emerald-600" aria-hidden="true" /> Copié</> : <><Copy size={16} aria-hidden="true" /> Copier le RIB</>}
                                         </button>
                                     </div>
 
-                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="grid grid-cols-1 gap-5">
                                         <div>
                                             <label htmlFor="payment-amount" className={fieldLabel}>Montant versé (DT)</label>
                                             <div className="relative">
@@ -514,7 +530,7 @@ function BookingContent() {
 
                                         <div>
                                             <label htmlFor="receipt-file" className={fieldLabel}>Photo du reçu / PDF</label>
-                                            <div className={`relative flex h-11 items-center rounded-xl border-2 border-dashed px-3 transition focus-within:ring-2 focus-within:ring-brand-green/30 ${receiptFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-white hover:border-slate-400'}`}>
+                                            <div className={`relative flex min-h-32 flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-colors duration-200 focus-within:border-brand-green-600 focus-within:ring-4 focus-within:ring-brand-green/20 ${receiptFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-[#fff] hover:border-brand-green-600'}`}>
                                                 <input
                                                     id="receipt-file"
                                                     type="file"
@@ -522,12 +538,12 @@ function BookingContent() {
                                                     onChange={handleFileChange}
                                                     accept="image/*,.pdf"
                                                 />
-                                                <div className="flex min-w-0 items-center gap-2.5">
-                                                    {receiptFile ? <CheckCircle size={18} className="shrink-0 text-emerald-600" /> : <Upload size={18} className="shrink-0 text-slate-500" />}
-                                                    <span className={`truncate text-sm font-semibold ${receiptFile ? 'text-emerald-800' : 'text-slate-600'}`}>
-                                                        {receiptFile ? receiptFile.name : "Cliquez pour uploader"}
-                                                    </span>
+                                                <div className={`site-icon-tile mb-3 ${receiptFile ? 'bg-emerald-500' : 'bg-brand-green-600'}`}>
+                                                    {receiptFile ? <CheckCircle size={20} aria-hidden="true" /> : <Upload size={20} aria-hidden="true" />}
                                                 </div>
+                                                <span className={`block max-w-full truncate text-sm font-semibold ${receiptFile ? 'text-emerald-800' : 'text-slate-700'}`}>
+                                                    {receiptFile ? receiptFile.name : "Cliquez pour uploader"}
+                                                </span>
                                             </div>
                                             <p className="mt-1.5 text-xs text-slate-600">Image ou PDF du reçu de virement.</p>
                                         </div>
@@ -535,11 +551,11 @@ function BookingContent() {
                                 </div>
                             )}
 
-                            <div className={`flex items-start gap-3 rounded-xl border p-4 ${paymentMode === 'later'
-                                ? 'border-emerald-200 bg-emerald-50'
-                                : 'border-amber-200 bg-amber-50'
+                            <div className={`flex items-start gap-3 rounded-xl p-4 ring-1 ${paymentMode === 'later'
+                                ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
+                                : 'bg-amber-50 text-amber-800 ring-amber-200'
                                 }`}>
-                                <ShieldCheck size={20} className={`${paymentMode === 'later' ? 'text-emerald-700' : 'text-amber-700'} mt-0.5 shrink-0`} />
+                                <ShieldCheck size={20} className={`${paymentMode === 'later' ? 'text-emerald-700' : 'text-amber-700'} mt-0.5 shrink-0`} aria-hidden="true" />
                                 <div className="space-y-1">
                                     <p className={`text-sm font-bold ${paymentMode === 'later' ? 'text-emerald-900' : 'text-amber-900'}`}>
                                         {paymentMode === 'later' ? 'Réservation sans paiement' : 'Paiement avec justificatif'}
@@ -555,8 +571,8 @@ function BookingContent() {
                             </div>
 
                             {error && (
-                                <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-800">
-                                    <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                                <div role="alert" className="flex items-start gap-3 rounded-xl bg-rose-50 p-4 text-sm font-medium text-rose-800 ring-1 ring-rose-200">
+                                    <AlertCircle size={18} className="mt-0.5 shrink-0 text-rose-600" aria-hidden="true" />
                                     {error}
                                 </div>
                             )}
@@ -565,9 +581,9 @@ function BookingContent() {
                                 type="submit"
                                 disabled={submitting || !selectedSessionId}
                                 title={!selectedSessionId ? 'Aucune session disponible : choisissez une session ouverte' : undefined}
-                                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-green text-base font-bold text-black shadow-lg shadow-brand-green/20 transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+                                className="site-btn-primary w-full whitespace-normal text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-2"
                             >
-                                {submitting ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+                                {submitting ? <Loader2 className="animate-spin" size={20} aria-hidden="true" /> : <CheckCircle size={20} aria-hidden="true" />}
                                 {submitting
                                     ? "Traitement en cours..."
                                     : !selectedSessionId
@@ -582,11 +598,11 @@ function BookingContent() {
 
                     {/* Order summary */}
                     <aside className="lg:sticky lg:top-32">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-                            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-900">
-                                <CreditCard size={18} className="text-brand-blue" /> Récapitulatif
+                        <div className="site-card p-5 md:p-6">
+                            <h2 className="mb-4 flex items-center gap-3 text-lg font-bold text-slate-900">
+                                <span className="site-icon-tile h-9 w-9 rounded-xl bg-brand-blue"><CreditCard size={18} aria-hidden="true" /></span> Récapitulatif
                             </h2>
-                            <dl className="space-y-3 text-sm">
+                            <dl className="space-y-3 rounded-xl bg-site-muted p-4 text-sm">
                                 <div className="flex items-start justify-between gap-4">
                                     <dt className="text-slate-600">Formation</dt>
                                     <dd className="text-right font-semibold text-slate-900">{language === 'fr' ? course.title_fr : course.title_en}</dd>
@@ -606,17 +622,17 @@ function BookingContent() {
                                         {course.sold_price && <span className="ml-1.5 text-xs tabular-nums text-slate-500 line-through">{course.base_price} DT</span>}
                                     </dd>
                                 </div>
-                                <div className="flex items-start justify-between gap-4 border-t border-slate-200 pt-3">
+                                <div className="flex items-end justify-between gap-4 border-t border-slate-200 pt-3">
                                     <dt className="font-semibold text-slate-900">À payer aujourd’hui</dt>
-                                    <dd className="text-lg font-black tabular-nums text-slate-900">{fmt(dueToday)}</dd>
+                                    <dd className="text-2xl font-extrabold tracking-tight tabular-nums text-slate-900">{fmt(dueToday)}</dd>
                                 </div>
                                 <div className="flex items-start justify-between gap-4">
                                     <dt className="text-slate-600">Reste à payer ensuite</dt>
                                     <dd className="font-bold tabular-nums text-amber-800">{fmt(remainingAfter)}</dd>
                                 </div>
                             </dl>
-                            <div className="mt-5 flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
-                                <Tag size={14} className="mt-0.5 shrink-0 text-brand-blue" />
+                            <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-brand-soft p-3 text-xs leading-relaxed text-brand-blue-dark">
+                                <Tag size={14} className="mt-0.5 shrink-0 text-brand-blue" aria-hidden="true" />
                                 Paiement en plusieurs tranches possible depuis votre espace étudiant.
                             </div>
                         </div>
@@ -630,8 +646,8 @@ function BookingContent() {
 export default function BookPage() {
     return (
         <Suspense fallback={
-            <div className="flex min-h-[60vh] items-center justify-center bg-slate-50" role="status">
-                <Loader2 className="animate-spin text-brand-blue" size={36} />
+            <div className="flex min-h-[60vh] items-center justify-center bg-site-muted" role="status">
+                <Loader2 className="animate-spin text-brand-blue" size={36} aria-hidden="true" />
             </div>
         }>
             <BookingContent />
