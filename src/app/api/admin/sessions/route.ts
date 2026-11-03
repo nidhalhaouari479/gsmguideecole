@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { verifyAdmin, verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
-import { notifySessionStudents, notifyUserBySms } from '@/lib/winsms';
+import { notifySessionStudents, notifyUnenrolledStudentsOfNewSession, notifyUserBySms } from '@/lib/winsms';
 
 export async function GET() {
     try {
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { course_id, instructor_id, seats_available, seances, schedule: globalSchedule } = body;
+        const { course_id, instructor_id, seats_available, seances, schedule: globalSchedule, notifyUnenrolled = false } = body;
 
         if (!course_id || !seats_available || !seances || seances.length === 0) {
             return NextResponse.json({ error: 'Veuillez renseigner tous les champs obligatoires.' }, { status: 400 });
@@ -126,7 +126,20 @@ export async function POST(req: Request) {
             metadata: { sessionId: data.id, requestId: item.id },
         })));
 
-        return NextResponse.json({ success: true, data });
+        // Registered students with no formation yet: announce the new session.
+        // Sent after the response so creating the session never waits for dozens of SMS.
+        let smsRecipients = 0;
+        if (notifyUnenrolled === true) {
+            const alreadyNotified = (requests || []).map(item => item.user_id);
+            const recipients = await notifyUnenrolledStudentsOfNewSession.recipients(alreadyNotified);
+            smsRecipients = recipients.length;
+            after(() => notifyUnenrolledStudentsOfNewSession.send(recipients, {
+                sessionId: data.id,
+                message: `GSM Guide Academy: nouvelle session ${course?.title_fr || 'de formation'} dès le ${new Date(start_date).toLocaleDateString('fr-FR')}. Places limitées, réservez vite sur notre site.`,
+            }));
+        }
+
+        return NextResponse.json({ success: true, data, smsRecipients });
     } catch (error: any) {
         console.error('Create Session Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

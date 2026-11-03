@@ -193,3 +193,39 @@ export async function notifySessionStudents(options: {
         metadata: options.metadata,
     })));
 }
+
+/**
+ * Students who registered on the site but hold no pending or approved enrollment.
+ * `recipients` lists them (with a phone number); `send` texts them a few at a time.
+ */
+export const notifyUnenrolledStudentsOfNewSession = {
+    async recipients(excludeUserIds: string[] = []) {
+        const admin = createAdminClient();
+        const [{ data: students, error: studentsError }, { data: enrollments, error: enrollmentsError }] = await Promise.all([
+            admin.from('profiles').select('id, role, phone').not('phone', 'is', null),
+            admin.from('enrollments').select('user_id').in('status', ['pending', 'approved']),
+        ]);
+        if (studentsError) throw studentsError;
+        if (enrollmentsError) throw enrollmentsError;
+
+        const enrolled = new Set((enrollments || []).map(e => e.user_id));
+        const excluded = new Set(excludeUserIds);
+        return (students || [])
+            .filter(p => (!p.role || p.role === 'student') && String(p.phone).trim() !== '')
+            .filter(p => !enrolled.has(p.id) && !excluded.has(p.id))
+            .map(p => p.id as string);
+    },
+
+    async send(userIds: string[], options: { sessionId: string; message: string }) {
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+            await Promise.allSettled(userIds.slice(i, i + BATCH_SIZE).map(userId => notifyUserBySms({
+                userId,
+                eventType: 'new_session_unenrolled',
+                eventKey: `new-session-unenrolled:${options.sessionId}:${userId}`,
+                message: options.message,
+                metadata: { sessionId: options.sessionId },
+            })));
+        }
+    },
+};

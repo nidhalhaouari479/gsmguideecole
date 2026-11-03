@@ -133,6 +133,7 @@ export default function SessionsAdminPage() {
     const [currentStep, setCurrentStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+    const [notifyUnenrolled, setNotifyUnenrolled] = useState(true);
     const [formData, setFormData] = useState({
         course_id: '',
         instructor_id: '',
@@ -244,7 +245,11 @@ export default function SessionsAdminPage() {
         try {
             const url = '/api/admin/sessions';
             const method = editingSessionId ? 'PUT' : 'POST';
-            const payload = { ...formData, seats_available: parseInt(formData.seats_available, 10), ...(editingSessionId ? { id: editingSessionId } : {}) };
+            const payload = {
+                ...formData,
+                seats_available: parseInt(formData.seats_available, 10),
+                ...(editingSessionId ? { id: editingSessionId } : { notifyUnenrolled }),
+            };
 
             const response = await fetch(url, {
                 method: method,
@@ -254,7 +259,15 @@ export default function SessionsAdminPage() {
             const data = await response.json();
             if (data.error) throw new Error(data.error);
             await fetchSessions();
-            notify.success(editingSessionId ? 'Session mise à jour.' : 'Session créée.');
+            const smsCount = Number(data.smsRecipients) || 0;
+            notify.success(
+                editingSessionId
+                    ? 'Session mise à jour.'
+                    : smsCount > 0
+                        ? `Session créée. Envoi du SMS à ${smsCount} étudiant${smsCount > 1 ? 's' : ''} sans formation en cours.`
+                        : 'Session créée.'
+            );
+            setNotifyUnenrolled(true);
             setIsModalOpen(false);
             setCurrentStep(1);
             setEditingSessionId(null);
@@ -1336,6 +1349,22 @@ export default function SessionsAdminPage() {
                                     </div>
                                 </fieldset>
                             ))}
+                            {!editingSessionId && (
+                                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4 focus-within:ring-2 focus-within:ring-focus/40">
+                                    <input
+                                        type="checkbox"
+                                        checked={notifyUnenrolled}
+                                        onChange={(e) => setNotifyUnenrolled(e.target.checked)}
+                                        className="mt-0.5 h-4 w-4 shrink-0 accent-slate-900"
+                                    />
+                                    <span>
+                                        <span className="block text-sm font-medium text-slate-900">Prévenir par SMS les étudiants sans formation</span>
+                                        <span className="mt-0.5 block text-xs text-slate-500">
+                                            Un SMS annonce cette session à chaque étudiant inscrit sur le site qui n’a encore aucune formation (ni réservée ni validée).
+                                        </span>
+                                    </span>
+                                </label>
+                            )}
                         </div>
                     )}
                 </form>
