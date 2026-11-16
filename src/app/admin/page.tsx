@@ -15,6 +15,7 @@ import {
     ChevronRight,
     CheckCircle2,
     CirclePlay,
+    Eye,
     Download,
     Flag,
     Flame,
@@ -52,6 +53,7 @@ import {
     Card,
     EmptyState,
     IconButton,
+    Modal,
     Skeleton,
     table,
     cn,
@@ -272,6 +274,10 @@ export default function AdminDashboard() {
             const result = await response.json();
             if (!response.ok) throw new Error(result.error);
             setRequests(current => current.map(request => request.id === id ? { ...request, status } : request));
+            const label = status === 'processed' ? 'Demande traitée' : 'Demande refusée';
+            if (result.sms?.sent) notify.success(`${label}. SMS envoyé à l’étudiant.`);
+            else if (result.sms) notify.error(`${label}, mais le SMS n’a pas été envoyé : ${result.sms.message}`);
+            else notify.success(`${label}.`);
         } catch (error) {
             notify.error(error instanceof Error ? error.message : 'Impossible de mettre à jour la demande.');
         }
@@ -1004,34 +1010,120 @@ function ViewAll({ href }: { href: string }) {
     );
 }
 
-function RequestsCard({ requests, onUpdate }: { requests: SessionRequest[]; onUpdate: (id: string, status: 'processed' | 'rejected') => void }) {
+function RequestsCard({ requests, onUpdate }: { requests: SessionRequest[]; onUpdate: (id: string, status: 'processed' | 'rejected') => Promise<void> }) {
     const pending = requests.filter(request => request.status === 'pending').length;
+    const [viewingId, setViewingId] = useState<string | null>(null);
+    const [busy, setBusy] = useState<{ id: string; status: 'processed' | 'rejected' } | null>(null);
+    const viewing = requests.find(request => request.id === viewingId) || null;
+
+    const update = async (id: string, status: 'processed' | 'rejected') => {
+        if (busy) return;
+        setBusy({ id, status });
+        try {
+            await onUpdate(id, status);
+        } finally {
+            setBusy(null);
+        }
+    };
 
     const typeBadge = (request: SessionRequest) => (
         <Badge>{request.request_type === 'create_session' ? 'Créer une session' : 'Prochaine session'}</Badge>
     );
 
-    const actions = (request: SessionRequest) => request.status === 'pending' ? (
-        <div className="flex gap-1">
-            <IconButton
-                icon={CheckCircle2}
-                onClick={() => onUpdate(request.id, 'processed')}
-                title="Marquer comme traitée"
-                label={`Marquer la demande de ${request.full_name} comme traitée`}
-                className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-            />
-            <IconButton
+    const statusBadge = (request: SessionRequest) => request.status === 'pending'
+        ? <Badge tone="warning">En attente</Badge>
+        : <Badge tone={request.status === 'processed' ? 'success' : 'danger'}>{request.status === 'processed' ? 'Traitée' : 'Refusée'}</Badge>;
+
+    const decisionButtons = (request: SessionRequest) => (
+        <>
+            <Button
+                size="sm"
+                variant="danger"
                 icon={X}
-                onClick={() => onUpdate(request.id, 'rejected')}
-                title="Refuser"
-                label={`Refuser la demande de ${request.full_name}`}
-                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-            />
+                loading={busy?.id === request.id && busy.status === 'rejected'}
+                disabled={!!busy}
+                onClick={() => update(request.id, 'rejected')}
+                aria-label={`Refuser la demande de ${request.full_name}`}
+            >
+                Refuser
+            </Button>
+            <Button
+                size="sm"
+                variant="success"
+                icon={CheckCircle2}
+                loading={busy?.id === request.id && busy.status === 'processed'}
+                disabled={!!busy}
+                onClick={() => update(request.id, 'processed')}
+                title="Marque la demande comme traitée et envoie un SMS « session ouverte » à l’étudiant"
+                aria-label={`Marquer la demande de ${request.full_name} comme traitée`}
+            >
+                Traitée
+            </Button>
+        </>
+    );
+
+    const actions = (request: SessionRequest) => (
+        <div className="flex items-center gap-1.5">
+            <Button
+                size="sm"
+                variant="ghost"
+                icon={Eye}
+                onClick={() => setViewingId(request.id)}
+                aria-label={`Voir la demande de ${request.full_name}`}
+            >
+                Voir
+            </Button>
+            {request.status === 'pending' ? decisionButtons(request) : statusBadge(request)}
         </div>
-    ) : (
-        <Badge tone={request.status === 'processed' ? 'success' : 'danger'}>
-            {request.status === 'processed' ? 'Traitée' : 'Refusée'}
-        </Badge>
+    );
+
+    const detailRow = (label: string, value: React.ReactNode) => (
+        <div className="grid grid-cols-[120px_1fr] gap-3 py-2.5 text-sm">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="min-w-0 break-words text-slate-900">{value}</dd>
+        </div>
+    );
+
+    const detailsModal = (
+        <Modal
+            open={!!viewing}
+            onClose={() => setViewingId(null)}
+            title={viewing ? `Demande de ${viewing.full_name || 'l’étudiant'}` : 'Demande'}
+            description={viewing?.courses?.title_fr || undefined}
+            size="lg"
+            footer={viewing?.status === 'pending' ? (
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    {decisionButtons(viewing)}
+                </div>
+            ) : undefined}
+        >
+            {viewing && (
+                <div className="space-y-4">
+                    <dl className="divide-y divide-slate-100">
+                        {detailRow('Statut', statusBadge(viewing))}
+                        {detailRow('Demande', typeBadge(viewing))}
+                        {detailRow('Formation', viewing.courses?.title_fr || 'Formation')}
+                        {detailRow('Email', viewing.email
+                            ? <a href={`mailto:${viewing.email}`} className="text-brand-blue hover:underline">{viewing.email}</a>
+                            : <span className="text-slate-400">—</span>)}
+                        {detailRow('Téléphone', viewing.phone
+                            ? <a href={`tel:${viewing.phone}`} className="text-brand-blue hover:underline tabular-nums">{viewing.phone}</a>
+                            : <span className="text-slate-400">—</span>)}
+                        {detailRow('Disponibilité', viewing.availability || <span className="text-slate-400">—</span>)}
+                        {detailRow('Date', new Date(viewing.created_at).toLocaleString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}
+                    </dl>
+                    <div>
+                        <p className="mb-1.5 text-sm font-medium text-slate-900">Message</p>
+                        {viewing.message
+                            ? <p dir="auto" className="whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">{viewing.message}</p>
+                            : <p className="text-sm text-slate-400">Aucun message.</p>}
+                    </div>
+                    {viewing.status === 'pending' && (
+                        <p className="text-xs text-slate-500">« Traitée » envoie un SMS à l’étudiant pour lui annoncer que la session est ouverte.</p>
+                    )}
+                </div>
+            )}
+        </Modal>
     );
 
     return (
@@ -1065,7 +1157,7 @@ function RequestsCard({ requests, onUpdate }: { requests: SessionRequest[]; onUp
                                         {request.phone && <a href={`tel:${request.phone}`} className="whitespace-nowrap text-brand-blue hover:underline">{request.phone}</a>}
                                     </p>
                                     {request.availability && <p className="break-words text-slate-700"><span className="text-slate-500">Disponibilité : </span>{request.availability}</p>}
-                                    {request.message && <p className="break-words text-slate-500">{request.message}</p>}
+                                    {request.message && <p dir="auto" className="line-clamp-2 break-words text-slate-500">{request.message}</p>}
                                 </div>
                                 <div className="flex justify-end">{actions(request)}</div>
                             </li>
@@ -1093,7 +1185,7 @@ function RequestsCard({ requests, onUpdate }: { requests: SessionRequest[]; onUp
                                                 {request.email && request.phone && ' · '}
                                                 {request.phone && <a href={`tel:${request.phone}`} className="whitespace-nowrap text-brand-blue hover:underline">{request.phone}</a>}
                                             </p>
-                                            {request.message && <p className="mt-1 max-w-xs truncate text-xs text-slate-500" title={request.message}>{request.message}</p>}
+                                            {request.message && <p dir="auto" className="mt-1 max-w-xs truncate text-xs text-slate-500" title={request.message}>{request.message}</p>}
                                         </td>
                                         <td className={table.td}>{request.courses?.title_fr || 'Formation'}</td>
                                         <td className={table.td}>{typeBadge(request)}</td>
@@ -1107,6 +1199,7 @@ function RequestsCard({ requests, onUpdate }: { requests: SessionRequest[]; onUp
                     </div>
                 </>
             )}
+            {detailsModal}
         </Card>
     );
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
-import { notifyUserBySms, sendWinSms } from '@/lib/winsms';
+import { logSms, notifyUserBySms, sendWinSms } from '@/lib/winsms';
 
 export async function POST(req: Request) {
     try {
@@ -19,10 +19,19 @@ export async function POST(req: Request) {
         const supabaseAdmin = createAdminClient();
 
         if (action === 'delete') {
-            const { data: profile } = await supabaseAdmin.from('profiles').select('phone').eq('id', userId).maybeSingle();
+            const { data: profile } = await supabaseAdmin.from('profiles').select('phone, full_name').eq('id', userId).maybeSingle();
             if (profile?.phone) {
-                const result = await sendWinSms(profile.phone, 'GSM Guide Academy: votre compte étudiant a été supprimé. Contactez l’administration pour toute question.');
-                if (!result.success) console.error('[Delete account SMS]', result.message);
+                const message = 'GSM Guide Academy: votre compte étudiant a été supprimé. Contactez l’administration pour toute question.';
+                const result = await sendWinSms(profile.phone, message);
+                await logSms({
+                    userId,
+                    phone: profile.phone,
+                    eventType: 'account_deleted',
+                    eventKey: `account-deleted:${userId}`,
+                    message,
+                    result,
+                    metadata: { recipientName: profile.full_name || null },
+                });
             }
             // 1. Attempt to delete from enrollments (to avoid FK issues)
             await supabaseAdmin.from('enrollments').delete().eq('user_id', userId);

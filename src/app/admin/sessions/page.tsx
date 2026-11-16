@@ -134,6 +134,7 @@ export default function SessionsAdminPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
     const [notifyUnenrolled, setNotifyUnenrolled] = useState(true);
+    const [notifyEnrolled, setNotifyEnrolled] = useState(true);
     const [formData, setFormData] = useState({
         course_id: '',
         instructor_id: '',
@@ -248,7 +249,8 @@ export default function SessionsAdminPage() {
             const payload = {
                 ...formData,
                 seats_available: parseInt(formData.seats_available, 10),
-                ...(editingSessionId ? { id: editingSessionId } : { notifyUnenrolled }),
+                notifyUnenrolled,
+                ...(editingSessionId ? { id: editingSessionId, notifyEnrolled } : {}),
             };
 
             const response = await fetch(url, {
@@ -259,15 +261,25 @@ export default function SessionsAdminPage() {
             const data = await response.json();
             if (data.error) throw new Error(data.error);
             await fetchSessions();
-            const smsCount = Number(data.smsRecipients) || 0;
-            notify.success(
-                editingSessionId
-                    ? 'Session mise à jour.'
-                    : smsCount > 0
-                        ? `Session créée. Envoi du SMS à ${smsCount} étudiant${smsCount > 1 ? 's' : ''} sans formation en cours.`
-                        : 'Session créée.'
-            );
+            const plural = (n: number) => `${n} étudiant${n > 1 ? 's' : ''}`;
+            if (editingSessionId) {
+                const enrolledCount = Number(data.enrolledRecipients) || 0;
+                const unenrolledCount = Number(data.unenrolledRecipients) || 0;
+                const parts = [
+                    enrolledCount > 0 && `${plural(enrolledCount)} inscrit${enrolledCount > 1 ? 's' : ''}`,
+                    unenrolledCount > 0 && `${plural(unenrolledCount)} sans formation`,
+                ].filter(Boolean);
+                notify.success(parts.length > 0
+                    ? `Session mise à jour. Envoi du SMS à ${parts.join(' et ')}.`
+                    : 'Session mise à jour.');
+            } else {
+                const smsCount = Number(data.smsRecipients) || 0;
+                notify.success(smsCount > 0
+                    ? `Session créée. Envoi du SMS à ${plural(smsCount)} sans formation en cours.`
+                    : 'Session créée.');
+            }
             setNotifyUnenrolled(true);
+            setNotifyEnrolled(true);
             setIsModalOpen(false);
             setCurrentStep(1);
             setEditingSessionId(null);
@@ -320,6 +332,8 @@ export default function SessionsAdminPage() {
         }
 
         setEditingSessionId(session.id);
+        setNotifyEnrolled(true);
+        setNotifyUnenrolled(true);
         setFormData({
             course_id: session.course_id,
             instructor_id: parsedSchedule.instructor_id || session.instructor_id || '',
@@ -873,6 +887,7 @@ export default function SessionsAdminPage() {
 
     const openCreateModal = () => {
         setEditingSessionId(null);
+        setNotifyUnenrolled(true);
         setFormData({
             course_id: '',
             instructor_id: '',
@@ -1349,7 +1364,23 @@ export default function SessionsAdminPage() {
                                     </div>
                                 </fieldset>
                             ))}
-                            {!editingSessionId && (
+                            <div className="space-y-2">
+                                {editingSessionId && (
+                                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4 focus-within:ring-2 focus-within:ring-focus/40">
+                                        <input
+                                            type="checkbox"
+                                            checked={notifyEnrolled}
+                                            onChange={(e) => setNotifyEnrolled(e.target.checked)}
+                                            className="mt-0.5 h-4 w-4 shrink-0 accent-slate-900"
+                                        />
+                                        <span>
+                                            <span className="block text-sm font-medium text-slate-900">Prévenir par SMS les étudiants inscrits à cette session</span>
+                                            <span className="mt-0.5 block text-xs text-slate-500">
+                                                Un SMS informe du nouveau planning chaque étudiant dont l’inscription est validée ou en attente. Aucun SMS si le planning n’a pas changé depuis le dernier envoi.
+                                            </span>
+                                        </span>
+                                    </label>
+                                )}
                                 <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4 focus-within:ring-2 focus-within:ring-focus/40">
                                     <input
                                         type="checkbox"
@@ -1360,11 +1391,13 @@ export default function SessionsAdminPage() {
                                     <span>
                                         <span className="block text-sm font-medium text-slate-900">Prévenir par SMS les étudiants sans formation</span>
                                         <span className="mt-0.5 block text-xs text-slate-500">
-                                            Un SMS annonce cette session à chaque étudiant inscrit sur le site qui n’a encore aucune formation (ni réservée ni validée).
+                                            {editingSessionId
+                                                ? 'Un SMS annonce la session mise à jour à chaque étudiant inscrit sur le site qui n’a encore aucune formation (ni réservée ni validée).'
+                                                : 'Un SMS annonce cette session à chaque étudiant inscrit sur le site qui n’a encore aucune formation (ni réservée ni validée).'}
                                         </span>
                                     </span>
                                 </label>
-                            )}
+                            </div>
                         </div>
                     )}
                 </form>

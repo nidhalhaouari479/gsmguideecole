@@ -216,6 +216,8 @@ export default function StudentsAdminPage() {
                 body: JSON.stringify({
                     phone: selectedProfile.phone,
                     message,
+                    userId: selectedProfile.id,
+                    recipientName: selectedProfile.full_name,
                 }),
             });
             const data = await response.json();

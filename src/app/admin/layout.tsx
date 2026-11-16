@@ -7,7 +7,7 @@ import {
     LayoutDashboard, Users, BookOpen, CreditCard, LogOut, X,
     Loader2, GraduationCap, Calendar, Search, Bell,
     ChevronRight, Zap, CornerDownLeft, PanelLeftClose, PanelLeftOpen,
-    CheckCircle, XCircle, Clock, UserPlus, ClipboardCheck, ChevronDown, Menu
+    CheckCircle, XCircle, Clock, UserPlus, ClipboardCheck, ChevronDown, Menu, MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -159,6 +159,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'Sessions', href: '/admin/sessions', icon: Calendar, keywords: 'planning dates calendrier', group: 'Formations' },
         { name: 'Présences', href: '/admin/presence', icon: ClipboardCheck, keywords: 'présence absent retard excusé feuille appel', group: 'Formations' },
         { name: 'Finances', href: '/admin/payments', icon: CreditCard, keywords: 'argent revenus transactions pognon', group: 'Gestion' },
+        { name: 'Historique SMS', href: '/admin/sms', icon: MessageSquare, keywords: 'sms messages textos envoyés historique', group: 'Gestion' },
     ];
     const navigation = role === 'professor'
         ? allNavigation.filter(item => ['/admin/students', '/admin/sessions', '/admin/presence'].includes(item.href))

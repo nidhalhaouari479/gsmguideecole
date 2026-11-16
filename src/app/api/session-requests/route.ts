@@ -53,20 +53,41 @@ export async function PATCH(req: Request) {
             .maybeSingle();
         const { error } = await admin.from('session_requests').update({ status, processed_at: status === 'pending' ? null : new Date().toISOString() }).eq('id', id);
         if (error) throw error;
-        if (status !== 'pending' && sessionRequest?.phone) {
+        let sms: { sent: boolean; message: string } | null = null;
+        if (status !== 'pending' && sessionRequest?.user_id) {
             const { data: course } = await admin.from('courses').select('title_fr').eq('id', sessionRequest.course_id).maybeSingle();
+            const courseTitle = course?.title_fr || 'la formation demandée';
+            let message: string;
+            if (status === 'processed') {
+                // Tell the student the session is open, with the next start date when one is planned.
+                const today = new Date().toISOString().slice(0, 10);
+                const { data: nextSession } = await admin
+                    .from('sessions')
+                    .select('start_date')
+                    .eq('course_id', sessionRequest.course_id)
+                    .gte('start_date', today)
+                    .order('start_date', { ascending: true })
+                    .limit(1)
+                    .maybeSingle();
+                const startLabel = nextSession?.start_date
+                    ? `, début le ${new Date(nextSession.start_date).toLocaleDateString('fr-FR')}`
+                    : '';
+                message = `GSM Guide Academy: session ${courseTitle} ouverte${startLabel}. Réservez votre place sur notre site.`;
+            } else {
+                message = `GSM Guide Academy: votre demande pour ${courseTitle} a été refusée. Contactez l'administration pour plus d'informations.`;
+            }
             const result = await notifyUserBySms({
                 userId: sessionRequest.user_id,
+                fallbackPhone: sessionRequest.phone,
                 eventType: status === 'processed' ? 'session_request_processed' : 'session_request_rejected',
                 eventKey: `session-request:${id}:${status}`,
-                message: status === 'processed'
-                    ? `GSM Guide Academy: votre demande pour ${course?.title_fr || 'la formation'} a été traitée. L'administration vous contactera prochainement.`
-                    : `GSM Guide Academy: votre demande pour ${course?.title_fr || 'la formation'} a été refusée. Contactez l'administration pour plus d'informations.`,
+                message,
                 metadata: { requestId: id, status },
             });
             if (!result.success) console.error('[Session request SMS]', result.message);
+            sms = { sent: result.success, message: result.message };
         }
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, sms });
     } catch (error: unknown) {
         return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur de mise à jour.' }, { status: 500 });
     }

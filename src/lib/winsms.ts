@@ -83,12 +83,43 @@ export async function sendWinSms(phoneValue: string, messageValue: string): Prom
     }
 }
 
+/** Records an SMS attempt (sent or failed) in the `sms_notifications` journal. */
+export async function logSms(entry: {
+    userId: string | null;
+    phone: string;
+    eventType: string;
+    eventKey: string;
+    message: string;
+    result: SmsResult;
+    metadata?: SmsMetadata;
+}) {
+    const { error } = await createAdminClient().from('sms_notifications').insert({
+        user_id: entry.userId,
+        phone: normalizeSmsPhone(entry.phone),
+        event_type: entry.eventType,
+        event_key: entry.eventKey,
+        message: compactSms(entry.message),
+        status: entry.result.success ? 'sent' : 'failed',
+        provider_code: entry.result.code || null,
+        provider_reference: entry.result.reference || null,
+        error_message: entry.result.success ? null : entry.result.message,
+        metadata: entry.metadata || {},
+        sent_at: entry.result.success ? new Date().toISOString() : null,
+    });
+    if (error && !['42P01', 'PGRST205'].includes(error.code || '')) {
+        console.error('[SMS] Journal error:', error.message);
+    }
+    if (!entry.result.success) console.error(`[SMS] ${entry.eventType}: ${entry.result.message}`);
+}
+
 export async function notifyUserBySms(options: {
     userId: string;
     eventType: string;
     eventKey: string;
     message: string;
     metadata?: SmsMetadata;
+    /** Used when the student's profile has no phone number (e.g. the number typed in a request). */
+    fallbackPhone?: string | null;
 }): Promise<SmsResult> {
     const admin = createAdminClient();
     const { data: profile } = await admin
@@ -97,7 +128,8 @@ export async function notifyUserBySms(options: {
         .eq('id', options.userId)
         .maybeSingle();
 
-    const phone = typeof profile?.phone === 'string' ? profile.phone : '';
+    const profilePhone = typeof profile?.phone === 'string' ? profile.phone.trim() : '';
+    const phone = profilePhone || options.fallbackPhone?.trim() || '';
     if (!phone) return { success: false, message: 'Aucun numéro pour cet utilisateur.' };
 
     const { data: existing } = await admin
@@ -110,23 +142,15 @@ export async function notifyUserBySms(options: {
 
     const sms = compactSms(options.message);
     const result = await sendWinSms(phone, sms);
-    const { error } = await admin.from('sms_notifications').insert({
-        user_id: options.userId,
-        phone: normalizeSmsPhone(phone),
-        event_type: options.eventType,
-        event_key: options.eventKey,
+    await logSms({
+        userId: options.userId,
+        phone,
+        eventType: options.eventType,
+        eventKey: options.eventKey,
         message: sms,
-        status: result.success ? 'sent' : 'failed',
-        provider_code: result.code || null,
-        provider_reference: result.reference || null,
-        error_message: result.success ? null : result.message,
-        metadata: options.metadata || {},
-        sent_at: result.success ? new Date().toISOString() : null,
+        result,
+        metadata: options.metadata,
     });
-    if (error && !['42P01', 'PGRST205'].includes(error.code || '')) {
-        console.error('[SMS] Journal error:', error.message);
-    }
-    if (!result.success) console.error(`[SMS] ${options.eventType}: ${result.message}`);
     return result;
 }
 
@@ -151,23 +175,15 @@ export async function notifyAdminBySms(options: {
 
     const sms = compactSms(options.message);
     const result = await sendWinSms(phone, sms);
-    const { error } = await admin.from('sms_notifications').insert({
-        user_id: null,
-        phone: normalizeSmsPhone(phone),
-        event_type: options.eventType,
-        event_key: options.eventKey,
+    await logSms({
+        userId: null,
+        phone,
+        eventType: options.eventType,
+        eventKey: options.eventKey,
         message: sms,
-        status: result.success ? 'sent' : 'failed',
-        provider_code: result.code || null,
-        provider_reference: result.reference || null,
-        error_message: result.success ? null : result.message,
+        result,
         metadata: { recipient: 'admin', ...(options.metadata || {}) },
-        sent_at: result.success ? new Date().toISOString() : null,
     });
-    if (error && !['42P01', 'PGRST205'].includes(error.code || '')) {
-        console.error('[SMS] Journal error:', error.message);
-    }
-    if (!result.success) console.error(`[SMS] ${options.eventType}: ${result.message}`);
     return result;
 }
 
@@ -177,13 +193,15 @@ export async function notifySessionStudents(options: {
     eventKey: string;
     message: string;
     metadata?: SmsMetadata;
+    /** Enrollment statuses to notify (default: approved only). */
+    statuses?: string[];
 }) {
     const admin = createAdminClient();
     const { data: enrollments } = await admin
         .from('enrollments')
         .select('user_id')
         .eq('session_id', options.sessionId)
-        .eq('status', 'approved');
+        .in('status', options.statuses || ['approved']);
 
     return Promise.allSettled((enrollments || []).map(({ user_id }) => notifyUserBySms({
         userId: user_id,
@@ -216,13 +234,24 @@ export const notifyUnenrolledStudentsOfNewSession = {
             .map(p => p.id as string);
     },
 
-    async send(userIds: string[], options: { sessionId: string; message: string }) {
+    /**
+     * `eventType` / `eventKeyPrefix` default to the new-session announcement; a session update
+     * passes its own so students are told again about the new planning.
+     */
+    async send(userIds: string[], options: {
+        sessionId: string;
+        message: string;
+        eventType?: string;
+        eventKeyPrefix?: string;
+    }) {
         const BATCH_SIZE = 5;
+        const eventType = options.eventType || 'new_session_unenrolled';
+        const prefix = options.eventKeyPrefix || `new-session-unenrolled:${options.sessionId}`;
         for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
             await Promise.allSettled(userIds.slice(i, i + BATCH_SIZE).map(userId => notifyUserBySms({
                 userId,
-                eventType: 'new_session_unenrolled',
-                eventKey: `new-session-unenrolled:${options.sessionId}:${userId}`,
+                eventType,
+                eventKey: `${prefix}:${userId}`,
                 message: options.message,
                 metadata: { sessionId: options.sessionId },
             })));

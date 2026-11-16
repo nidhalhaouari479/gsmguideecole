@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { NextResponse, after } from 'next/server';
 import { verifyAdmin, verifyStaff } from '@/lib/auth-admin';
 import { createAdminClient } from '@/lib/supabase-server';
@@ -154,7 +155,10 @@ export async function PUT(req: Request) {
         }
 
         const body = await req.json();
-        const { id, course_id, instructor_id, seats_available, seances, schedule: globalSchedule } = body;
+        const {
+            id, course_id, instructor_id, seats_available, seances, schedule: globalSchedule,
+            notifyEnrolled = true, notifyUnenrolled = false,
+        } = body;
 
         if (!id || !course_id || !seats_available || !seances || seances.length === 0) {
             return NextResponse.json({ error: 'Veuillez renseigner tous les champs obligatoires.' }, { status: 400 });
@@ -188,15 +192,46 @@ export async function PUT(req: Request) {
         if (error) throw error;
 
         const { data: course } = await supabaseAdmin.from('courses').select('title_fr').eq('id', course_id).maybeSingle();
-        await notifySessionStudents({
-            sessionId: id,
-            eventType: 'session_updated',
-            eventKey: `session-updated:${id}:${scheduleWithData}`,
-            message: `GSM Guide Academy: planning de ${course?.title_fr || 'votre formation'} modifié. Prochaine date: ${new Date(start_date).toLocaleDateString('fr-FR')}. Consultez votre espace.`,
-            metadata: { sessionId: id, startDate: start_date, endDate: end_date },
-        });
+        const courseTitle = course?.title_fr;
+        const startLabel = new Date(start_date).toLocaleDateString('fr-FR');
+        // Same planning saved twice → same key → no duplicate SMS (anti-doublon in sms_notifications).
+        const planningHash = createHash('sha1').update(`${course_id}|${scheduleWithData}`).digest('hex').slice(0, 16);
 
-        return NextResponse.json({ success: true, data });
+        // Students enrolled in this session (validated or pending reservation).
+        let enrolledRecipients = 0;
+        if (notifyEnrolled === true) {
+            const { count } = await supabaseAdmin
+                .from('enrollments')
+                .select('user_id', { count: 'exact', head: true })
+                .eq('session_id', id)
+                .in('status', ['approved', 'pending']);
+            enrolledRecipients = count || 0;
+            console.log(`[Session update SMS] ${id}: ${enrolledRecipients} étudiant(s) inscrit(s) à prévenir`);
+            after(() => notifySessionStudents({
+                sessionId: id,
+                statuses: ['approved', 'pending'],
+                eventType: 'session_updated',
+                eventKey: `session-updated:${id}:${planningHash}`,
+                message: `GSM Guide Academy: planning de ${courseTitle || 'votre formation'} modifié. Prochaine date: ${startLabel}. Consultez votre espace.`,
+                metadata: { sessionId: id, startDate: start_date, endDate: end_date },
+            }).catch(err => console.error('[Session update SMS] inscrits:', err)));
+        }
+
+        // Registered students with no formation yet: announce the updated session.
+        let unenrolledRecipients = 0;
+        if (notifyUnenrolled === true) {
+            const recipients = await notifyUnenrolledStudentsOfNewSession.recipients();
+            unenrolledRecipients = recipients.length;
+            console.log(`[Session update SMS] ${id}: ${unenrolledRecipients} étudiant(s) sans formation à prévenir`);
+            after(() => notifyUnenrolledStudentsOfNewSession.send(recipients, {
+                sessionId: id,
+                eventType: 'session_updated_unenrolled',
+                eventKeyPrefix: `session-updated-unenrolled:${id}:${planningHash}`,
+                message: `GSM Guide Academy: session ${courseTitle || 'de formation'} mise à jour, dès le ${startLabel}. Places limitées, réservez vite sur notre site.`,
+            }).catch(err => console.error('[Session update SMS] sans formation:', err)));
+        }
+
+        return NextResponse.json({ success: true, data, enrolledRecipients, unenrolledRecipients });
     } catch (error: any) {
         console.error('Update Session Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
